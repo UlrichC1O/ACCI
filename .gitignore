@@ -1,0 +1,16 @@
+# Sortie générée par build.py (reconstruite par Vercel)
+dist/
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+
+# Vercel
+.vercel
+
+# Éditeurs
+*.swp
