@@ -407,7 +407,7 @@ function renderArtistePortal(artiste){
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mon Profil Artiste</h2></div>';
     var info=[["Nom",esc(artiste.name)],["Type",badge(artiste.type||"Individuel")],["E-mail",esc(artiste.email||"—")],["Téléphone",esc(artiste.phone||"—")],["Ville",esc(artiste.city||"—")+" "+(artiste.country?", "+esc(artiste.country):"")],["Domaines",(artiste.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"—"],["Statut",badge(artiste.status)],["Charte ACCI",artiste.charter?"✅ Signée":"❌ Non signée"],["Membre depuis",fmtDate(artiste.createdAt)]];
     info.forEach(function(r){html+='<div class="drow"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';});
-    html+=(artiste.notes?'<div style="margin-top:10px"><span class="dk">Bio / Notes</span><p style="margin-top:4px;padding:12px;background:rgba(124,58,237,.08);border-radius:10px;color:#c4b5e0">'+esc(artiste.notes)+'</p></div>':'');
+    html+=(artiste.notes?'<div style="margin-top:10px"><span class="dk">Bio / Notes</span><p style="margin-top:4px;padding:12px;background:rgba(30,58,138,.1);border-radius:10px;color:#cbd5e1">'+esc(artiste.notes)+'</p></div>':'');
     html+='</section>';
   }
 
@@ -499,15 +499,15 @@ function renderArtistePortal(artiste){
   else if(v==="resources"){
     var kbArticles=S.kb.all();var faqs=S.faq.all();var anns=S.announcements.all();
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">📚 Base de connaissances ACCI</h2></div>';
-    if(kbArticles.length){kbArticles.forEach(function(a){html+='<div style="padding:12px;margin-bottom:8px;background:rgba(124,58,237,.06);border-radius:10px"><b style="color:#e8e0f5">'+esc(a.title)+'</b><p style="margin-top:4px;color:#9b8cc4;font-size:14px;line-height:1.6">'+esc(a.content)+'</p></div>';});}
+    if(kbArticles.length){kbArticles.forEach(function(a){html+='<div style="padding:14px;margin-bottom:8px;background:rgba(30,58,138,.1);border-radius:12px;border:1px solid rgba(30,58,138,.15)"><b style="color:#f1f5f9">'+esc(a.title)+'</b><p style="margin-top:6px;color:#94a3b8;font-size:14px;line-height:1.65">'+esc(a.content)+'</p></div>';});}
     else{html+='<p class="muted">Aucun article.</p>';}
     html+='</section>';
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">❓ FAQ ACCI</h2></div>';
-    if(faqs.length){faqs.forEach(function(f){html+='<div style="padding:12px;margin-bottom:8px;background:rgba(124,58,237,.06);border-radius:10px"><b style="color:#e8e0f5">'+esc(f.question)+'</b><p style="margin-top:4px;color:#9b8cc4;font-size:14px;line-height:1.6">'+esc(f.answer)+'</p></div>';});}
+    if(faqs.length){faqs.forEach(function(f){html+='<div style="padding:14px;margin-bottom:8px;background:rgba(30,58,138,.1);border-radius:12px;border:1px solid rgba(30,58,138,.15)"><b style="color:#f1f5f9">'+esc(f.question)+'</b><p style="margin-top:6px;color:#94a3b8;font-size:14px;line-height:1.65">'+esc(f.answer)+'</p></div>';});}
     else{html+='<p class="muted">Aucune FAQ.</p>';}
     html+='</section>';
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">📢 Annonces</h2></div>';
-    if(anns.length){anns.forEach(function(a){html+='<div style="padding:12px;margin-bottom:8px;border-left:3px solid #F77F00;background:rgba(247,127,0,.06);border-radius:0 10px 10px 0"><b style="color:#e8e0f5">'+esc(a.title)+'</b><p style="margin-top:4px;color:#9b8cc4;font-size:14px">'+esc(a.content)+'</p><span style="font-size:11px;color:#8878a8">'+fmtDate(a.createdAt)+'</span></div>';});}
+    if(anns.length){anns.forEach(function(a){html+='<div style="padding:14px;margin-bottom:8px;border-left:3px solid #F77F00;background:rgba(247,127,0,.05);border-radius:0 12px 12px 0;border:1px solid rgba(247,127,0,.12);border-left:3px solid #F77F00"><b style="color:#f1f5f9">'+esc(a.title)+'</b><p style="margin-top:6px;color:#94a3b8;font-size:14px">'+esc(a.content)+'</p><span style="font-size:11px;color:#475569">'+fmtDate(a.createdAt)+'</span></div>';});}
     else{html+='<p class="muted">Aucune annonce.</p>';}
     html+='</section>';
   }
