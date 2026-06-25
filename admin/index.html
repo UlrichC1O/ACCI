@@ -23,8 +23,9 @@
 
       <!-- Mode toggle -->
       <div class="login__toggle" id="login-toggle">
-        <button class="ltog is-active" data-mode="admin">🔧 Administrateur</button>
-        <button class="ltog" data-mode="member">👤 Portail Membre</button>
+        <button class="ltog is-active" data-mode="admin">🔧 Admin</button>
+        <button class="ltog" data-mode="member">👤 Membre</button>
+        <button class="ltog" data-mode="artiste">🎨 Artiste Pro</button>
       </div>
 
       <!-- Admin login -->
@@ -58,6 +59,20 @@
           </label>
           <p class="login__err" id="member-err" hidden></p>
           <button class="abtn abtn--success abtn--block" type="submit">Accéder à mon espace</button>
+        </form>
+      </div>
+
+      <!-- Artiste Premium login -->
+      <div id="artiste-login" hidden>
+        <h1>🎨 Espace Artiste Premium</h1>
+        <p class="login__sub">Accès professionnel complet pour les créateurs de contenu certifiés ACCI.</p>
+        <form id="artiste-form">
+          <label class="afield">
+            <span>Code Artiste Premium</span>
+            <input type="text" id="artiste-code" placeholder="ABCDE123" maxlength="8" required class="member-code-input">
+          </label>
+          <p class="login__err" id="artiste-err" hidden></p>
+          <button class="abtn abtn--block" type="submit" style="background:linear-gradient(135deg,#7c3aed,#F77F00);color:#fff;box-shadow:0 6px 20px -6px rgba(124,58,237,.5)">Accéder à l'espace Pro</button>
         </form>
       </div>
 
@@ -105,6 +120,29 @@
       <button id="m-logout" class="abtn abtn--ghost abtn--sm">Déconnexion</button>
     </header>
     <main class="member-main" id="member-view"></main>
+  </div>
+
+  <!-- ================ Artiste Premium Portal ================ -->
+  <div id="artiste-app" class="artiste-app" hidden>
+    <aside class="artiste-sidebar" id="artiste-sidebar">
+      <div class="artiste-sidebar__brand">
+        <img src="../assets/img/logo-wordmark-light.png" alt="ACCI" style="height:22px;width:auto">
+        <span>🎨 <b>PRO</b></span>
+      </div>
+      <div class="artiste-sidebar__user" id="artiste-user"></div>
+      <nav class="artiste-sidebar__nav" id="artiste-nav"></nav>
+      <div class="sidebar__foot">
+        <a href="../index.html">← Retour au site</a>
+        <button id="artiste-logout" class="sidebar__logout">Déconnexion</button>
+      </div>
+    </aside>
+    <main class="artiste-main">
+      <header class="atop artiste-atop">
+        <button class="atop__burger" id="artiste-burger" aria-label="Menu">☰</button>
+        <h1 id="artiste-title">Tableau de bord Artiste</h1>
+      </header>
+      <div id="artiste-view" class="view"></div>
+    </main>
   </div>
 
   <div id="modal" class="modal" hidden></div>

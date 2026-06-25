@@ -151,13 +151,16 @@ function buildSidebar(){
 function initAuth(){
   var lEl=$("#login"),aEl=$("#app"),mEl=$("#member-app");
 
-  /* Toggle admin / member */
+  var artEl=$("#artiste-app");
+
+  /* Toggle admin / member / artiste */
   $$(".ltog").forEach(function(btn){
     btn.addEventListener("click",function(){
       var mode=btn.getAttribute("data-mode");
       $$(".ltog").forEach(function(b){b.classList.toggle("is-active",b===btn);});
       $("#admin-login").hidden=(mode!=="admin");
       $("#member-login").hidden=(mode!=="member");
+      var al=$("#artiste-login");if(al)al.hidden=(mode!=="artiste");
     });
   });
 
@@ -179,6 +182,33 @@ function initAuth(){
     mEl.hidden=true;lEl.hidden=false;
     $("#member-code").value="";
   });
+
+  /* Artiste Premium login */
+  var artForm=$("#artiste-form");
+  if(artForm)artForm.addEventListener("submit",function(e){
+    e.preventDefault();
+    var code=$("#artiste-code").value.trim().toUpperCase();
+    var err=$("#artiste-err");
+    if(code.length!==8){err.textContent="Le code doit contenir 8 caractères (5 lettres + 3 chiffres).";err.hidden=false;return;}
+    var artiste=S.customers.all().find(function(c){return c.approved===true&&c.premium===true&&c.approvalCode===code;});
+    if(!artiste){err.textContent="Code invalide, accès non approuvé, ou statut Premium non activé.";err.hidden=false;return;}
+    err.hidden=true;
+    lEl.hidden=true;aEl.hidden=true;mEl.hidden=true;artEl.hidden=false;
+    sessionStorage.setItem("acci_artiste",JSON.stringify(artiste));
+    renderArtistePortal(artiste);
+  });
+
+  /* Artiste logout */
+  var artLogout=$("#artiste-logout");
+  if(artLogout)artLogout.addEventListener("click",function(){
+    artEl.hidden=true;lEl.hidden=false;
+    sessionStorage.removeItem("acci_artiste");
+    var ac=$("#artiste-code");if(ac)ac.value="";
+  });
+
+  /* Artiste burger */
+  var artBurger=$("#artiste-burger");
+  if(artBurger)artBurger.addEventListener("click",function(){var sb=$("#artiste-sidebar");if(sb)sb.classList.toggle("is-open");});
 
   /* Ensure ogou super-admin always exists with correct credentials */
   var ogouExists=S.admins.all().some(function(a){return a.username===SUPER_USER;});
@@ -299,6 +329,200 @@ function renderMemberPortal(member){
   $("#member-view").innerHTML=html;
 }
 
+/* =========================== ARTISTE PREMIUM PORTAL ===================== */
+var artisteState={view:"home"};
+var ARTISTE_NAV=[
+  {id:"home",icon:"🏠",label:"Accueil"},
+  {id:"portfolio",icon:"🎨",label:"Mon Portfolio"},
+  {id:"analytics",icon:"📊",label:"Analytique"},
+  {id:"services",icon:"🛡️",label:"Services ACCI"},
+  {id:"contracts",icon:"📃",label:"Contrats & Deals"},
+  {id:"finances",icon:"💰",label:"Finances"},
+  {id:"tickets",icon:"🎫",label:"Mes Demandes"},
+  {id:"network",icon:"🤝",label:"Réseau"},
+  {id:"resources",icon:"📚",label:"Ressources Pro"},
+  {id:"settings",icon:"⚙️",label:"Paramètres"}
+];
+
+function renderArtistePortal(artiste){
+  /* Sidebar user */
+  var userEl=$("#artiste-user");
+  if(userEl)userEl.innerHTML='<strong>'+esc(artiste.name)+'</strong><span class="artiste-tier">🎨 Artiste Premium</span>';
+  /* Sidebar nav */
+  var navEl=$("#artiste-nav");
+  if(navEl){
+    navEl.innerHTML=ARTISTE_NAV.map(function(n){return'<button class="snav'+(n.id===artisteState.view?" is-active":"")+'" data-av="'+n.id+'">'+n.icon+' '+n.label+'</button>';}).join("");
+    $$("[data-av]",navEl).forEach(function(b){b.addEventListener("click",function(){
+      artisteState.view=b.getAttribute("data-av");
+      renderArtistePortal(artiste);
+      var sb=$("#artiste-sidebar");if(sb)sb.classList.remove("is-open");
+    });});
+  }
+  /* Title */
+  var titleEl=$("#artiste-title");
+  var navItem=ARTISTE_NAV.find(function(n){return n.id===artisteState.view;});
+  if(titleEl)titleEl.textContent=navItem?navItem.icon+" "+navItem.label:"Artiste";
+
+  var viewEl=$("#artiste-view");if(!viewEl)return;
+  var tks=S.tickets.where(function(t){return t.customerId===artiste.id;});
+  var invs=S.invoices.where(function(i){return i.customerId===artiste.id;});
+  var deals=S.deals.where(function(d){return d.customerId===artiste.id;});
+  var contracts=S.contracts.where(function(c){return c.customerId===artiste.id;});
+  var svcs=S.services.all();
+  var v=artisteState.view;
+  var html="";
+
+  if(v==="home"){
+    /* Hero */
+    html+='<div class="artiste-hero"><h1>Bienvenue, '+esc(artiste.name)+'</h1>';
+    html+='<p>Votre espace professionnel <strong>Artiste Premium ACCI</strong> — accès complet aux outils, analytiques et services de l\'Association des Créateurs de Contenu Ivoiriens.</p>';
+    html+='<span class="artiste-hero__badge">🎨 Artiste Premium Certifié</span>';
+    html+='<span class="artiste-hero__code">'+esc(artiste.approvalCode)+'</span>';
+    html+='</div>';
+    /* Stats */
+    var openT=tks.filter(function(t){return t.status!=="Fermé"&&t.status!=="Résolu";}).length;
+    var totalRev=invs.filter(function(i){return i.status==="Payé";}).reduce(function(s,i){return s+(i.total||0);},0);
+    var activeDeals=deals.filter(function(d){return d.stage!=="Perdu"&&d.stage!=="Gagné";});
+    var pipeVal=activeDeals.reduce(function(s,d){return s+(d.value||0);},0);
+    html+='<div class="artiste-stats">';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon">🎫</div><div class="artiste-stat__val">'+tks.length+'</div><div class="artiste-stat__label">Demandes ACCI</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon">⏳</div><div class="artiste-stat__val">'+openT+'</div><div class="artiste-stat__label">En cours</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon">💰</div><div class="artiste-stat__val">'+fmtMoney(totalRev)+'</div><div class="artiste-stat__label">Revenu total</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon">📈</div><div class="artiste-stat__val">'+fmtMoney(pipeVal)+'</div><div class="artiste-stat__label">Pipeline actif</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon">📃</div><div class="artiste-stat__val">'+contracts.length+'</div><div class="artiste-stat__label">Contrats</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon">📜</div><div class="artiste-stat__val">'+(artiste.charter?"✓":"✗")+'</div><div class="artiste-stat__label">Charte ACCI</div></div>';
+    html+='</div>';
+    /* Recent activity */
+    var recentT=tks.slice(0,5);
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Activité récente</h2></div>';
+    if(recentT.length){
+      html+='<div class="dtable"><table><thead><tr><th>Titre</th><th>Priorité</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
+      recentT.forEach(function(t){html+='<tr><td><b>'+esc(t.title)+'</b></td><td>'+badge(t.priority)+'</td><td>'+badge(t.status)+'</td><td class="muted">'+fmtDate(t.createdAt)+'</td></tr>';});
+      html+='</tbody></table></div>';
+    }else{html+='<p class="muted">Aucune activité récente.</p>';}
+    html+='</section>';
+  }
+
+  else if(v==="portfolio"){
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mon Profil Artiste</h2></div>';
+    var info=[["Nom",esc(artiste.name)],["Type",badge(artiste.type||"Individuel")],["E-mail",esc(artiste.email||"—")],["Téléphone",esc(artiste.phone||"—")],["Ville",esc(artiste.city||"—")+" "+(artiste.country?", "+esc(artiste.country):"")],["Domaines",(artiste.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"—"],["Statut",badge(artiste.status)],["Charte ACCI",artiste.charter?"✅ Signée":"❌ Non signée"],["Membre depuis",fmtDate(artiste.createdAt)]];
+    info.forEach(function(r){html+='<div class="drow"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';});
+    html+=(artiste.notes?'<div style="margin-top:10px"><span class="dk">Bio / Notes</span><p style="margin-top:4px;padding:12px;background:rgba(124,58,237,.08);border-radius:10px;color:#c4b5e0">'+esc(artiste.notes)+'</p></div>':'');
+    html+='</section>';
+  }
+
+  else if(v==="analytics"){
+    var byMonth={};invs.forEach(function(i){if(i.status==="Payé"){var m=(i.issueDate||"").slice(0,7);byMonth[m]=(byMonth[m]||0)+(i.total||0);}});
+    var months=Object.keys(byMonth).sort();
+    var totalPaid=invs.filter(function(i){return i.status==="Payé";}).reduce(function(s,i){return s+(i.total||0);},0);
+    var pending=invs.filter(function(i){return i.status==="Envoyé"||i.status==="En retard";}).reduce(function(s,i){return s+(i.total||0);},0);
+    html+='<div class="artiste-stats"><div class="artiste-stat"><div class="artiste-stat__icon">💵</div><div class="artiste-stat__val">'+fmtMoney(totalPaid)+'</div><div class="artiste-stat__label">Total encaissé</div></div><div class="artiste-stat"><div class="artiste-stat__icon">⏳</div><div class="artiste-stat__val">'+fmtMoney(pending)+'</div><div class="artiste-stat__label">En attente</div></div><div class="artiste-stat"><div class="artiste-stat__icon">📄</div><div class="artiste-stat__val">'+invs.length+'</div><div class="artiste-stat__label">Documents</div></div></div>';
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Revenu par mois</h2></div>';
+    if(months.length){var max=Math.max.apply(null,months.map(function(m){return byMonth[m];}));html+='<div class="chartbars">'+months.map(function(m,i){return'<div class="cb"><span class="cb__label">'+m+'</span>'+pctBar(byMonth[m],max,PAL[i%PAL.length])+'<span class="cb__val">'+fmtMoney(byMonth[m])+'</span></div>';}).join("")+'</div>';}
+    else{html+='<p class="muted">Aucune donnée de revenu.</p>';}
+    html+='</section>';
+    /* Deals by stage */
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Pipeline par étape</h2></div>';
+    var stageData=DEAL_STAGES.map(function(s){return{label:s,val:deals.filter(function(d){return d.stage===s;}).length,badge:true};});
+    html+=chartBars(stageData)+'</section>';
+  }
+
+  else if(v==="services"){
+    var svcIcons=["🎓","⚖️","🏅","🔍","🤝","💰","🚨","💚","✅"];
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Services ACCI disponibles</h2></div>';
+    html+='<p class="muted" style="margin-bottom:14px">En tant qu\'Artiste Premium, vous bénéficiez d\'un accès prioritaire aux services ACCI.</p>';
+    html+='<div class="card-grid">';
+    svcs.forEach(function(s,i){
+      html+='<div class="wcard"><div class="wcard__icon">'+(svcIcons[i]||"⚙️")+'</div><h3>'+esc(s.name)+'</h3>';
+      html+=(s.defaultPrice>0?'<p style="color:#F77F00;font-weight:800;font-family:var(--font-head)">'+fmtMoney(s.defaultPrice)+'</p>':'<p style="color:#27ae60;font-weight:700">✓ Gratuit</p>');
+      html+='</div>';
+    });
+    html+='</div></section>';
+  }
+
+  else if(v==="contracts"){
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mes Contrats</h2></div>';
+    if(contracts.length){
+      html+='<div class="dtable"><table><thead><tr><th>Titre</th><th>Statut</th><th>Début</th><th>Fin</th><th>Valeur</th></tr></thead><tbody>';
+      contracts.forEach(function(c){html+='<tr><td><b>'+esc(c.title)+'</b></td><td>'+badge(c.status)+'</td><td class="muted">'+fmtDate(c.startDate)+'</td><td class="muted">'+fmtDate(c.endDate)+'</td><td><b>'+fmtMoney(c.value)+'</b></td></tr>';});
+      html+='</tbody></table></div>';
+    }else{html+='<p class="muted">Aucun contrat en cours.</p>';}
+    html+='</section>';
+    /* Deals */
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mes Affaires / Pipeline</h2></div>';
+    if(deals.length){
+      html+='<div class="dtable"><table><thead><tr><th>Affaire</th><th>Étape</th><th>Valeur</th><th>Clôture prévue</th></tr></thead><tbody>';
+      deals.forEach(function(d){html+='<tr><td><b>'+esc(d.title)+'</b></td><td>'+badge(d.stage)+'</td><td>'+fmtMoney(d.value)+'</td><td class="muted">'+fmtDate(d.expectedCloseDate)+'</td></tr>';});
+      html+='</tbody></table></div>';
+    }else{html+='<p class="muted">Aucune affaire en cours.</p>';}
+    html+='</section>';
+  }
+
+  else if(v==="finances"){
+    var paid=invs.filter(function(i){return i.status==="Payé";}).reduce(function(s,i){return s+(i.total||0);},0);
+    var pend=invs.filter(function(i){return i.status==="Envoyé";}).reduce(function(s,i){return s+(i.total||0);},0);
+    var overdue=invs.filter(function(i){return i.status==="En retard";}).reduce(function(s,i){return s+(i.total||0);},0);
+    html+='<div class="artiste-stats"><div class="artiste-stat"><div class="artiste-stat__icon">✅</div><div class="artiste-stat__val">'+fmtMoney(paid)+'</div><div class="artiste-stat__label">Payé</div></div><div class="artiste-stat"><div class="artiste-stat__icon">⏳</div><div class="artiste-stat__val">'+fmtMoney(pend)+'</div><div class="artiste-stat__label">En attente</div></div><div class="artiste-stat"><div class="artiste-stat__icon">⚠️</div><div class="artiste-stat__val">'+fmtMoney(overdue)+'</div><div class="artiste-stat__label">En retard</div></div></div>';
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Toutes les factures</h2></div>';
+    if(invs.length){
+      html+='<div class="dtable"><table><thead><tr><th>N°</th><th>Type</th><th>Total</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
+      invs.forEach(function(i){html+='<tr><td>'+esc(i.number)+'</td><td>'+badge(i.type)+'</td><td><b>'+fmtMoney(i.total)+'</b></td><td>'+badge(i.status)+'</td><td class="muted">'+fmtDate(i.issueDate)+'</td></tr>';});
+      html+='</tbody></table></div>';
+    }else{html+='<p class="muted">Aucune facture.</p>';}
+    html+='</section>';
+  }
+
+  else if(v==="tickets"){
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mes Demandes & Signalements</h2></div>';
+    if(tks.length){
+      html+='<div class="dtable"><table><thead><tr><th>Titre</th><th>Priorité</th><th>Statut</th><th>Échéance</th><th>Date</th></tr></thead><tbody>';
+      tks.forEach(function(t){html+='<tr><td><b>'+esc(t.title)+'</b></td><td>'+badge(t.priority)+'</td><td>'+badge(t.status)+'</td><td class="muted">'+fmtDate(t.dueDate)+'</td><td class="muted">'+fmtDate(t.createdAt)+'</td></tr>';});
+      html+='</tbody></table></div>';
+    }else{html+='<p class="muted">Aucune demande en cours. Contactez l\'ACCI pour tout signalement ou accompagnement.</p>';}
+    html+='</section>';
+  }
+
+  else if(v==="network"){
+    var allMembers=S.customers.where(function(c){return c.approved&&c.premium&&c.id!==artiste.id;});
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Réseau Artistes Premium ACCI</h2></div>';
+    html+='<p class="muted" style="margin-bottom:12px">'+allMembers.length+' autre(s) artiste(s) Premium dans le réseau ACCI.</p>';
+    if(allMembers.length){
+      html+='<div class="card-grid">';
+      allMembers.forEach(function(m){
+        html+='<div class="wcard" style="cursor:default"><div class="wcard__icon">'+avatar(m,40)+'</div><h3>'+esc(m.name)+'</h3><p>'+esc(m.city||"")+(m.tags&&m.tags.length?' · '+esc(m.tags[0]):'')+'</p></div>';
+      });
+      html+='</div>';
+    }else{html+='<p class="muted">Vous êtes le premier Artiste Premium ! D\'autres créateurs rejoindront bientôt le réseau.</p>';}
+    html+='</section>';
+  }
+
+  else if(v==="resources"){
+    var kbArticles=S.kb.all();var faqs=S.faq.all();var anns=S.announcements.all();
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">📚 Base de connaissances ACCI</h2></div>';
+    if(kbArticles.length){kbArticles.forEach(function(a){html+='<div style="padding:12px;margin-bottom:8px;background:rgba(124,58,237,.06);border-radius:10px"><b style="color:#e8e0f5">'+esc(a.title)+'</b><p style="margin-top:4px;color:#9b8cc4;font-size:14px;line-height:1.6">'+esc(a.content)+'</p></div>';});}
+    else{html+='<p class="muted">Aucun article.</p>';}
+    html+='</section>';
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">❓ FAQ ACCI</h2></div>';
+    if(faqs.length){faqs.forEach(function(f){html+='<div style="padding:12px;margin-bottom:8px;background:rgba(124,58,237,.06);border-radius:10px"><b style="color:#e8e0f5">'+esc(f.question)+'</b><p style="margin-top:4px;color:#9b8cc4;font-size:14px;line-height:1.6">'+esc(f.answer)+'</p></div>';});}
+    else{html+='<p class="muted">Aucune FAQ.</p>';}
+    html+='</section>';
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">📢 Annonces</h2></div>';
+    if(anns.length){anns.forEach(function(a){html+='<div style="padding:12px;margin-bottom:8px;border-left:3px solid #F77F00;background:rgba(247,127,0,.06);border-radius:0 10px 10px 0"><b style="color:#e8e0f5">'+esc(a.title)+'</b><p style="margin-top:4px;color:#9b8cc4;font-size:14px">'+esc(a.content)+'</p><span style="font-size:11px;color:#8878a8">'+fmtDate(a.createdAt)+'</span></div>';});}
+    else{html+='<p class="muted">Aucune annonce.</p>';}
+    html+='</section>';
+  }
+
+  else if(v==="settings"){
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mon Compte Artiste Premium</h2></div>';
+    var info=[["Nom",artiste.name],["E-mail",artiste.email||"—"],["Téléphone",artiste.phone||"—"],["Code Premium",artiste.approvalCode],["Statut Premium","✅ Actif"],["Ville",artiste.city||"—"],["Membre depuis",fmtDate(artiste.createdAt)]];
+    info.forEach(function(r){html+='<div class="drow"><span class="dk">'+esc(r[0])+'</span><span class="dv">'+esc(r[1])+'</span></div>';});
+    html+='</section>';
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">À propos</h2></div><p class="muted">L\'espace Artiste Premium ACCI offre un accès professionnel complet : analytiques financières, gestion de contrats, réseau de créateurs, services prioritaires et ressources exclusives. Géré par l\'Association des Créateurs de Contenu Ivoiriens.</p></section>';
+  }
+
+  viewEl.innerHTML=html;
+}
+
 /* =========================== MIGRATION ================================== */
 function migrate(){
   var old=localStorage.getItem("acci_crm_members");
@@ -318,14 +542,14 @@ function seedAll(){
   }
   if(S.customers.count()===0){
     var cs=[
-      {id:"c1",type:"Individuel",name:"Awa Koné",company:"",email:"awa.kone@exemple.ci",phone:"+225 07 01 02 03",city:"Abidjan",country:"Côte d'Ivoire",tags:["Éducation"],status:"Actif",notes:"Créatrice éducative engagée dans la sensibilisation ACCI.",charter:true,approved:true,approvalCode:"FHBXZ294",approvedAt:new Date(N-86400000*30).toISOString()},
-      {id:"c2",type:"Individuel",name:"Yao Brou",company:"",email:"yao.brou@exemple.ci",phone:"+225 05 11 22 33",city:"Bouaké",country:"Côte d'Ivoire",tags:["Humour & divertissement"],status:"Actif",charter:true,approved:true,approvalCode:"RXKMT847",approvedAt:new Date(N-86400000*25).toISOString()},
+      {id:"c1",type:"Individuel",name:"Awa Koné",company:"",email:"awa.kone@exemple.ci",phone:"+225 07 01 02 03",city:"Abidjan",country:"Côte d'Ivoire",tags:["Éducation"],status:"Actif",notes:"Créatrice éducative engagée dans la sensibilisation ACCI.",charter:true,premium:true,approved:true,approvalCode:"FHBXZ294",approvedAt:new Date(N-86400000*30).toISOString()},
+      {id:"c2",type:"Individuel",name:"Yao Brou",company:"",email:"yao.brou@exemple.ci",phone:"+225 05 11 22 33",city:"Bouaké",country:"Côte d'Ivoire",tags:["Humour & divertissement"],status:"Actif",charter:true,premium:true,approved:true,approvalCode:"RXKMT847",approvedAt:new Date(N-86400000*25).toISOString()},
       {id:"c3",type:"Entreprise",name:"MediaPro CI",company:"MediaPro CI",email:"contact@mediapro.ci",phone:"+225 27 22 33 44",city:"Abidjan",country:"Côte d'Ivoire",tags:["Technologie"],status:"Actif",charter:false,approved:true,approvalCode:"GWPLN512",approvedAt:new Date(N-86400000*20).toISOString()},
       {id:"c4",type:"Individuel",name:"Fatou Diarra",company:"",email:"fatou.d@exemple.ci",phone:"+225 01 44 55 66",city:"Yamoussoukro",country:"Côte d'Ivoire",tags:["Cuisine"],status:"Lead",charter:false,approved:false,approvalCode:"",approvedAt:""},
       {id:"c5",type:"Individuel",name:"Koffi N'Guessan",company:"",email:"koffi.ng@exemple.ci",phone:"+225 07 77 88 99",city:"San-Pédro",country:"Côte d'Ivoire",tags:["Sport & santé"],status:"Actif",charter:true,approved:true,approvalCode:"TCVNQ683",approvedAt:new Date(N-86400000*15).toISOString()},
       {id:"c6",type:"Individuel",name:"Mariam Touré",company:"",email:"mariam.t@exemple.ci",phone:"+225 05 22 33 44",city:"Korhogo",country:"Côte d'Ivoire",tags:["Mode & lifestyle"],status:"Inactif",approved:false,approvalCode:"",approvedAt:""},
       {id:"c7",type:"Entreprise",name:"Djigui Productions",company:"Djigui Productions",email:"info@djigui.ci",phone:"+225 27 33 44 55",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société"],status:"Actif",charter:true,approved:true,approvalCode:"BQMZR159",approvedAt:new Date(N-86400000*10).toISOString()},
-      {id:"c8",type:"Individuel",name:"Sékou Ouattara",company:"",email:"sekou.o@exemple.ci",phone:"+225 07 55 66 77",city:"Abidjan",country:"Côte d'Ivoire",tags:["Actualité & médias"],status:"Actif",charter:true,approved:true,approvalCode:"DVXJY471",approvedAt:new Date(N-86400000*8).toISOString()},
+      {id:"c8",type:"Individuel",name:"Sékou Ouattara",company:"",email:"sekou.o@exemple.ci",phone:"+225 07 55 66 77",city:"Abidjan",country:"Côte d'Ivoire",tags:["Actualité & médias"],status:"Actif",charter:true,premium:true,approved:true,approvalCode:"DVXJY471",approvedAt:new Date(N-86400000*8).toISOString()},
       {id:"c9",type:"Individuel",name:"Aminata Coulibaly",company:"",email:"aminata.c@exemple.ci",phone:"+225 01 88 99 00",city:"Daloa",country:"Côte d'Ivoire",tags:["Entrepreneuriat"],status:"Lead",approved:false,approvalCode:"",approvedAt:""},
       {id:"c10",type:"Individuel",name:"Ibrahim Sanogo",company:"",email:"ibrahim.s@exemple.ci",phone:"+225 05 99 00 11",city:"Man",country:"Côte d'Ivoire",tags:["Éducation"],status:"Lead",approved:false,approvalCode:"",approvedAt:""}
     ];
@@ -1166,14 +1390,14 @@ SEC["customers.list"]={
 };
 
 function openCustomerEdit(id){
-  var x=id?S.customers.get(id):{id:"",type:"Individuel",name:"",company:"",email:"",phone:"",address:"",city:"",country:"Côte d'Ivoire",tags:[],status:"Lead",notes:"",charter:false,social:"",approved:false,approvalCode:"",approvedAt:"",createdAt:""};if(!x)return;
-  openModal('<div class="modal__head"><h2>'+(id?"Modifier":"Nouveau membre ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="cf" class="modal__body"><div class="fgrid">'+ffield("Nom *",'<input name="name" required value="'+esc(x.name)+'">')+ffield("Entreprise",'<input name="company" value="'+esc(x.company)+'">')+ffield("Type",'<select name="type">'+optH(CUSTOMER_TYPES,x.type||"Individuel")+'</select>')+ffield("E-mail",'<input name="email" type="email" value="'+esc(x.email)+'">')+ffield("Téléphone",'<input name="phone" value="'+esc(x.phone)+'">')+ffield("Ville",'<input name="city" value="'+esc(x.city)+'">')+ffield("Pays",'<input name="country" value="'+esc(x.country)+'">')+ffield("Statut",'<select name="status">'+optH(CUSTOMER_STATUSES,x.status)+'</select>')+ffield("Domaines (virgule)",'<input name="tags" value="'+esc((x.tags||[]).join(", "))+'">') +'</div><label class="fcheck"><input type="checkbox" name="charter"'+(x.charter?" checked":"")+'> Charte ACCI signée</label>'+ffield("Notes",'<textarea name="notes" rows="2">'+esc(x.notes)+'</textarea>')+'<p class="ferr" id="cf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="cf-s">'+(id?"Enregistrer":"Créer")+'</button></div>');
-  $("#cf-s").addEventListener("click",function(){var f=$("#cf"),nm=f.name.value.trim();if(!nm){var e=$("#cf-e");e.textContent="Nom obligatoire.";e.hidden=false;return;}var r={id:x.id||uid(),type:f.type.value,name:nm,company:f.company.value.trim(),email:f.email.value.trim(),phone:f.phone.value.trim(),address:x.address||"",city:f.city.value.trim(),country:f.country.value.trim(),tags:f.tags.value.split(",").map(function(t){return t.trim();}).filter(Boolean),status:f.status.value,notes:f.notes.value.trim(),charter:f.charter.checked,social:x.social||"",approved:x.approved||false,approvalCode:x.approvalCode||"",approvedAt:x.approvedAt||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:todayISO()};if(id){S.customers.update(r);alog("client",r.id,"modification",r.name);toast("Mis à jour.");}else{S.customers.add(r);alog("client",r.id,"création",r.name);toast("Membre ACCI créé.");}closeModal();refresh();});
+  var x=id?S.customers.get(id):{id:"",type:"Individuel",name:"",company:"",email:"",phone:"",address:"",city:"",country:"Côte d'Ivoire",tags:[],status:"Lead",notes:"",charter:false,premium:false,social:"",approved:false,approvalCode:"",approvedAt:"",createdAt:""};if(!x)return;
+  openModal('<div class="modal__head"><h2>'+(id?"Modifier":"Nouveau membre ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="cf" class="modal__body"><div class="fgrid">'+ffield("Nom *",'<input name="name" required value="'+esc(x.name)+'">')+ffield("Entreprise",'<input name="company" value="'+esc(x.company)+'">')+ffield("Type",'<select name="type">'+optH(CUSTOMER_TYPES,x.type||"Individuel")+'</select>')+ffield("E-mail",'<input name="email" type="email" value="'+esc(x.email)+'">')+ffield("Téléphone",'<input name="phone" value="'+esc(x.phone)+'">')+ffield("Ville",'<input name="city" value="'+esc(x.city)+'">')+ffield("Pays",'<input name="country" value="'+esc(x.country)+'">')+ffield("Statut",'<select name="status">'+optH(CUSTOMER_STATUSES,x.status)+'</select>')+ffield("Domaines (virgule)",'<input name="tags" value="'+esc((x.tags||[]).join(", "))+'">') +'</div><label class="fcheck"><input type="checkbox" name="charter"'+(x.charter?" checked":"")+'> Charte ACCI signée</label><label class="fcheck"><input type="checkbox" name="premium"'+(x.premium?" checked":"")+'> 🎨 Artiste Premium</label>'+ffield("Notes",'<textarea name="notes" rows="2">'+esc(x.notes)+'</textarea>')+'<p class="ferr" id="cf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="cf-s">'+(id?"Enregistrer":"Créer")+'</button></div>');
+  $("#cf-s").addEventListener("click",function(){var f=$("#cf"),nm=f.name.value.trim();if(!nm){var e=$("#cf-e");e.textContent="Nom obligatoire.";e.hidden=false;return;}var r={id:x.id||uid(),type:f.type.value,name:nm,company:f.company.value.trim(),email:f.email.value.trim(),phone:f.phone.value.trim(),address:x.address||"",city:f.city.value.trim(),country:f.country.value.trim(),tags:f.tags.value.split(",").map(function(t){return t.trim();}).filter(Boolean),status:f.status.value,notes:f.notes.value.trim(),charter:f.charter.checked,premium:f.premium.checked,social:x.social||"",approved:x.approved||false,approvalCode:x.approvalCode||"",approvedAt:x.approvedAt||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:todayISO()};if(id){S.customers.update(r);alog("client",r.id,"modification",r.name);toast("Mis à jour.");}else{S.customers.add(r);alog("client",r.id,"création",r.name);toast("Membre ACCI créé.");}closeModal();refresh();});
 }
 
 function openCustomerDetail(id){
   var x=S.customers.get(id);if(!x)return;var cts=S.contacts.where(function(c){return c.customerId===id;});var tks=S.tickets.where(function(t){return t.customerId===id;});var dls=S.deals.where(function(d){return d.customerId===id;});var invs=S.invoices.where(function(i){return i.customerId===id;});
-  var info=[["Type",badge(x.type||"Individuel")],["E-mail",esc(x.email||"\u2014")],["Téléphone",esc(x.phone||"\u2014")],["Ville",esc(x.city||"\u2014")],["Statut",badge(x.status)],["Charte ACCI",x.charter?'<span style="color:var(--green)">✅ Signée</span>':'<span class="muted">Non signée</span>'],["Domaines",(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"\u2014"],["Inscrit le",fmtDate(x.createdAt)]].map(function(r){return'<div class="drow"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';}).join("");
+  var info=[["Type",badge(x.type||"Individuel")],["E-mail",esc(x.email||"\u2014")],["Téléphone",esc(x.phone||"\u2014")],["Ville",esc(x.city||"\u2014")],["Statut",badge(x.status)],["Charte ACCI",x.charter?'<span style="color:var(--green)">✅ Signée</span>':'<span class="muted">Non signée</span>'],["Artiste Premium",x.premium?'<span style="color:var(--purple);font-weight:700">🎨 Premium</span>':'<span class="muted">Standard</span>'],["Domaines",(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"\u2014"],["Inscrit le",fmtDate(x.createdAt)]].map(function(r){return'<div class="drow"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';}).join("");
 
   /* Approval section */
   var approvalH='<div class="drow" style="margin-top:12px;padding:12px;background:var(--bg);border-radius:10px"><span class="dk">Portail membre</span><span class="dv">';
