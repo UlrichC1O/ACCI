@@ -108,6 +108,27 @@ HERO_IMAGES = {
     "adhesion": "adhesion.jpg",
     "formations": "formations-hero.jpg",
     "accompagnement-juridique": "accompagnement-juridique.jpg",
+    # Services & ressources
+    "signaler-abus": "protection-enfants.jpg",
+    "cellule-ecoute": "ecoute.jpg",
+    "espace-presse": "communaute.jpg",
+    "ressources": "formation.jpg",
+    "faq": "guide-debutant.jpg",
+    "glossaire": "securite-numerique.jpg",
+    # Actualités & événements
+    "actualites": "hero-creators.jpg",
+    "evenements": "formations-hero.jpg",
+    "campagnes": "usage-responsable.jpg",
+    "communiques": "communaute.jpg",
+    "galerie": "hero-creators.jpg",
+    "videos": "formation.jpg",
+    # Engagement
+    "annuaire": "communaute.jpg",
+    "temoignages": "solidarite.jpg",
+    "contact": "solidarite.jpg",
+    # Légal
+    "mentions-legales": "charte.jpg",
+    "confidentialite": "securite-numerique.jpg",
 }
 
 
