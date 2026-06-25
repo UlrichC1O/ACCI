@@ -169,7 +169,7 @@ function initAuth(){
     e.preventDefault();
     var code=$("#member-code").value.trim().toUpperCase();
     var err=$("#member-err");
-    if(code.length!==8){err.textContent="Le code doit contenir 8 caractères (5 lettres + 3 chiffres).";err.hidden=false;return;}
+    if(!code){err.textContent="Veuillez entrer votre code.";err.hidden=false;return;}
     var member=S.customers.all().find(function(c){return c.approved===true&&c.approvalCode===code;});
     if(!member){err.textContent="Code invalide ou accès non approuvé.";err.hidden=false;return;}
     err.hidden=true;
@@ -189,7 +189,7 @@ function initAuth(){
     e.preventDefault();
     var code=$("#artiste-code").value.trim().toUpperCase();
     var err=$("#artiste-err");
-    if(code.length!==8){err.textContent="Le code doit contenir 8 caractères (5 lettres + 3 chiffres).";err.hidden=false;return;}
+    if(!code){err.textContent="Veuillez entrer votre code.";err.hidden=false;return;}
     var artiste=S.customers.all().find(function(c){return c.approved===true&&c.premium===true&&c.approvalCode===code;});
     if(!artiste){err.textContent="Code invalide, accès non approuvé, ou statut Premium non activé.";err.hidden=false;return;}
     err.hidden=true;
@@ -535,7 +535,7 @@ function migrate(){
 
 /* =========================== SEED DATA ================================== */
 function seedAll(){
-  if(localStorage.getItem("acci_seeded_v4"))return;
+  if(localStorage.getItem("acci_seeded_v5"))return;
   var N=Date.now();
   if(S.services.count()===0){
     [["Formation création de contenu",150000],["Accompagnement juridique",75000],["Certification créateur responsable",50000],["Audit de chaîne / page",100000],["Médiation de conflit",60000],["Atelier monétisation",120000],["Signalement d'abus",0],["Cellule d'écoute",0],["Vérification d'information",30000]].forEach(function(s){S.services.add({name:s[0],defaultPrice:s[1],active:true});});
@@ -617,7 +617,13 @@ function seedAll(){
       {id:uid(),name:"Agent Commercial ACCI",role:"Agent",email:"commercial@acci.ci",phone:"+225 05 00 00 02",department:"Commercial",status:"Actif",createdAt:new Date(N-86400000*45).toISOString()}
     ]);
   }
-  localStorage.setItem("acci_seeded_v4","1");
+  localStorage.setItem("acci_seeded_v5","1");
+
+  /* Always ensure AAAAAOOO premium artiste exists */
+  var hasArt=S.customers.all().some(function(c){return c.approvalCode==="AAAAAOOO";});
+  if(!hasArt){
+    S.customers.add({id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@acci.ci",phone:"+225 07 00 00 99",address:"",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,social:"",approved:true,approvalCode:"AAAAAOOO",approvedAt:new Date().toISOString(),createdAt:new Date().toISOString(),updatedAt:todayISO()});
+  }
 }
 
 /* =========================== UI COMPONENTS ============================== */
