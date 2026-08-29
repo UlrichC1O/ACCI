@@ -1706,6 +1706,25 @@ function boot(){
   go("dashboard");
 }
 
+/* ====================== EXTENSION EXTERNE =================================
+   Point d'accroche pour les modules chargés après ce fichier (voir images.js).
+   Il évite de faire grossir ce fichier à chaque nouvelle rubrique, tout en
+   leur donnant accès aux utilitaires d'interface communs.
+   ========================================================================= */
+window.ACCI_ADMIN={
+  register:function(item,mod,sections){
+    var at=SIDEBAR_ITEMS.findIndex(function(x){return x.sep;});
+    SIDEBAR_ITEMS.splice(at<0?SIDEBAR_ITEMS.length:at,0,item);
+    MODS[item.view]=mod;
+    ALL_MODULES.push(item.view);
+    Object.keys(sections).forEach(function(k){RA(k,sections[k].r,sections[k].b);});
+    /* La barre latérale peut déjà être construite si une session est ouverte. */
+    if(currentAdmin())buildSidebar();
+  },
+  ui:{$:$,$$:$$,esc:esc,toast:toast,openModal:openModal,closeModal:closeModal},
+  refresh:function(){refresh();}
+};
+
 /* =========================== INIT ======================================== */
 initAuth();
 })();

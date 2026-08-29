@@ -166,7 +166,7 @@ def url(slug):
 def _load_img_manifest():
     path = os.path.join(ASSETS, "img", "manifest.json")
     if not os.path.exists(path):
-        print("  \u26a0 assets/img/manifest.json absent \u2014 images non optimis\u00e9es "
+        print("  ⚠ assets/img/manifest.json absent — images non optimisées "
               "(lancez tools/optimize-images.sh)")
         return {}
     with open(path, encoding="utf-8") as f:
@@ -208,30 +208,48 @@ def card_image(item, page):
     return None
 
 
-def picture(name, alt="", cls="", sizes="100vw", eager=False, decorative=False):
-    """<picture> responsive (WebP + repli) avec dimensions intrins\u00e8ques.
+# Inventaire des emplacements d'images, exporté au build pour l'espace
+# d'administration : il lui indique quelles photos existent et où chacune est
+# employée, sans avoir à analyser le HTML produit.
+IMG_PLACEMENTS = []
+
+
+def picture(name, alt="", cls="", sizes="100vw", eager=False, decorative=False,
+            slot=None, page=None):
+    """<picture> responsive (WebP + repli) avec dimensions intrinsèques.
 
     `name` est le nom de fichier d'origine (ex. "hero-creators.jpg").
+    `slot` identifie l'emplacement de façon stable (ex. "hero:desinformation") :
+    il permet à l'administration de réaffecter, recadrer ou décrire cette image
+    précise, et au navigateur de retrouver la balise à mettre à jour.
     Retombe proprement sur une balise <img> simple si la photo n'est pas
-    d\u00e9crite dans le manifeste.
+    décrite dans le manifeste.
     """
     info = IMG_MANIFEST.get(name)
     a = f' alt="{e(alt)}"' if not decorative else ' alt=""'
     c = f' class="{e(cls)}"' if cls else ""
     load = ' loading="eager" fetchpriority="high"' if eager else ' loading="lazy"'
     load += ' decoding="async"' if not eager else ""
+    # Repères pour l'application des surcharges côté navigateur.
+    data = f' data-img="{e(name)}"'
+    if slot:
+        data += f' data-slot="{e(slot)}"'
+        IMG_PLACEMENTS.append({
+            "slot": slot, "image": name, "page": page,
+            "alt": "" if decorative else alt, "sizes": sizes,
+        })
 
     if not info:
         MISSING_IMAGES.add(name)
-        return f'<img src="assets/img/{e(name)}"{a}{c}{load}>'
+        return f'<img src="assets/img/{e(name)}"{a}{c}{load}{data}>'
 
     stem = name.rsplit(".", 1)[0]
     srcset = ", ".join(f"assets/img/{stem}-{w}.webp {w}w" for w in info["widths"])
     return (
-        f'<picture>'
+        f'<picture{data}>'
         f'<source type="image/webp" srcset="{srcset}" sizes="{e(sizes)}">'
         f'<img src="assets/img/{e(info["fallback"])}"{a}{c}'
-        f' width="{info["w"]}" height="{info["h"]}"{load}>'
+        f' width="{info["w"]}" height="{info["h"]}"{load} data-sizes="{e(sizes)}">'
         f'</picture>'
     )
 
@@ -266,7 +284,8 @@ def r_hero(b, page):
     media = ""
     if b.get("image"):
         media = ('<div class="hero__media" aria-hidden="true">'
-                 + picture(b["image"], decorative=True, sizes="100vw", eager=True)
+                 + picture(b["image"], decorative=True, sizes="100vw", eager=True,
+                           slot=f"hero:{page['slug']}", page=page['slug'])
                  + '<span class="hero__scrim"></span></div>')
     return f"""
     <section class="hero hero--{variant}{has_img}">
@@ -308,8 +327,13 @@ def r_cards(b, page):
         img = card_image(c, page)
         # Quand la carte porte une photo, celle-ci occupe la fonction visuelle de
         # l'icône : les cumuler alourdirait la carte sans rien ajouter.
-        media = (f'<span class="card__media">{picture(img, alt="", sizes=sizes, decorative=True)}</span>'
-                 if img else "")
+        # Identifiant d'emplacement calculé à part : imbriquer des guillemets
+        # doubles dans une f-string n'est pas valide avant Python 3.12.
+        slot = "card:" + page["slug"] + "::" + c.get("title", "")
+        media = ('<span class="card__media">'
+                 + picture(img, alt="", sizes=sizes, decorative=True,
+                           slot=slot, page=page["slug"])
+                 + '</span>') if img else ""
         ic = ("" if img else
               f'<span class="card__icon">{icon(c.get("icon","star"),26)}</span>' if c.get("icon") else "")
         tag = f'<span class="card__tag">{e(c["tag"])}</span>' if c.get("tag") else ""
@@ -410,7 +434,8 @@ def r_split(b, page):
         cap = f'<figcaption class="split__cap">{para(b["caption"])}</figcaption>' if b.get("caption") else ""
         media = ('<figure class="split__media split__media--photo reveal">'
                  + picture(b["image"], alt=b.get("alt", ""),
-                           sizes="(min-width: 900px) 50vw, 100vw")
+                           sizes="(min-width: 900px) 50vw, 100vw",
+                           slot=f"split:{page['slug']}", page=page['slug'])
                  + f'{cap}</figure>')
     else:
         media_icon = b.get("icon", "shield")
@@ -516,9 +541,12 @@ def r_posts(b, page):
         href = url(p.get("href", "#"))
         img = card_image(p, page)
         if img:
-            thumb = (f'<div class="post__thumb">'
-                     f'{picture(img, alt="", sizes="(min-width: 900px) 33vw, (min-width: 560px) 50vw, 100vw", decorative=True)}'
-                     f'</div>')
+            post_slot = "card:" + page["slug"] + "::" + p.get("title", "")
+            thumb = ('<div class="post__thumb">'
+                     + picture(img, alt="",
+                               sizes="(min-width: 900px) 33vw, (min-width: 560px) 50vw, 100vw",
+                               decorative=True, slot=post_slot, page=page["slug"])
+                     + '</div>')
         else:
             # Repli : aplat de marque, uniquement si aucune photo n'est associée.
             thumb = (f'<div class="post__thumb post__thumb--fallback post__thumb--{p.get("color","orange")}">'
@@ -612,7 +640,8 @@ def r_image(b, page):
     cap = f'<figcaption class="figbanner__cap">{para(b["caption"])}</figcaption>' if b.get("caption") else ""
     narrow = " container--narrow" if b.get("narrow") else ""
     banner = picture(b["image"], alt=b.get("alt", ""),
-                     sizes="(min-width: 1200px) 1120px, 100vw")
+                     sizes="(min-width: 1200px) 1120px, 100vw",
+                     slot=f"image:{page['slug']}", page=page['slug'])
     return f"""<section class="section"><div class="container{narrow}">
       <figure class="figbanner reveal">{banner}{cap}</figure>
     </div></section>"""
@@ -625,11 +654,12 @@ def r_gallery(b, page):
         head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2>{lead}</div>'
     cols = b.get("columns", 3)
     items = ""
-    for g in b["items"]:
+    for gi, g in enumerate(b["items"]):
         cap = f'<span class="gphoto__cap">{para(g["caption"])}</span>' if g.get("caption") else ""
         items += ('<figure class="gphoto reveal">'
                   + picture(g["image"], alt=g.get("alt", ""),
-                            sizes=f"(min-width: 900px) {round(100/cols)}vw, 50vw")
+                            sizes=f"(min-width: 900px) {round(100/cols)}vw, 50vw",
+                            slot=f"gallery:{page['slug']}:{gi}", page=page['slug'])
                   + f'{cap}</figure>')
     return f'<section class="section"><div class="container">{head}<div class="gallery grid--{cols}">{items}</div></div></section>'
 
@@ -946,6 +976,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://durwoqjfjhdersuwxxwg.supabase.co" crossorigin>
   <link rel="preload" href="assets/fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/sora-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{css_fonts}">
@@ -963,6 +994,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <script src="{js_index}" defer></script>
   <script src="{js_main}" defer></script>
   <script src="{js_chat}" defer></script>
+  <script src="{js_images}" defer></script>
 </body>
 </html>
 """
@@ -1063,6 +1095,7 @@ ASSET_URLS = {
     "js_index":  "assets/js/search-index.js",
     "js_main":   "assets/js/main.js",
     "js_chat":   "assets/js/chat.js",
+    "js_images": "assets/js/site-images.js",
 }
 
 
@@ -1178,6 +1211,20 @@ def build():
         with open(os.path.join(DIST, url(p["slug"])), "w", encoding="utf-8") as f:
             f.write(out)
 
+    # Inventaire des images : lu par l'espace d'administration pour proposer
+    # la photothèque et la liste des emplacements réaffectables.
+    inventory = {
+        "images": [
+            {"key": k, "widths": v["widths"], "fallback": v["fallback"],
+             "w": v["w"], "h": v["h"]}
+            for k, v in sorted(IMG_MANIFEST.items())
+        ],
+        "placements": sorted(IMG_PLACEMENTS, key=lambda x: x["slot"]),
+    }
+    with open(os.path.join(DIST, "assets", "img", "inventory.json"), "w",
+              encoding="utf-8") as f:
+        json.dump(inventory, f, ensure_ascii=False, separators=(",", ":"))
+
     # Sitemap + robots
     with open(os.path.join(DIST, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(build_sitemap(pages))
@@ -1201,6 +1248,8 @@ def build():
         print(f"  ⚠ {len(MISSING_IMAGES)} photo(s) absente(s) du manifeste : "
               f"{', '.join(sorted(MISSING_IMAGES)[:6])}")
     print(f"✓ {len(pages)} pages générées dans ./dist")
+    print(f"✓ Inventaire images : {len(IMG_MANIFEST)} photos, "
+          f"{len(IMG_PLACEMENTS)} emplacements")
     print(f"✓ Index de recherche, sitemap.xml et robots.txt créés")
     return pages
 

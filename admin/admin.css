@@ -458,3 +458,22 @@ input,select,textarea{font-family:inherit;font-size:14px;}
   .artiste-main{margin-left:0;}
 }
 @media print{.sidebar,.atop,.filterbar,.btnrow,.abtn,.modal,.toast,.tabs,.member-header,.artiste-sidebar,.artiste-atop{display:none!important;}.main,.artiste-main{margin-left:0!important;}.view,.member-main{padding:0!important;}.artiste-app{background:#fff!important;color:#000!important;}}
+
+/* ---------------------------------------------------------------------------
+   Gestion des images du site
+   --------------------------------------------------------------------------- */
+.imggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-top:16px;}
+.imgcard{margin:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;display:flex;flex-direction:column;}
+.imgcard--over{border-color:var(--orange-solid);box-shadow:0 0 0 1px var(--orange-solid);}
+.imgcard img{width:100%;aspect-ratio:3/2;object-fit:cover;display:block;background:var(--line);}
+.imgcard figcaption{padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-size:12.5px;}
+.imgcard figcaption b{word-break:break-all;font-size:12px;}
+.imgcard .btnrow{margin-top:6px;gap:6px;}
+.asearch-inline{margin-left:auto;padding:7px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;}
+.imgpage{margin:22px 0 8px;font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.tinythumb{width:64px;height:43px;object-fit:cover;border-radius:5px;display:block;background:var(--line);}
+/* Sélecteur de point focal : le repère indique la zone préservée au recadrage. */
+.focalwrap{position:relative;display:inline-block;max-width:100%;cursor:crosshair;}
+.focalwrap img{max-width:100%;display:block;border-radius:8px;}
+.focaldot{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
+  border:2px solid #fff;background:var(--orange-solid);box-shadow:0 0 0 2px rgba(0,0,0,.35);pointer-events:none;}

@@ -93,6 +93,40 @@ confiance**. Pour un accès **partagé, en ligne et multi-appareils**, connectez
 créez une table `members`, puis renseignez l'URL + la clé publique dans
 `admin/admin.js` (section `DB`). L'interface reste identique.
 
+## Gestion des images depuis l'administration
+
+L'onglet **« Images du site »** de `/admin/` permet de gérer les 159 photos et
+leurs 292 emplacements **sans redéploiement** :
+
+- **Photothèque** — toutes les photos, avec le nombre d'emplacements où chacune
+  sert. « Remplacer » téléverse une nouvelle image ; les déclinaisons WebP
+  (640/1024/1600) et le repli JPEG sont fabriqués **dans le navigateur**, pour
+  que les photos ajoutées reçoivent le même traitement que celles du site.
+  « Rétablir » revient à la photo d'origine.
+- **Emplacements** — pour chaque carte ou en-tête : changer la photo affichée,
+  déplacer le **point focal** (en cliquant sur l'aperçu, afin que le sujet
+  survive au recadrage large), et corriger le **texte alternatif**.
+
+### Comment cela fonctionne
+
+Le site reste statique. `build.py` marque chaque image d'un `data-img` et d'un
+`data-slot`, et exporte `assets/img/inventory.json`. Au chargement,
+`assets/js/site-images.js` lit les surcharges dans Supabase et les applique.
+Si le service est injoignable, **les photos d'origine restent affichées** :
+aucune image ne peut disparaître à cause de ce mécanisme.
+
+### Sécurité
+
+Le code d'accès de `/admin/` est vérifié dans le navigateur : il masque
+l'interface, il ne protège pas le site. C'est pourquoi **l'écriture exige une
+session Supabase authentifiée** — sans quoi n'importe quel visiteur pourrait
+remplacer toutes les photos. La lecture est publique (le site en a besoin),
+l'écriture est fermée aux anonymes, vérifié par test.
+
+Projet Supabase : `supabase-acci-data`. Table `image_overrides` (remplacement
+d'une photo partout), table `placement_overrides` (photo, cadrage et texte
+alternatif d'un emplacement précis), dépôt `site-images`.
+
 ## Formulaires (contact & newsletter)
 
 Les formulaires sont **fonctionnels** : validation en temps réel (champs
