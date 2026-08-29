@@ -214,6 +214,18 @@ def card_image(item, page):
 IMG_PLACEMENTS = []
 
 
+def _block_index(page, block):
+    """Rang du bloc dans sa page — rend l'identifiant d'emplacement unique.
+
+    Sans lui, deux blocs `split` (ou `image`) sur une même page partageraient
+    la même clé, et une surcharge appliquée à l'un s'appliquerait aux deux.
+    """
+    for i, b in enumerate(page["blocks"]):
+        if b is block:
+            return i
+    return 0
+
+
 def picture(name, alt="", cls="", sizes="100vw", eager=False, decorative=False,
             slot=None, page=None):
     """<picture> responsive (WebP + repli) avec dimensions intrinsèques.
@@ -435,7 +447,7 @@ def r_split(b, page):
         media = ('<figure class="split__media split__media--photo reveal">'
                  + picture(b["image"], alt=b.get("alt", ""),
                            sizes="(min-width: 900px) 50vw, 100vw",
-                           slot=f"split:{page['slug']}", page=page['slug'])
+                           slot=f"split:{page['slug']}:{_block_index(page, b)}", page=page['slug'])
                  + f'{cap}</figure>')
     else:
         media_icon = b.get("icon", "shield")
@@ -641,7 +653,7 @@ def r_image(b, page):
     narrow = " container--narrow" if b.get("narrow") else ""
     banner = picture(b["image"], alt=b.get("alt", ""),
                      sizes="(min-width: 1200px) 1120px, 100vw",
-                     slot=f"image:{page['slug']}", page=page['slug'])
+                     slot=f"image:{page['slug']}:{_block_index(page, b)}", page=page['slug'])
     return f"""<section class="section"><div class="container{narrow}">
       <figure class="figbanner reveal">{banner}{cap}</figure>
     </div></section>"""

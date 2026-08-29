@@ -26,22 +26,82 @@
 
   /* ---- Application ---- */
 
+  /* Toute substitution est réversible : une fois qu'il a retenu une source, le
+     navigateur ne revient pas de lui-même au repli, et un fichier manquant
+     laisserait le cadre vide. Si le nouveau visuel ne se charge pas, la page
+     retrouve donc exactement ce qu'elle servait. */
+  function swap(node, img, srcset, src, onLoaded) {
+    var source = node.tagName === "PICTURE" ? node.querySelector("source") : null;
+    var oldSrcset = source ? source.getAttribute("srcset") : null;
+    var oldSrc = img.getAttribute("src");
+    function unbind() {
+      img.removeEventListener("error", fail);
+      img.removeEventListener("load", ok);
+    }
+    function ok() { unbind(); if (onLoaded) onLoaded(); }
+    function fail() {
+      unbind();
+      if (source) {
+        if (oldSrcset == null) source.removeAttribute("srcset");
+        else source.setAttribute("srcset", oldSrcset);
+      }
+      if (oldSrc == null) img.removeAttribute("src");
+      else img.setAttribute("src", oldSrc);
+    }
+    img.addEventListener("error", fail);
+    img.addEventListener("load", ok);
+    if (source && srcset) source.srcset = srcset;
+    if (src) img.src = src;
+  }
+
+  /* L'inventaire décrit les déclinaisons réelles de chaque photo du site.
+     Elles ne sont pas uniformes — un logo s'arrête à 480 px — et les supposer
+     produisait des adresses inexistantes. Il n'est lu que si une réaffectation
+     l'exige, pour ne rien coûter aux pages ordinaires. */
+  var manifest = null;
+  function inventory() {
+    if (!manifest) {
+      manifest = fetch("assets/img/inventory.json").then(function (r) {
+        if (!r.ok) throw new Error("HTTP");
+        return r.json();
+      }).then(function (j) {
+        var m = {};
+        ((j && j.images) || []).forEach(function (i) { m[i.key] = i; });
+        return m;
+      });
+    }
+    return manifest;
+  }
+
   function applyImage(node, ov) {
     // node est un <picture> (ou un <img> isolé) portant data-img.
     var img = node.tagName === "IMG" ? node : node.querySelector("img");
     if (!img) return;
-    var source = node.tagName === "PICTURE" ? node.querySelector("source") : null;
 
-    if (source && ov.widths && ov.widths.length) {
-      source.srcset = ov.widths.map(function (w) {
-        return publicUrl(ov.base + "-" + w + ".webp") + " " + w + "w";
-      }).join(", ");
-    }
-    if (ov.fallback) img.src = publicUrl(ov.fallback);
-    if (ov.width)  img.width = ov.width;
-    if (ov.height) img.height = ov.height;
+    var srcset = (ov.widths && ov.widths.length) ? ov.widths.map(function (w) {
+      return publicUrl(ov.base + "-" + w + ".webp") + " " + w + "w";
+    }).join(", ") : null;
+    // Les dimensions ne sont posées qu'une fois la nouvelle photo chargée :
+    // appliquées d'avance, elles déformeraient la photo d'origine si le
+    // remplacement s'avérait introuvable et que la page la conservait.
+    swap(node, img, srcset, ov.fallback ? publicUrl(ov.fallback) : null, function () {
+      if (ov.width)  img.width = ov.width;
+      if (ov.height) img.height = ov.height;
+    });
     // Ne pas écraser un texte alternatif déjà rédigé pour cet emplacement.
     if (ov.alt != null && !img.dataset.altLocked) img.alt = ov.alt;
+  }
+
+  function applyLocal(node, img, key) {
+    var stem = key.replace(/\.[^.]+$/, "");
+    inventory().then(function (m) {
+      var info = m[key];
+      if (!info) return;               // photo absente de l'inventaire : rien
+      var srcset = (info.widths || []).map(function (w) {
+        return "assets/img/" + stem + "-" + w + ".webp " + w + "w";
+      }).join(", ");
+      swap(node, img, srcset || null, info.fallback ? "assets/img/" + info.fallback : null);
+    }).catch(function () { /* inventaire injoignable : photo d'origine conservée */ });
   }
 
   function applyPlacement(node, pl, images) {
@@ -54,15 +114,10 @@
       if (target) {
         applyImage(node, target);
       } else {
-        // Photo d'origine du site (non remplacée) : chemins locaux.
-        var stem = pl.image.replace(/\.[^.]+$/, "");
-        var source = node.tagName === "PICTURE" ? node.querySelector("source") : null;
-        if (source) {
-          source.srcset = [640, 1024, 1600].map(function (w) {
-            return "assets/img/" + stem + "-" + w + ".webp " + w + "w";
-          }).join(", ");
-        }
-        img.src = "assets/img/" + stem + "-1200.jpg";
+        // Photo d'origine du site (non remplacée) : chemins locaux, décrits
+        // par l'inventaire. Si celui-ci est injoignable, l'emplacement garde
+        // sa photo plutôt que de risquer une adresse inventée.
+        applyLocal(node, img, pl.image);
       }
     }
 

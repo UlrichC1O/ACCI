@@ -634,7 +634,17 @@ function emptyHTML(icon,msg){return'<div class="empty-state"><div class="empty-s
 function kpiCard(icon,val,label,cls){return'<div class="kpi"><span class="kpi__icon kpi__icon--'+(cls||"n")+'">'+icon+'</span><span class="kpi__val">'+val+'</span><span class="kpi__label">'+label+'</span></div>';}
 function chartBars(data){var max=Math.max.apply(null,data.map(function(d){return d.val;}).concat([1]));return'<div class="chartbars">'+data.map(function(d,i){return'<div class="cb"><span class="cb__label">'+(d.badge?badge(d.label):esc(d.label))+'</span>'+pctBar(d.val,max,PAL[i%PAL.length])+'<span class="cb__val">'+(d.fmt||d.val)+'</span></div>';}).join("")+'</div>';}
 
-function openModal(h,wide){var m=$("#modal");m.innerHTML='<div class="modal__box'+(wide?" modal__box--wide":"")+'">'+h+'</div>';m.hidden=false;$$("[data-close]",m).forEach(function(b){b.addEventListener("click",closeModal);});m.addEventListener("click",function(e){if(e.target===m)closeModal();});}
+/* Le clic sur le fond n'est câblé qu'UNE fois : #modal n'est jamais remplacé
+   (seul son contenu l'est), si bien qu'un abonnement par ouverture s'accumulait
+   sans jamais être retiré — dix ouvertures laissaient dix écouteurs. */
+function backdropClose(e){if(e.target===e.currentTarget)closeModal();}
+function openModal(h,wide){
+  var m=$("#modal");
+  m.innerHTML='<div class="modal__box'+(wide?" modal__box--wide":"")+'">'+h+'</div>';
+  m.hidden=false;
+  $$("[data-close]",m).forEach(function(b){b.addEventListener("click",closeModal);});
+  if(!m.dataset.backdropBound){m.addEventListener("click",backdropClose);m.dataset.backdropBound="1";}
+}
 function closeModal(){var m=$("#modal");m.hidden=true;m.innerHTML="";}
 var _tt;function toast(msg,k){var t=$("#toast");t.textContent=msg;t.className="toast toast--"+(k||"ok");t.hidden=false;clearTimeout(_tt);_tt=setTimeout(function(){t.hidden=true;},2600);}
 function dl(name,content,mime){var b=new Blob([content],{type:mime+";charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},1000);}
@@ -1376,10 +1386,16 @@ SEC["customers.list"]={
       if(state.cFSt&&x.status!==state.cFSt)return false;if(state.cFCat&&(x.tags||[]).indexOf(state.cFCat)===-1)return false;
       if(!q)return true;return norm(x.name+" "+x.company+" "+x.email+" "+x.city+" "+(x.tags||[]).join(" ")).indexOf(q)!==-1;
     }).sort(function(a,b){var k=state.cSort,va=a[k],vb=b[k];if(k==="createdAt"){va=new Date(va);vb=new Date(vb);}else{va=norm(va);vb=norm(vb);}return(va<vb?-1:va>vb?1:0)*state.cDir;});
-    var selN=Object.keys(state.cSel).filter(function(k){return state.cSel[k];}).length;
+    /* Mémoriser les identifiants RÉELLEMENT affichés : « tout sélectionner » et
+       la suppression groupée doivent porter sur la liste filtrée, jamais sur la
+       base entière. Auparavant, filtrer puis tout sélectionner puis supprimer
+       effaçait aussi les membres masqués par le filtre. */
+    state.cVisible=list.map(function(x){return x.id;});
+    var selN=state.cVisible.filter(function(k){return state.cSel[k];}).length;
+    var allVisibleSel=list.length>0&&selN===list.length;
     function srt(key,label){var ar=state.cSort===key?(state.cDir===1?" ▲":" ▼"):"";return'<th class="th-sort" data-sort="'+key+'">'+label+ar+'</th>';}
     var rows=list.length?list.map(function(x){return'<tr data-id="'+x.id+'" class="rowlink"><td><input type="checkbox" class="rc" data-id="'+x.id+'"'+(state.cSel[x.id]?" checked":"")+'></td><td class="cell-name">'+avatar(x)+'<span><b>'+esc(x.name)+'</b>'+(x.company?'<br><span class="muted">'+esc(x.company)+'</span>':'')+'</span></td><td>'+badge(x.type||"Individuel")+'</td><td>'+esc(x.email||"\u2014")+'</td><td>'+esc(x.city||"\u2014")+'</td><td>'+badge(x.status)+'</td><td>'+(x.approved?'<span style="color:var(--green)" title="'+esc(x.approvalCode||"")+'">🔑</span>':'<span class="muted">\u2014</span>')+'</td><td>'+(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")+'</td><td class="rowact"><button class="iact ce" data-id="'+x.id+'">✎</button><button class="iact iact--del cd" data-id="'+x.id+'">🗑</button></td></tr>';}).join(""):'<tr><td colspan="9" class="empty">Aucun membre ACCI trouvé.</td></tr>';
-    return'<div class="filterbar"><select id="f-st"><option value="">Tous statuts</option>'+optH(CUSTOMER_STATUSES,state.cFSt)+'</select><select id="f-cat"><option value="">Tous domaines</option>'+optH(CATEGORIES,state.cFCat)+'</select><span class="filterbar__count">'+list.length+' membre(s) ACCI</span><div class="filterbar__right">'+(selN?'<button class="abtn abtn--danger abtn--sm" id="b-del">Suppr. ('+selN+')</button>':'')+'<button class="abtn abtn--ghost abtn--sm" id="x-csv">⬇ CSV</button></div></div><div class="dtable"><table><thead><tr><th style="width:30px"><input type="checkbox" id="ca"></th>'+srt("name","Membre")+'<th>Type</th><th>E-mail</th><th>Ville</th>'+srt("status","Statut")+'<th>Portail</th><th>Domaines</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    return'<div class="filterbar"><select id="f-st"><option value="">Tous statuts</option>'+optH(CUSTOMER_STATUSES,state.cFSt)+'</select><select id="f-cat"><option value="">Tous domaines</option>'+optH(CATEGORIES,state.cFCat)+'</select><span class="filterbar__count">'+list.length+' membre(s) ACCI</span><div class="filterbar__right">'+(selN?'<button class="abtn abtn--danger abtn--sm" id="b-del">Suppr. ('+selN+')</button>':'')+'<button class="abtn abtn--ghost abtn--sm" id="x-csv">⬇ CSV</button></div></div><div class="dtable"><table><thead><tr><th style="width:30px"><input type="checkbox" id="ca"'+(allVisibleSel?" checked":"")+'></th>'+srt("name","Membre")+'<th>Type</th><th>E-mail</th><th>Ville</th>'+srt("status","Statut")+'<th>Portail</th><th>Domaines</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   },
   b:function(){
     var fst=$("#f-st");if(fst)fst.addEventListener("change",function(){state.cFSt=fst.value;refresh();});
@@ -1389,8 +1405,20 @@ SEC["customers.list"]={
     $$(".cd").forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();var id=b.getAttribute("data-id");confirmDel(function(){S.customers.remove(id);alog("client",id,"suppression","");toast("Supprimé.");refresh();});});});
     $$(".rowlink").forEach(function(r){r.addEventListener("click",function(e){if(e.target.tagName==="INPUT"||e.target.closest(".iact"))return;openCustomerDetail(r.getAttribute("data-id"));});});
     $$(".rc").forEach(function(c){c.addEventListener("change",function(){state.cSel[c.getAttribute("data-id")]=c.checked;refresh();});});
-    var ca=$("#ca");if(ca)ca.addEventListener("change",function(){S.customers.all().forEach(function(x){state.cSel[x.id]=ca.checked;});refresh();});
-    var bd=$("#b-del");if(bd)bd.addEventListener("click",function(){var ids=Object.keys(state.cSel).filter(function(k){return state.cSel[k];});confirmDel(function(){S.customers.save(S.customers.all().filter(function(x){return ids.indexOf(x.id)===-1;}));state.cSel={};toast(ids.length+" supprimé(s).");refresh();});});
+    var ca=$("#ca");if(ca)ca.addEventListener("change",function(){(state.cVisible||[]).forEach(function(id){state.cSel[id]=ca.checked;});refresh();});
+    var bd=$("#b-del");if(bd)bd.addEventListener("click",function(){
+      /* Intersection avec la liste visible : un membre coché puis masqué par un
+         changement de filtre ne doit pas être emporté par la suppression. */
+      var vis=state.cVisible||[];
+      var ids=Object.keys(state.cSel).filter(function(k){return state.cSel[k]&&vis.indexOf(k)!==-1;});
+      if(!ids.length){toast("Aucun membre sélectionné.","err");return;}
+      var noms=ids.map(function(id){var c=S.customers.get(id);return c?c.name:id;}).slice(0,5).join(", ");
+      confirmDel(function(){
+        S.customers.save(S.customers.all().filter(function(x){return ids.indexOf(x.id)===-1;}));
+        ids.forEach(function(id){delete state.cSel[id];});
+        toast(ids.length+" membre(s) supprimé(s).");refresh();
+      },"Supprimer "+ids.length+" membre(s) ? "+noms+(ids.length>5?"…":"")+" Cette action est irréversible.");
+    });
     var xc=$("#x-csv");if(xc)xc.addEventListener("click",function(){exportCSV("customers");});
   },
   a:function(){openCustomerEdit(null);}
@@ -1694,7 +1722,16 @@ function boot(){
   /* Build sidebar dynamically based on admin permissions */
   buildSidebar();
   /* Bind sidebar nav */
-  $$("#snav .snav").forEach(function(b){b.addEventListener("click",function(){go(b.getAttribute("data-view"));$(".sidebar").classList.remove("is-open");});});
+  /* Délégation sur #snav, qui n'est jamais remplacé : buildSidebar() réécrit
+     son contenu (et register() le rappelle après coup), ce qui effaçait des
+     écouteurs posés bouton par bouton — la navigation devenait inerte après
+     chaque rechargement de page. */
+  $("#snav").addEventListener("click",function(e){
+    var b=e.target.closest(".snav");
+    if(!b)return;
+    go(b.getAttribute("data-view"));
+    $(".sidebar").classList.remove("is-open");
+  });
   $("#logout").addEventListener("click",function(){sessionStorage.removeItem("acci_admin");location.reload();});
   $("#add-btn").addEventListener("click",function(){
     var mod=MODS[state.view];if(mod){var sub=state.sub[state.view]||mod.tabs[0].id;var sec=SEC[state.view+"."+sub];if(sec&&sec.a){sec.a();return;}}
