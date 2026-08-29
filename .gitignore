@@ -18,3 +18,4 @@ __pycache__/
 # Photos sources pleine résolution (non servies ; variantes générées par
 # tools/optimize-images.sh et versionnées dans assets/img/)
 assets/img/_originals/
+.env*
