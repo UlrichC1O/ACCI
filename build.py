@@ -17,7 +17,9 @@ import re
 import sys
 import math
 import shutil
+import json
 import html
+import hashlib
 import datetime
 import http.server
 import socketserver
@@ -39,48 +41,52 @@ BUILD_DATE = "24 juin 2026"
 # Icônes SVG (jeu cohérent, trait fin, style « line »)
 # ---------------------------------------------------------------------------
 ICONS = {
-    "shield":     '<path d="M12 3l7 3v5c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z"/>',
-    "alert":      '<path d="M12 3l9 16H3l9-16z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/>',
-    "users":      '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M21 20c0-2.4-1.4-4.5-3.5-5.4"/>',
-    "scale":      '<path d="M12 4v16"/><path d="M6 8h12"/><path d="M6 8l-3 6h6l-3-6z"/><path d="M18 8l-3 6h6l-3-6z"/><path d="M8 20h8"/>',
-    "book":       '<path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2V5z"/><path d="M18 19H6"/>',
-    "flag":       '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
-    "eye":        '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/>',
-    "lock":       '<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
-    "heart":      '<path d="M12 20s-7-4.5-9.5-9C1 7.5 3 4.5 6 4.5c2 0 3.2 1.2 4 2.5.8-1.3 2-2.5 4-2.5 3 0 5 3 3.5 6.5C19 15.5 12 20 12 20z"/>',
-    "graduation": '<path d="M2 8l10-4 10 4-10 4L2 8z"/><path d="M6 10v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/>',
-    "megaphone":  '<path d="M3 11v2a1 1 0 0 0 1 1h2l9 5V5L6 10H4a1 1 0 0 0-1 1z"/><path d="M18 8a4 4 0 0 1 0 8"/>',
-    "doc":        '<path d="M7 3h7l5 5v13H7V3z"/><path d="M14 3v5h5"/><line x1="10" y1="13" x2="16" y2="13"/><line x1="10" y1="16" x2="16" y2="16"/>',
-    "check":      '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
-    "x-circle":   '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>',
-    "phone":      '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
-    "mail":       '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
-    "map":        '<path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/>',
-    "globe":      '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/>',
-    "search":     '<circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/>',
-    "calendar":   '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M8 3v4M16 3v4"/>',
-    "camera":     '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 7l1.5-2h5L16 7"/>',
-    "play":       '<circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3V9z" fill="currentColor"/>',
-    "handshake":  '<path d="M3 12l4-4 4 3 4-3 6 5"/><path d="M11 11l2 2 3-3"/><path d="M3 12v4h3M21 13v3h-3"/>',
-    "gift":       '<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M2 9h20v3H2zM12 9v11"/><path d="M12 9S9 3 7 5s5 4 5 4zM12 9s3-6 5-4-5 4-5 4z"/>',
-    "star":       '<path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.4 9.4l6-.8L12 3z"/>',
-    "lightbulb":  '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.3 1 2.5h6c0-1.2.2-1.7 1-2.5A6 6 0 0 0 12 3z"/>',
-    "warning":    '<path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/>',
-    "compass":    '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" fill="currentColor"/>',
-    "key":        '<circle cx="8" cy="12" r="4"/><path d="M11.5 12H21l-2 2 2 2"/>',
-    "child":      '<circle cx="12" cy="6" r="2.5"/><path d="M12 8.5v6M8 11l4 1 4-1M9 20l3-5 3 5"/>',
-    "money":      '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9v6M18 9v6"/>',
-    "copyright":  '<circle cx="12" cy="12" r="9"/><path d="M14.5 9.5a3.5 3.5 0 1 0 0 5"/>',
-    "fact":       '<path d="M9 11l2 2 4-4"/><circle cx="12" cy="12" r="9"/>',
-    "network":    '<circle cx="12" cy="5" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M12 7v4M10.5 13l-4 3M13.5 13l4 3"/>',
-    "quote":      '<path d="M7 7H4v6h3l-1 4h2l1-4V7zM17 7h-3v6h3l-1 4h2l1-4V7z" fill="currentColor"/>',
-    "arrow":      '<path d="M5 12h14M13 6l6 6-6 6"/>',
-    "download":   '<path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 19h16"/>',
-    "clock":      '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-    "bullhorn":   '<path d="M3 11v2a1 1 0 0 0 1 1h2l9 5V5L6 10H4a1 1 0 0 0-1 1z"/><path d="M18 8a4 4 0 0 1 0 8"/>',
-    "chat":       '<path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M8 10h8M8 13h5"/>',
-    "send":       '<path d="M4 12l16-8-6 16-3-6-7-2z"/>',
-    "sparkle":    '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/>',
+    # Jeu d'icônes tracé sur une grille de 24 × 24 : trait unique de 1,5 px,
+    # extrémités et jonctions arrondies, contenu inscrit entre 3 et 21 pour une
+    # marge optique constante. Registre institutionnel : formes calmes, lisibles
+    # dès 20 px, sans dramatisation.
+    "alert":      '<circle cx="12" cy="12" r="8.6"/><path d="M12 7.6v5"/><circle cx="12" cy="16" r="1"/>',
+    "arrow":      '<path d="M4.6 12h14"/><path d="M13.2 6.6L18.6 12l-5.4 5.4"/>',
+    "book":       '<path d="M5 5.2a2 2 0 0 1 2-2h11.2v15.6H7a2 2 0 0 0-2 2V5.2z"/><path d="M18.2 18.8H7"/>',
+    "bullhorn":   '<path d="M4 12.6V11a1.6 1.6 0 0 1 1.6-1.6h2.8l6.8-3.8v12.8L8.4 14.6H5.6A1.6 1.6 0 0 1 4 13z"/><path d="M18 9.6a4 4 0 0 1 0 4.8"/><path d="M20.4 7.4a7.2 7.2 0 0 1 0 9.2"/>',
+    "calendar":   '<rect x="3.8" y="5.6" width="16.4" height="14.6" rx="2.2"/><path d="M3.8 9.8h16.4"/><path d="M8.4 3.8v3.6M15.6 3.8v3.6"/>',
+    "camera":     '<rect x="3.4" y="7" width="17.2" height="12.6" rx="2.4"/><circle cx="12" cy="13.3" r="3.4"/><path d="M8.4 7l1.4-2.2h4.4L15.6 7"/>',
+    "chat":       '<path d="M4 6.2a1.6 1.6 0 0 1 1.6-1.6h12.8A1.6 1.6 0 0 1 20 6.2v8.4a1.6 1.6 0 0 1-1.6 1.6H9.6L5.4 20v-3.8a1.6 1.6 0 0 1-1.4-1.6z"/><path d="M8 9.2h8M8 12.2h5"/>',
+    "check":      '<circle cx="12" cy="12" r="8.6"/><path d="M8.4 12.2l2.6 2.6 4.6-5"/>',
+    "child":      '<circle cx="8" cy="6.2" r="2.4"/><path d="M4.6 20.2v-5a3.4 3.4 0 0 1 6.8 0v5"/><circle cx="16.8" cy="10.4" r="1.9"/><path d="M14.2 20.2v-3.6a2.6 2.6 0 0 1 5.2 0v3.6"/>',
+    "clock":      '<circle cx="12" cy="12" r="8.6"/><path d="M12 7.4V12l3.2 1.9"/>',
+    "compass":    '<circle cx="12" cy="12" r="8.6"/><path d="M15.8 8.2l-2.4 5.2-5.2 2.4 2.4-5.2 5.2-2.4z"/><circle cx="12" cy="12" r=".9"/>',
+    "copyright":  '<circle cx="12" cy="12" r="8.6"/><path d="M14.6 9.6a3.4 3.4 0 1 0 0 4.8"/>',
+    "doc":        '<path d="M6.6 3.4h7L18.4 8v12.6H6.6z"/><path d="M13.4 3.4V8h5"/><path d="M9.4 13h5.6M9.4 16.2h5.6"/>',
+    "download":   '<path d="M12 3.8v10.4"/><path d="M8.2 10.6l3.8 3.8 3.8-3.8"/><path d="M4.4 18.6h15.2"/>',
+    "eye":        '<path d="M2.6 12S6.2 6.4 12 6.4 21.4 12 21.4 12 17.8 17.6 12 17.6 2.6 12 2.6 12z"/><circle cx="12" cy="12" r="2.6"/>',
+    "fact":       '<path d="M12 3.4l7 2.7v5.1c0 4-2.8 7.2-7 8.4-4.2-1.2-7-4.4-7-8.4V6.1l7-2.7z"/><path d="M9.2 11.9l2.1 2.1 3.6-3.9"/>',
+    "flag":       '<path d="M5.6 20.4V4.2"/><path d="M5.6 4.6h11.8l-2.2 3.9 2.2 3.9H5.6"/>',
+    "gift":       '<path d="M4.6 11.4v7.2a1.6 1.6 0 0 0 1.6 1.6h11.6a1.6 1.6 0 0 0 1.6-1.6v-7.2"/><rect x="3.2" y="7.8" width="17.6" height="3.6" rx="1.2"/><path d="M12 7.8v12.4"/><path d="M12 7.8H8.8a2 2 0 1 1 2-2c.8.8 1.2 2 1.2 2zM12 7.8h3.2a2 2 0 1 0-2-2c-.8.8-1.2 2-1.2 2z"/>',
+    "globe":      '<circle cx="12" cy="12" r="8.6"/><path d="M3.6 12h16.8"/><path d="M12 3.4a13 13 0 0 1 0 17.2 13 13 0 0 1 0-17.2z"/>',
+    "graduation": '<path d="M2.8 8.6L12 4.4l9.2 4.2L12 12.8 2.8 8.6z"/><path d="M6.4 10.6v4.6c0 1.5 2.5 2.8 5.6 2.8s5.6-1.3 5.6-2.8v-4.6"/><path d="M20.4 9v4.6"/>',
+    "handshake":  '<path d="M2.8 10.6l3-3 3.4 1.4"/><path d="M21.2 10.6l-3-3-3.4 1.4"/><path d="M9.2 9l-3 3a1.7 1.7 0 0 0 2.4 2.4l1.2-1.2 3 3a1.6 1.6 0 0 0 2.3-2.3"/><path d="M14.8 9l3 3a1.7 1.7 0 0 1-2.4 2.4"/><path d="M12.8 12.9l1.6 1.6"/>',
+    "heart":      '<path d="M12 20.2C7 17.4 3.6 14 3.6 10.4A4 4 0 0 1 12 8a4 4 0 0 1 8.4 2.4c0 3.6-3.4 7-8.4 9.8z"/>',
+    "key":        '<circle cx="8.2" cy="12" r="3.7"/><path d="M11.9 12H20"/><path d="M17.4 12v2.8"/><path d="M20 12v2"/>',
+    "lightbulb":  '<path d="M12 3.6a5.6 5.6 0 0 0-3.4 10.1c.7.6 1 1.4 1 2.3h4.8c0-.9.3-1.7 1-2.3A5.6 5.6 0 0 0 12 3.6z"/><path d="M9.8 18.4h4.4M10.6 20.6h2.8"/>',
+    "lock":       '<rect x="4.5" y="10.5" width="15" height="9.5" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/><circle cx="12" cy="15.2" r="1.1"/>',
+    "mail":       '<rect x="3.4" y="5.6" width="17.2" height="12.8" rx="2.2"/><path d="M3.8 8.2l7.3 4.6a1.7 1.7 0 0 0 1.8 0l7.3-4.6"/>',
+    "map":        '<path d="M12 20.6s-6.2-5.2-6.2-9.6a6.2 6.2 0 1 1 12.4 0c0 4.4-6.2 9.6-6.2 9.6z"/><circle cx="12" cy="11" r="2.3"/>',
+    "megaphone":  '<path d="M4.4 10.4v3.2a1.4 1.4 0 0 0 1.4 1.4h1.6l8.4 4.4V4.6L7.4 9H5.8a1.4 1.4 0 0 0-1.4 1.4z"/><path d="M7.4 15v4.4h2.6V16.4"/><path d="M18.6 9.4a3.6 3.6 0 0 1 0 5.2"/>',
+    "money":      '<rect x="3.4" y="6.4" width="17.2" height="11.2" rx="2.2"/><circle cx="12" cy="12" r="2.8"/><path d="M6.6 9.6v4.8M17.4 9.6v4.8"/>',
+    "network":    '<circle cx="12" cy="5.4" r="2.2"/><circle cx="5.4" cy="18" r="2.2"/><circle cx="18.6" cy="18" r="2.2"/><path d="M12 7.6v3.6M10.4 12.6L7 16.4M13.6 12.6l3.4 3.8"/>',
+    "phone":      '<path d="M5.4 4.6h3.4l1.8 4.4-2.2 1.4a10.6 10.6 0 0 0 5.2 5.2l1.4-2.2 4.4 1.8v3.4a1.8 1.8 0 0 1-1.9 1.8A15.4 15.4 0 0 1 3.6 6.5a1.8 1.8 0 0 1 1.8-1.9z"/>',
+    "play":       '<circle cx="12" cy="12" r="8.6"/><path d="M10.2 8.8l5.4 3.2-5.4 3.2V8.8z"/>',
+    "quote":      '<path d="M9.6 6.8C7 8 5.6 10 5.6 12.6v4.6h4.8v-5H8.2c0-1.6.5-2.8 1.4-3.6z"/><path d="M18 6.8c-2.6 1.2-4 3.2-4 5.8v4.6h4.8v-5h-2.2c0-1.6.5-2.8 1.4-3.6z"/>',
+    "scale":      '<path d="M12 4.6v15"/><path d="M7.4 19.6h9.2"/><path d="M5 7.8h14"/><circle cx="12" cy="6.4" r="1.5"/><path d="M5 7.8L2.6 13.4h4.8L5 7.8z"/><path d="M19 7.8l-2.4 5.6h4.8L19 7.8z"/>',
+    "search":     '<circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.4 15.4l5 5"/>',
+    "send":       '<path d="M20.6 4.4L3.6 11.2l6.6 2.4 2.4 6.6 8-15.8z"/><path d="M10.2 13.6l3.6-3.6"/>',
+    "shield":     '<path d="M12 3.5l7 2.8v5c0 4.1-2.8 7.3-7 8.4-4.2-1.1-7-4.3-7-8.4v-5l7-2.8z"/>',
+    "sparkle":    '<path d="M12 3.6l1.7 5 5 1.7-5 1.7-1.7 5-1.7-5-5-1.7 5-1.7 1.7-5z"/><path d="M18.6 16.4l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"/>',
+    "star":       '<path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7-5.1-2.7-5.1 2.7 1-5.7-4.1-4 5.7-.8L12 3.8z"/>',
+    "users":      '<circle cx="9.4" cy="8.4" r="3.1"/><path d="M3.6 19.8c0-3.2 2.6-5.4 5.8-5.4s5.8 2.2 5.8 5.4"/><path d="M16.4 6.2a3.1 3.1 0 0 1 0 5.9"/><path d="M20.4 19.8c0-2.4-1.2-4.1-3.2-5"/>',
+    "warning":    '<path d="M12 4.2l8.2 14.2a1.4 1.4 0 0 1-1.2 2.1H5a1.4 1.4 0 0 1-1.2-2.1L12 4.2z"/><path d="M12 9.6v4.2"/><circle cx="12" cy="17" r="1"/>',
+    "x-circle":   '<circle cx="12" cy="12" r="8.6"/><path d="M9.4 9.4l5.2 5.2M14.6 9.4l-5.2 5.2"/>',
 }
 
 
@@ -88,7 +94,7 @@ def icon(name, size=24, cls="icon"):
     body = ICONS.get(name, ICONS["star"])
     return (
         f'<svg class="{cls}" viewBox="0 0 24 24" width="{size}" height="{size}" '
-        f'fill="none" stroke="currentColor" stroke-width="1.6" '
+        f'fill="none" stroke="currentColor" stroke-width="1.5" '
         f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{body}</svg>'
     )
 
@@ -151,6 +157,85 @@ def url(slug):
     return f"{slug}.html"
 
 
+# ---------------------------------------------------------------------------
+# Images responsives
+# ---------------------------------------------------------------------------
+# assets/img/manifest.json est produit par tools/optimize-images.sh : il décrit,
+# pour chaque photo, les largeurs WebP disponibles, le fichier de repli et les
+# dimensions intrinsèques (indispensables pour éviter les sauts de mise en page).
+def _load_img_manifest():
+    path = os.path.join(ASSETS, "img", "manifest.json")
+    if not os.path.exists(path):
+        print("  \u26a0 assets/img/manifest.json absent \u2014 images non optimis\u00e9es "
+              "(lancez tools/optimize-images.sh)")
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+IMG_MANIFEST = _load_img_manifest()
+MISSING_IMAGES = set()
+
+
+def _load_card_images():
+    """Table carte → photo, produite par tools/map-card-images.py.
+
+    Clés acceptées, de la plus précise à la plus générale :
+      "page::titre"  (lève une ambiguïté quand un même intitulé sert ailleurs)
+      "titre"
+    """
+    path = os.path.join(ROOT, "content", "card_images.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+CARD_IMAGES = _load_card_images()
+CARDS_WITHOUT_IMAGE = []
+
+
+def card_image(item, page):
+    """Photo d'une carte : valeur explicite, puis table, puis rien."""
+    if item.get("image"):
+        return item["image"]
+    title = item.get("title", "")
+    for key in (f"{page['slug']}::{title}", title):
+        if key in CARD_IMAGES:
+            return CARD_IMAGES[key]
+    if title:
+        CARDS_WITHOUT_IMAGE.append(f"{page['slug']} · {title}")
+    return None
+
+
+def picture(name, alt="", cls="", sizes="100vw", eager=False, decorative=False):
+    """<picture> responsive (WebP + repli) avec dimensions intrins\u00e8ques.
+
+    `name` est le nom de fichier d'origine (ex. "hero-creators.jpg").
+    Retombe proprement sur une balise <img> simple si la photo n'est pas
+    d\u00e9crite dans le manifeste.
+    """
+    info = IMG_MANIFEST.get(name)
+    a = f' alt="{e(alt)}"' if not decorative else ' alt=""'
+    c = f' class="{e(cls)}"' if cls else ""
+    load = ' loading="eager" fetchpriority="high"' if eager else ' loading="lazy"'
+    load += ' decoding="async"' if not eager else ""
+
+    if not info:
+        MISSING_IMAGES.add(name)
+        return f'<img src="assets/img/{e(name)}"{a}{c}{load}>'
+
+    stem = name.rsplit(".", 1)[0]
+    srcset = ", ".join(f"assets/img/{stem}-{w}.webp {w}w" for w in info["widths"])
+    return (
+        f'<picture>'
+        f'<source type="image/webp" srcset="{srcset}" sizes="{e(sizes)}">'
+        f'<img src="assets/img/{e(info["fallback"])}"{a}{c}'
+        f' width="{info["w"]}" height="{info["h"]}"{load}>'
+        f'</picture>'
+    )
+
+
 def para(text):
     """Transforme du texte simple en paragraphe, gère le gras **...**."""
     t = e(text)
@@ -180,9 +265,9 @@ def r_hero(b, page):
     has_img = " hero--has-image" if b.get("image") else ""
     media = ""
     if b.get("image"):
-        media = (f'<div class="hero__media" aria-hidden="true">'
-                 f'<img src="assets/img/{e(b["image"])}" alt="" loading="eager" fetchpriority="high">'
-                 f'<span class="hero__scrim"></span></div>')
+        media = ('<div class="hero__media" aria-hidden="true">'
+                 + picture(b["image"], decorative=True, sizes="100vw", eager=True)
+                 + '<span class="hero__scrim"></span></div>')
     return f"""
     <section class="hero hero--{variant}{has_img}">
       {media}
@@ -217,21 +302,30 @@ def r_cards(b, page):
         title = f'<h2 class="section__title">{para(b["title"])}</h2>' if b.get("title") else ""
         lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
         head = f'<div class="section__head reveal">{kicker}{title}{lead}</div>'
+    sizes = f"(min-width: 900px) {round(100 / max(cols, 1))}vw, (min-width: 560px) 50vw, 100vw"
     items = ""
     for c in b["items"]:
-        ic = f'<span class="card__icon">{icon(c.get("icon","star"),26)}</span>' if c.get("icon") else ""
+        img = card_image(c, page)
+        # Quand la carte porte une photo, celle-ci occupe la fonction visuelle de
+        # l'icône : les cumuler alourdirait la carte sans rien ajouter.
+        media = (f'<span class="card__media">{picture(img, alt="", sizes=sizes, decorative=True)}</span>'
+                 if img else "")
+        ic = ("" if img else
+              f'<span class="card__icon">{icon(c.get("icon","star"),26)}</span>' if c.get("icon") else "")
         tag = f'<span class="card__tag">{e(c["tag"])}</span>' if c.get("tag") else ""
         text = f'<p class="card__text">{para(c["text"])}</p>' if c.get("text") else ""
         link = ""
-        clickable_open = clickable_close = ""
         if c.get("href"):
             link = f'<span class="card__link">{e(c.get("link_label","En savoir plus"))} {icon("arrow",16,"card__arrow")}</span>'
-            clickable_open = f'<a class="card card--link" href="{url(c["href"])}">'
+            cls = "card card--link" + (" card--media" if img else "")
+            clickable_open = f'<a class="{cls}" href="{url(c["href"])}">'
             clickable_close = "</a>"
         else:
-            clickable_open = '<div class="card">'
+            cls = "card" + (" card--media" if img else "")
+            clickable_open = f'<div class="{cls}">'
             clickable_close = "</div>"
-        items += f'{clickable_open}{ic}{tag}<h3 class="card__title">{para(c["title"])}</h3>{text}{link}{clickable_close}'
+        body = f'<span class="card__body">{ic}{tag}<h3 class="card__title">{para(c["title"])}</h3>{text}{link}</span>'
+        items += f'{clickable_open}{media}{body}{clickable_close}'
     return f'<section class="section"><div class="container">{head}<div class="grid grid--{cols} reveal">{items}</div></div></section>'
 
 
@@ -250,7 +344,11 @@ def r_stats(b, page):
     return f'<section class="section section--stats {variant}"><div class="container"><div class="stats reveal">{items}</div></div></section>'
 
 
+_ACC_SEQ = [0]
+
+
 def r_accordion(b, page):
+    _ACC_SEQ[0] += 1
     head = ""
     if b.get("title") or b.get("lead"):
         kicker = f'<span class="section__kicker">{e(b["kicker"])}</span>' if b.get("kicker") else ""
@@ -261,13 +359,21 @@ def r_accordion(b, page):
     for i, it in enumerate(b["items"]):
         ans = it["a"] if isinstance(it["a"], list) else [it["a"]]
         ans_html = "".join(f"<p>{para(p)}</p>" for p in ans)
+        # Identifiants stables : ils relient le bouton à son panneau
+        # (aria-controls / aria-labelledby) et permettent de retirer réellement
+        # un panneau replié de l'arbre d'accessibilité grâce à `hidden`.
+        aid = f"acc-{page['slug']}-{_ACC_SEQ[0]}-{i}"
         items += f"""
         <div class="accordion__item">
-          <button class="accordion__trigger" aria-expanded="false">
-            <span>{para(it["q"])}</span>
-            <span class="accordion__icon" aria-hidden="true"></span>
-          </button>
-          <div class="accordion__panel"><div class="accordion__content">{ans_html}</div></div>
+          <h3 class="accordion__h">
+            <button class="accordion__trigger" type="button" id="{aid}-btn"
+                    aria-expanded="false" aria-controls="{aid}-panel">
+              <span>{para(it["q"])}</span>
+              <span class="accordion__icon" aria-hidden="true"></span>
+            </button>
+          </h3>
+          <div class="accordion__panel" id="{aid}-panel" role="region"
+               aria-labelledby="{aid}-btn" hidden><div class="accordion__content">{ans_html}</div></div>
         </div>"""
     return f'<section class="section"><div class="container container--narrow">{head}<div class="accordion reveal">{items}</div></div></section>'
 
@@ -302,8 +408,10 @@ def r_split(b, page):
         cta = f'<a class="btn btn--primary" href="{url(c["href"])}">{e(c["label"])}{icon("arrow",18,"btn__icon")}</a>'
     if b.get("image"):
         cap = f'<figcaption class="split__cap">{para(b["caption"])}</figcaption>' if b.get("caption") else ""
-        media = (f'<figure class="split__media split__media--photo reveal">'
-                 f'<img src="assets/img/{e(b["image"])}" alt="{e(b.get("alt",""))}" loading="lazy">{cap}</figure>')
+        media = ('<figure class="split__media split__media--photo reveal">'
+                 + picture(b["image"], alt=b.get("alt", ""),
+                           sizes="(min-width: 900px) 50vw, 100vw")
+                 + f'{cap}</figure>')
     else:
         media_icon = b.get("icon", "shield")
         media = f'<div class="split__media reveal"><div class="split__visual">{icon(media_icon,120,"split__bigicon")}</div></div>'
@@ -406,8 +514,17 @@ def r_posts(b, page):
         cat = f'<span class="post__cat">{e(p["category"])}</span>' if p.get("category") else ""
         date = f'<span class="post__date">{icon("calendar",15)}{e(p["date"])}</span>' if p.get("date") else ""
         href = url(p.get("href", "#"))
+        img = card_image(p, page)
+        if img:
+            thumb = (f'<div class="post__thumb">'
+                     f'{picture(img, alt="", sizes="(min-width: 900px) 33vw, (min-width: 560px) 50vw, 100vw", decorative=True)}'
+                     f'</div>')
+        else:
+            # Repli : aplat de marque, uniquement si aucune photo n'est associée.
+            thumb = (f'<div class="post__thumb post__thumb--fallback post__thumb--{p.get("color","orange")}">'
+                     f'{icon(p.get("icon","doc"),40)}</div>')
         items += f"""<article class="post reveal">
-          <div class="post__thumb post__thumb--{p.get('color','orange')}">{icon(p.get('icon','doc'),40)}</div>
+          {thumb}
           <div class="post__body">{cat}<h3 class="post__title"><a href="{href}">{para(p["title"])}</a></h3>
           <p class="post__excerpt">{para(p.get("excerpt",""))}</p>
           <div class="post__meta">{date}</div></div></article>"""
@@ -494,8 +611,10 @@ def r_image(b, page):
     """Image pleine largeur (bannière) avec légende optionnelle."""
     cap = f'<figcaption class="figbanner__cap">{para(b["caption"])}</figcaption>' if b.get("caption") else ""
     narrow = " container--narrow" if b.get("narrow") else ""
+    banner = picture(b["image"], alt=b.get("alt", ""),
+                     sizes="(min-width: 1200px) 1120px, 100vw")
     return f"""<section class="section"><div class="container{narrow}">
-      <figure class="figbanner reveal"><img src="assets/img/{e(b["image"])}" alt="{e(b.get("alt",""))}" loading="lazy">{cap}</figure>
+      <figure class="figbanner reveal">{banner}{cap}</figure>
     </div></section>"""
 
 
@@ -508,8 +627,10 @@ def r_gallery(b, page):
     items = ""
     for g in b["items"]:
         cap = f'<span class="gphoto__cap">{para(g["caption"])}</span>' if g.get("caption") else ""
-        items += (f'<figure class="gphoto reveal"><img src="assets/img/{e(g["image"])}" '
-                  f'alt="{e(g.get("alt",""))}" loading="lazy">{cap}</figure>')
+        items += ('<figure class="gphoto reveal">'
+                  + picture(g["image"], alt=g.get("alt", ""),
+                            sizes=f"(min-width: 900px) {round(100/cols)}vw, 50vw")
+                  + f'{cap}</figure>')
     return f'<section class="section"><div class="container">{head}<div class="gallery grid--{cols}">{items}</div></div></section>'
 
 
@@ -652,26 +773,30 @@ def render_header(page):
   <header class="header" id="header">
     <div class="container header__inner">
       <a class="brand" href="index.html" aria-label="Accueil — {e(SITE['long_name'])}">
-        <img class="brand__logo" src="assets/img/logo-wordmark.png" alt="ACCI" width="118" height="72">
+        <img class="brand__logo" src="assets/img/logo-wordmark-240.webp" alt="ACCI" width="118" height="72" fetchpriority="high">
         <span class="brand__full">{e(SITE['long_name'])}</span>
       </a>
       <nav class="nav" aria-label="Navigation principale">
         <ul class="nav__list">{nav}</ul>
       </nav>
       <div class="header__actions">
-        <button class="iconbtn search-toggle" aria-label="Rechercher">{icon("search",20)}</button>
+        <button class="iconbtn search-toggle" aria-label="Rechercher" aria-expanded="false" aria-controls="searchbar">{icon("search",20)}</button>
         <a class="btn btn--primary btn--sm header__cta" href="adhesion.html">Adhérer</a>
-        <button class="burger" aria-label="Ouvrir le menu" aria-expanded="false">
+        <button class="burger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobile-nav">
           <span></span><span></span><span></span>
         </button>
       </div>
     </div>
-    <div class="searchbar" hidden>
+    <div class="searchbar" id="searchbar" hidden>
       <div class="container searchbar__inner">
-        <span class="searchbar__icon">{icon("search",20)}</span>
-        <input type="search" id="site-search" placeholder="Rechercher une page, un thème, un service..." autocomplete="off">
-        <button class="searchbar__close" aria-label="Fermer la recherche">&times;</button>
-        <div class="searchbar__results" id="search-results"></div>
+        <span class="searchbar__icon" aria-hidden="true">{icon("search",20)}</span>
+        <label class="visually-hidden" for="site-search">Rechercher sur le site</label>
+        <input type="search" id="site-search" role="combobox" aria-expanded="false"
+               aria-controls="search-results" aria-autocomplete="list"
+               placeholder="Rechercher une page, un thème, un service…" autocomplete="off">
+        <button class="searchbar__close" type="button" aria-label="Fermer la recherche">&times;</button>
+        <div class="searchbar__results" id="search-results" role="listbox" aria-label="Résultats de recherche"></div>
+        <p class="visually-hidden" id="search-status" role="status" aria-live="polite"></p>
       </div>
     </div>
   </header>
@@ -733,7 +858,7 @@ def render_footer(page):
       <div class="footer__top">
         <div class="footer__brand">
           <a class="brand brand--footer" href="index.html" aria-label="Accueil — {e(SITE['long_name'])}">
-            <img class="brand__logo brand__logo--footer" src="assets/img/logo-wordmark-light.png" alt="ACCI">
+            <img class="brand__logo brand__logo--footer" src="assets/img/logo-wordmark-light-240.webp" alt="ACCI" width="118" height="72" loading="lazy" decoding="async">
           </a>
           <p class="footer__about">{e(SITE['long_name'])}. {e(FOOTER['about'])}</p>
           <div class="footer__socials">{socials}</div>
@@ -759,7 +884,7 @@ def render_chat():
     </button>
     <section class="chat__panel" id="chat-panel" aria-label="Assistant ACCI" hidden>
       <header class="chat__header">
-        <img class="chat__logo" src="assets/img/logo-wordmark-light.png" alt="ACCI">
+        <img class="chat__logo" src="assets/img/logo-wordmark-light-240.webp" alt="ACCI" width="88" height="54" loading="lazy" decoding="async">
         <div class="chat__id">
           <span class="chat__name">Assistant ACCI {icon("sparkle",15,"chat__spark")}</span>
           <span class="chat__status"><span class="chat__dot"></span>En ligne · réponse immédiate</span>
@@ -796,23 +921,36 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <script>document.documentElement.className+=" js";</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{title} — ACCI</title>
   <meta name="description" content="{description}">
   <meta name="theme-color" content="#0b3d2e">
   <meta name="author" content="Association des Créateurs de Contenu Ivoiriens">
   <link rel="canonical" href="{canonical}">
+{robots_meta}
   <meta property="og:type" content="website">
   <meta property="og:title" content="{title} — ACCI">
   <meta property="og:description" content="{description}">
   <meta property="og:locale" content="fr_CI">
   <meta property="og:site_name" content="ACCI">
+  <meta property="og:url" content="{canonical}">
+  <meta property="og:image" content="{og_image}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="ACCI — Association des Créateurs de Contenu Ivoiriens">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{title} — ACCI">
+  <meta name="twitter:description" content="{description}">
+  <meta name="twitter:image" content="{og_image}">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="preload" href="assets/fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/sora-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{css_fonts}">
+  <link rel="stylesheet" href="{css_main}">
+{jsonld}
 </head>
 <body data-page="{slug}">
 {header}
@@ -822,20 +960,123 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   </main>
 {footer}
 {chat}
-  <script src="assets/js/search-index.js"></script>
-  <script src="assets/js/main.js"></script>
-  <script src="assets/js/chat.js"></script>
+  <script src="{js_index}" defer></script>
+  <script src="{js_main}" defer></script>
+  <script src="{js_chat}" defer></script>
 </body>
 </html>
 """
 
 
+# ---------------------------------------------------------------------------
+# Données structurées (schema.org / JSON-LD)
+# ---------------------------------------------------------------------------
+def _abs(path):
+    return SITE["url"] + "/" + path.lstrip("/")
+
+
+def render_jsonld(page):
+    """Balises JSON-LD : identité de l'organisation, site, fil d'Ariane, FAQ.
+
+    Permet aux moteurs de recherche d'afficher le nom, le logo, les contacts et
+    les liens sociaux de l'ACCI, et de comprendre l'arborescence du site.
+    """
+    graph = []
+
+    org = {
+        "@type": "NGO",
+        "@id": _abs("#organisation"),
+        "name": SITE["long_name"],
+        "alternateName": SITE["name"],
+        "url": SITE["url"],
+        "logo": _abs("assets/img/logo-wordmark-480.png"),
+        "image": _abs("assets/img/og-card.png"),
+        "description": SITE["tagline"],
+        "email": SITE["email"],
+        "telephone": SITE["phone"],
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Cocody, Riviera Golf",
+            "addressLocality": "Abidjan",
+            "addressCountry": "CI",
+        },
+        "areaServed": {"@type": "Country", "name": "Côte d'Ivoire"},
+        "sameAs": [x["href"] for x in SOCIAL if str(x.get("href", "")).startswith("http")],
+        "contactPoint": [{
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": SITE["email"],
+            "telephone": SITE["phone"],
+            "availableLanguage": ["fr"],
+        }],
+    }
+    graph.append(org)
+
+    graph.append({
+        "@type": "WebSite",
+        "@id": _abs("#site"),
+        "url": SITE["url"],
+        "name": SITE["name"],
+        "inLanguage": "fr-CI",
+        "publisher": {"@id": _abs("#organisation")},
+    })
+
+    # Fil d'Ariane : Accueil › Rubrique › Page
+    crumbs = [{"name": "Accueil", "item": _abs("index.html")}]
+    if page["slug"] != "index":
+        crumbs.append({"name": page["title"], "item": _abs(url(page["slug"]))})
+    if len(crumbs) > 1:
+        graph.append({
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {"@type": "ListItem", "position": i + 1,
+                 "name": c["name"], "item": c["item"]}
+                for i, c in enumerate(crumbs)
+            ],
+        })
+
+    # FAQPage : dérivée d'un bloc accordéon si la page en contient un
+    faq = next((b for b in page["blocks"]
+                if b.get("type") == "accordion" and b.get("items")), None)
+    if faq:
+        graph.append({
+            "@type": "FAQPage",
+            "mainEntity": [{
+                "@type": "Question",
+                "name": it["q"],
+                "acceptedAnswer": {"@type": "Answer", "text": it["a"]},
+            } for it in faq["items"] if it.get("q") and it.get("a")],
+        })
+
+    payload = {"@context": "https://schema.org", "@graph": graph}
+    # </script> ne peut pas apparaître dans un bloc script : on neutralise.
+    body = json.dumps(payload, ensure_ascii=False, indent=None).replace("</", "<\\/")
+    return f'  <script type="application/ld+json">{body}</script>'
+
+
+# Empreintes de contenu des fichiers CSS/JS, renseignées par build().
+# Elles permettent de servir ces fichiers avec un cache « immutable » d'un an :
+# toute modification change le nom du fichier, donc l'URL.
+ASSET_URLS = {
+    "css_fonts": "assets/css/fonts.css",
+    "css_main":  "assets/css/styles.css",
+    "js_index":  "assets/js/search-index.js",
+    "js_main":   "assets/js/main.js",
+    "js_chat":   "assets/js/chat.js",
+}
+
+
 def render_page(page):
     content = render_blocks(page["blocks"], page)
     return PAGE_TEMPLATE.format(
+        **ASSET_URLS,
         title=e(page["title"]),
         description=e(page.get("description", SITE["tagline"])),
         canonical=SITE["url"] + "/" + url(page["slug"]),
+        robots_meta=('  <meta name="robots" content="noindex, follow">'
+                     if page["slug"] in NOINDEX else ""),
+        og_image=_abs("assets/img/og-card.png"),
+        jsonld=render_jsonld(page),
         slug=e(page["slug"]),
         header=render_header(page),
         breadcrumb=render_breadcrumb(page),
@@ -857,14 +1098,35 @@ def build_search_index(pages):
             "d": p.get("description", ""),
             "s": p.get("section", ""),
         })
-    import json
     return "window.SEARCH_INDEX = " + json.dumps(entries, ensure_ascii=False) + ";"
 
 
+# Pages exclues du sitemap ET marquées noindex : une page d'erreur indexée
+# apparaît dans les résultats de recherche et dilue le référencement du site.
+SITEMAP_EXCLUDE = {"404"}
+NOINDEX = {"404"}
+
+# Priorité et fréquence de mise à jour par rubrique (indications pour les moteurs).
+SITEMAP_RULES = {
+    "Actualités & événements": ("weekly", "0.7"),
+    "Services & ressources":   ("monthly", "0.8"),
+}
+
+
 def build_sitemap(pages):
+    today = datetime.date.today().isoformat()
     urls = ""
     for p in pages:
-        urls += f"  <url><loc>{SITE['url']}/{url(p['slug'])}</loc><changefreq>monthly</changefreq></url>\n"
+        if p["slug"] in SITEMAP_EXCLUDE:
+            continue
+        if p["slug"] == "index":
+            freq, prio = "weekly", "1.0"
+        else:
+            freq, prio = SITEMAP_RULES.get(p.get("section", ""), ("monthly", "0.6"))
+        urls += (f"  <url><loc>{SITE['url']}/{url(p['slug'])}</loc>"
+                 f"<lastmod>{today}</lastmod>"
+                 f"<changefreq>{freq}</changefreq>"
+                 f"<priority>{prio}</priority></url>\n")
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 {urls}</urlset>
@@ -895,8 +1157,9 @@ def build():
         shutil.rmtree(DIST)
     os.makedirs(DIST)
 
-    # Copie des assets
-    shutil.copytree(ASSETS, os.path.join(DIST, "assets"))
+    # Copie des assets (les photos sources pleine résolution ne sont pas publiées)
+    shutil.copytree(ASSETS, os.path.join(DIST, "assets"),
+                    ignore=shutil.ignore_patterns("_originals", ".DS_Store", "manifest.json"))
 
     # Copie de l'espace d'administration (CRM)
     if os.path.isdir(ADMIN):
@@ -905,6 +1168,9 @@ def build():
     # Index de recherche
     with open(os.path.join(DIST, "assets", "js", "search-index.js"), "w", encoding="utf-8") as f:
         f.write(build_search_index(pages))
+
+    # Empreintes de contenu : styles.<hash>.css, main.<hash>.js, etc.
+    fingerprint_assets()
 
     # Pages
     for p in pages:
@@ -916,11 +1182,47 @@ def build():
     with open(os.path.join(DIST, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(build_sitemap(pages))
     with open(os.path.join(DIST, "robots.txt"), "w", encoding="utf-8") as f:
-        f.write(f"User-agent: *\nAllow: /\nSitemap: {SITE['url']}/sitemap.xml\n")
+        f.write(
+            "User-agent: *\n"
+            "Allow: /\n"
+            "# Espace d'administration : jamais indexé\n"
+            "Disallow: /admin/\n"
+            "\n"
+            f"Sitemap: {SITE['url']}/sitemap.xml\n"
+        )
 
+    if CARDS_WITHOUT_IMAGE:
+        print(f"  ⚠ {len(CARDS_WITHOUT_IMAGE)} carte(s) sans photo :")
+        for c in CARDS_WITHOUT_IMAGE[:8]:
+            print(f"      {c}")
+        if len(CARDS_WITHOUT_IMAGE) > 8:
+            print(f"      … et {len(CARDS_WITHOUT_IMAGE) - 8} autre(s)")
+    if MISSING_IMAGES:
+        print(f"  ⚠ {len(MISSING_IMAGES)} photo(s) absente(s) du manifeste : "
+              f"{', '.join(sorted(MISSING_IMAGES)[:6])}")
     print(f"✓ {len(pages)} pages générées dans ./dist")
     print(f"✓ Index de recherche, sitemap.xml et robots.txt créés")
     return pages
+
+
+def fingerprint_assets():
+    """Renomme CSS/JS en <nom>.<empreinte>.<ext> et met à jour ASSET_URLS.
+
+    Sans empreinte, l'en-tête « Cache-Control: immutable, max-age=1 an » de
+    vercel.json ferait servir aux visiteurs de retour une feuille de style
+    périmée pendant un an après chaque mise à jour.
+    """
+    for key, rel in list(ASSET_URLS.items()):
+        src = os.path.join(DIST, *rel.split("/"))
+        if not os.path.exists(src):
+            print(f"  ⚠ actif introuvable : {rel}")
+            continue
+        with open(src, "rb") as f:
+            digest = hashlib.sha1(f.read()).hexdigest()[:10]
+        stem, ext = os.path.splitext(os.path.basename(rel))
+        new_name = f"{stem}.{digest}{ext}"
+        os.rename(src, os.path.join(os.path.dirname(src), new_name))
+        ASSET_URLS[key] = os.path.dirname(rel) + "/" + new_name
 
 
 def serve(port=8000):

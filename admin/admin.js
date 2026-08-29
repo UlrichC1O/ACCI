@@ -29,7 +29,11 @@
   function todayISO() { return new Date().toISOString().slice(0, 10); }
   function fmtDate(d) {
     if (!d) return "—";
-    var x = new Date(d); if (isNaN(x)) return d;
+    var x = new Date(d);
+    // Une date illisible était auparavant renvoyée telle quelle et insérée via
+    // innerHTML : un fichier importé contenant createdAt = "<img onerror=…>"
+    // exécutait alors du script à chaque affichage de la liste (XSS stocké).
+    if (isNaN(x)) return esc(String(d)).slice(0, 40);
     return x.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
   }
   function hash(str) { // non cryptographique — simple obfuscation locale
@@ -269,7 +273,8 @@
 
     $("#view").innerHTML = filters +
       '<div class="dtable"><table><thead><tr>' +
-        '<th style="width:34px"><input type="checkbox" id="checkall"></th>' +
+        '<th style="width:34px"><input type="checkbox" id="checkall" aria-label="Tout sélectionner"' +
+          (list.length && list.every(function (x) { return state.selection[x.id]; }) ? ' checked' : '') + '></th>' +
         sortable("name", "Membre") + '<th>Téléphone</th><th>Ville</th>' +
         sortable("category", "Domaine") + sortable("type", "Type") + sortable("status", "Statut") +
         '<th>Charte</th><th></th>' +
@@ -466,13 +471,21 @@
 
   var FIELDS = ["name", "email", "phone", "city", "category", "type", "status", "charter", "social", "notes", "createdAt"];
 
+  /* Neutralise l'injection de formules : un tableur interprète une cellule
+     commençant par = + - @ (ou tabulation / retour chariot) comme une formule.
+     Un membre nommé « =HYPERLINK(...) » exécuterait alors du code à l'ouverture. */
+  function csvCell(v) {
+    v = String(v == null ? "" : v);
+    if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+    v = v.replace(/"/g, '""');
+    return /[",\n;]/.test(v) ? '"' + v + '"' : v;
+  }
+
   function exportCSV(list) {
     var head = FIELDS.join(",");
     var lines = list.map(function (x) {
       return FIELDS.map(function (f) {
-        var v = f === "charter" ? (x[f] ? "oui" : "non") : (x[f] == null ? "" : x[f]);
-        v = String(v).replace(/"/g, '""');
-        return /[",\n]/.test(v) ? '"' + v + '"' : v;
+        return csvCell(f === "charter" ? (x[f] ? "oui" : "non") : x[f]);
       }).join(",");
     });
     download("acci-membres-" + todayISO() + ".csv", "﻿" + head + "\n" + lines.join("\n"), "text/csv");
@@ -500,12 +513,13 @@
         recs.forEach(function (r) {
           if (!r.name && !r.email) return;
           cur.unshift({
-            id: uid(), name: r.name || "", email: r.email || "", phone: r.phone || "", city: r.city || "",
+            id: uid(), name: unCsv(r.name), email: unCsv(r.email), phone: unCsv(r.phone), city: unCsv(r.city),
             category: CATEGORIES.indexOf(r.category) !== -1 ? r.category : "Autre",
             type: TYPES.indexOf(r.type) !== -1 ? r.type : "Adhérent",
             status: STATUSES.indexOf(r.status) !== -1 ? r.status : "Prospect",
-            charter: /^(oui|true|1|yes)$/i.test(String(r.charter || "")), social: r.social || "",
-            notes: r.notes || "", createdAt: r.createdAt || new Date().toISOString(), updatedAt: todayISO()
+            charter: /^(oui|true|1|yes)$/i.test(String(r.charter || "")), social: unCsv(r.social),
+            notes: unCsv(r.notes), createdAt: r.createdAt || r.createdat || new Date().toISOString(),
+            updatedAt: todayISO()
           });
           added++;
         });
@@ -519,6 +533,13 @@
     };
     reader.readAsText(file, "utf-8");
     e.target.value = "";
+  }
+
+  /* Retire l'apostrophe de protection ajoutée par csvCell() à l'export, afin
+     qu'un aller-retour export → import restitue la valeur d'origine. */
+  function unCsv(v) {
+    v = String(v == null ? "" : v);
+    return /^'[=+\-@\t\r]/.test(v) ? v.slice(1) : v;
   }
 
   function parseCSV(text) {
@@ -549,7 +570,13 @@
     openModal('<div class="modal__head"><h2>Tout réinitialiser ?</h2><button class="modal__x" data-close>&times;</button></div>' +
       '<div class="modal__body"><p>Tous les membres seront <b>définitivement supprimés</b> de ce navigateur. Exportez vos données avant si besoin.</p></div>' +
       '<div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--danger" id="wipe-yes">Tout effacer</button></div>');
-    $("#wipe-yes").addEventListener("click", function () { DB.saveMembers([]); localStorage.removeItem(KEY_SEED); toast("Base réinitialisée."); closeModal(); refresh(); });
+    $("#wipe-yes").addEventListener("click", function () {
+      DB.saveMembers([]);
+      // Le drapeau est CONSERVÉ : le supprimer faisait réapparaître les cinq
+      // membres de démonstration au rechargement suivant.
+      localStorage.setItem(KEY_SEED, "1");
+      toast("Base réinitialisée."); closeModal(); refresh();
+    });
   }
 
   /* ------------------------------ Réglages ------------------------------ */
@@ -558,7 +585,8 @@
       '<section class="panel"><div class="panel__head"><h2 class="panel__title">Code d\'accès</h2></div>' +
         '<form id="pass-form" class="fgrid">' +
           ffield("Code actuel", '<input type="password" name="cur" required>') +
-          ffield("Nouveau code", '<input type="password" name="n1" required>') +
+          ffield("Nouveau code", '<input type="password" name="n1" required autocomplete="new-password">') +
+          ffield("Confirmer le nouveau code", '<input type="password" name="n2" required autocomplete="new-password">') +
         '</form>' +
         '<div class="btnrow"><button class="abtn abtn--primary" id="pass-save">Modifier le code</button></div>' +
         '<p class="ferr" id="pass-msg" hidden></p></section>' +
@@ -566,11 +594,17 @@
         '<p class="muted">CRM léger, gratuit et sans serveur. Les données sont stockées dans <b>ce navigateur</b> (localStorage). ' +
         'Pour ne pas les perdre : exportez régulièrement (CSV/JSON). Pour un accès partagé en ligne, connectez une base Supabase gratuite ' +
         '(voir l\'onglet Import / Export).</p>' +
-        '<p class="muted">Sécurité : la protection par code est locale et ne remplace pas une authentification serveur. Ne stockez pas de données ultra-sensibles sans base sécurisée.</p></section>';
+        '<p class="muted"><b>Sécurité — à lire.</b> Le code d\'accès est vérifié <i>dans le navigateur</i> : il masque l\'interface, il ne protège pas les données. ' +
+        'Toute personne ayant accès à cet ordinateur peut lire l\'intégralité du fichier des membres via les outils de développement, sans connaître le code. ' +
+        'Cet espace convient donc à un poste unique et de confiance. Pour un accès partagé, en ligne ou multi-appareils — et dès lors que vous conservez des données personnelles de tiers — ' +
+        'connectez une base <b>Supabase</b> avec authentification et politiques d\'accès (RLS).</p></section>';
     $("#pass-save").addEventListener("click", function () {
       var f = $("#pass-form"), msg = $("#pass-msg");
-      if (hash(f.cur.value) !== localStorage.getItem(KEY_PASS)) { msg.className = "ferr"; msg.textContent = "Code actuel incorrect."; msg.hidden = false; return; }
+      // .trim() appliqué comme à la connexion : sans cela un code saisi avec un
+      // espace final était accepté à la création puis refusé ici.
+      if (hash(f.cur.value.trim()) !== localStorage.getItem(KEY_PASS)) { msg.className = "ferr"; msg.textContent = "Code actuel incorrect."; msg.hidden = false; return; }
       if (f.n1.value.trim().length < 4) { msg.className = "ferr"; msg.textContent = "Le nouveau code doit faire au moins 4 caractères."; msg.hidden = false; return; }
+      if (f.n2.value.trim() !== f.n1.value.trim()) { msg.className = "ferr"; msg.textContent = "Les deux nouveaux codes ne correspondent pas."; msg.hidden = false; return; }
       localStorage.setItem(KEY_PASS, hash(f.n1.value.trim()));
       msg.className = "ferr okmsg"; msg.textContent = "✓ Code mis à jour."; msg.hidden = false; f.reset();
       toast("Code d'accès modifié.");

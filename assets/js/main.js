@@ -20,7 +20,10 @@
   /* ---------- Bouton retour en haut ---------- */
   var toTop = document.getElementById("to-top");
   if (toTop) toTop.addEventListener("click", function () {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Respecte prefers-reduced-motion : un défilement animé sur toute la
+    // hauteur d'une page longue est précisément ce que ce réglage écarte.
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
   });
 
   /* ---------- Menu mobile ---------- */
@@ -28,28 +31,61 @@
   var mobileNav = document.getElementById("mobile-nav");
   var overlay = document.getElementById("overlay");
 
+  var mobileOpen = false;          // état réel : le double-clic rapide laissait
+                                   // auparavant la page bloquée en scroll-lock
+
+  /* Maintient le focus clavier à l'intérieur d'un panneau ouvert (menu, chat) :
+     sans cela, la tabulation part dans la page masquée derrière le panneau. */
+  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), ' +
+                  'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  function trapFocus(panel) {
+    return function (e) {
+      if (e.key !== "Tab") return;
+      var items = Array.prototype.filter.call(
+        panel.querySelectorAll(FOCUSABLE),
+        function (el) { return el.offsetParent !== null; });
+      if (!items.length) return;
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+  }
+  var mobileTrap = null;
+
   function openMobile() {
-    if (!mobileNav) return;
+    if (!mobileNav || mobileOpen) return;
+    mobileOpen = true;
     mobileNav.hidden = false; overlay.hidden = false;
     requestAnimationFrame(function () {
       mobileNav.classList.add("is-open");
       overlay.classList.add("is-open");
+      var first = mobileNav.querySelector(FOCUSABLE);
+      if (first) first.focus();
     });
     burger.setAttribute("aria-expanded", "true");
     document.body.style.overflow = "hidden";
+    mobileTrap = trapFocus(mobileNav);
+    document.addEventListener("keydown", mobileTrap);
   }
-  function closeMobile() {
-    if (!mobileNav) return;
+  function closeMobile(returnFocus) {
+    if (!mobileNav || !mobileOpen) return;
+    mobileOpen = false;
     mobileNav.classList.remove("is-open");
     overlay.classList.remove("is-open");
     burger.setAttribute("aria-expanded", "false");
     document.body.style.overflow = "";
-    setTimeout(function () { mobileNav.hidden = true; overlay.hidden = true; }, 300);
+    if (mobileTrap) { document.removeEventListener("keydown", mobileTrap); mobileTrap = null; }
+    // Le focus doit revenir au bouton qui a ouvert le panneau, sinon il repart
+    // au début du document et l'utilisateur clavier perd sa position.
+    if (returnFocus !== false && burger) burger.focus();
+    setTimeout(function () {
+      if (!mobileOpen) { mobileNav.hidden = true; overlay.hidden = true; }
+    }, 300);
   }
   if (burger) burger.addEventListener("click", function () {
-    burger.getAttribute("aria-expanded") === "true" ? closeMobile() : openMobile();
+    mobileOpen ? closeMobile() : openMobile();
   });
-  if (overlay) overlay.addEventListener("click", closeMobile);
+  if (overlay) overlay.addEventListener("click", function () { closeMobile(); });
 
   /* Sous-menus du menu mobile */
   document.querySelectorAll(".mnav__toggle").forEach(function (t) {
@@ -62,28 +98,37 @@
   });
 
   /* ---------- Méga-menu : accessibilité clavier ---------- */
+  /* Ferme tous les méga-menus. Auparavant seul l'attribut aria-expanded des
+     autres boutons était remis à false : leurs styles en ligne subsistaient,
+     laissant le premier menu ouvert par-dessus le second. */
+  function closeAllMega() {
+    document.querySelectorAll(".megamenu").forEach(function (m) {
+      m.style.opacity = ""; m.style.visibility = ""; m.style.transform = "";
+    });
+    document.querySelectorAll(".nav__toggle").forEach(function (b) {
+      b.setAttribute("aria-expanded", "false");
+    });
+  }
+
   document.querySelectorAll(".nav__toggle").forEach(function (btn) {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
       var item = btn.closest(".nav__item");
-      var menu = item.querySelector(".megamenu");
+      var menu = item ? item.querySelector(".megamenu") : null;
       var open = btn.getAttribute("aria-expanded") === "true";
-      document.querySelectorAll(".nav__toggle").forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
-      btn.setAttribute("aria-expanded", String(!open));
-      if (menu) {
-        menu.style.opacity = open ? "" : "1";
-        menu.style.visibility = open ? "" : "visible";
-        menu.style.transform = open ? "" : "translateX(-50%) translateY(0)";
+      closeAllMega();
+      if (!open) {
+        btn.setAttribute("aria-expanded", "true");
+        if (menu) {
+          menu.style.opacity = "1";
+          menu.style.visibility = "visible";
+          menu.style.transform = "translateX(-50%) translateY(0)";
+        }
       }
     });
   });
   document.addEventListener("click", function (e) {
-    if (!e.target.closest(".nav__item--has-children")) {
-      document.querySelectorAll(".megamenu").forEach(function (m) {
-        m.style.opacity = ""; m.style.visibility = ""; m.style.transform = "";
-      });
-      document.querySelectorAll(".nav__toggle").forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
-    }
+    if (!e.target.closest(".nav__item--has-children")) closeAllMega();
   });
 
   /* ---------- Recherche ---------- */
@@ -93,31 +138,62 @@
   var searchResults = document.getElementById("search-results");
   var searchClose = document.querySelector(".searchbar__close");
 
+  function setSearchExpanded(open) {
+    if (searchToggle) searchToggle.setAttribute("aria-expanded", String(open));
+    if (searchInput) searchInput.setAttribute("aria-expanded", String(open));
+  }
   function openSearch() {
     if (!searchbar) return;
     searchbar.hidden = false;
+    setSearchExpanded(true);
     setTimeout(function () { searchInput && searchInput.focus(); }, 50);
   }
-  function closeSearch() {
-    if (!searchbar) return;
+  function closeSearch(returnFocus) {
+    if (!searchbar || searchbar.hidden) return;
     searchbar.hidden = true;
+    setSearchExpanded(false);
     if (searchResults) { searchResults.classList.remove("is-open"); searchResults.innerHTML = ""; }
     if (searchInput) searchInput.value = "";
+    announce("");
+    // Rendre le focus au bouton loupe plutôt que de le laisser sur un élément masqué.
+    if (returnFocus !== false && searchToggle) searchToggle.focus();
   }
   if (searchToggle) searchToggle.addEventListener("click", function () {
     searchbar.hidden ? openSearch() : closeSearch();
   });
-  if (searchClose) searchClose.addEventListener("click", closeSearch);
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeSearch(); closeMobile(); } });
+  if (searchClose) searchClose.addEventListener("click", function () { closeSearch(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    // Ne fermer que ce qui est réellement ouvert, pour ne pas voler le focus.
+    if (searchbar && !searchbar.hidden) closeSearch();
+    else if (mobileOpen) closeMobile();
+    else closeAllMega();
+  });
 
   function normalize(s) {
-    return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    return (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   }
+
+  /* Échappe toute valeur avant insertion dans du HTML (saisie utilisateur
+     comprise) — sans cela, taper « <img onerror=…> » exécuterait du script. */
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  /* Annonce aux lecteurs d'écran le nombre de résultats trouvés. */
+  var srStatus = document.getElementById("search-status");
+  function announce(msg) { if (srStatus) srStatus.textContent = msg; }
   if (searchInput) {
     searchInput.addEventListener("input", function () {
       var q = normalize(searchInput.value.trim());
       var idx = window.SEARCH_INDEX || [];
-      if (q.length < 2) { searchResults.classList.remove("is-open"); searchResults.innerHTML = ""; return; }
+      if (q.length < 2) {
+        searchResults.classList.remove("is-open"); searchResults.innerHTML = "";
+        searchInput.setAttribute("aria-expanded", "false"); announce("");
+        return;
+      }
       var hits = idx.map(function (it) {
         var hay = normalize(it.t + " " + it.d + " " + it.s);
         var score = 0;
@@ -128,26 +204,43 @@
         .slice(0, 8);
 
       if (!hits.length) {
-        searchResults.innerHTML = '<div class="sresult sresult--empty">Aucun résultat pour « ' + searchInput.value + ' ».</div>';
+        searchResults.innerHTML =
+          '<div class="sresult sresult--empty">Aucun résultat pour « ' +
+          esc(searchInput.value) + ' ».</div>';
+        announce("Aucun résultat.");
       } else {
         searchResults.innerHTML = hits.map(function (h) {
-          var sec = h.it.s ? '<span class="sresult__sec">' + h.it.s + "</span>" : "";
-          return '<a class="sresult" href="' + h.it.u + '">' + sec +
-            '<span class="sresult__title">' + h.it.t + "</span>" +
-            '<span class="sresult__desc">' + (h.it.d || "") + "</span></a>";
+          var sec = h.it.s ? '<span class="sresult__sec">' + esc(h.it.s) + "</span>" : "";
+          return '<a class="sresult" href="' + esc(h.it.u) + '">' + sec +
+            '<span class="sresult__title">' + esc(h.it.t) + "</span>" +
+            '<span class="sresult__desc">' + esc(h.it.d || "") + "</span></a>";
         }).join("");
+        announce(hits.length + (hits.length > 1 ? " résultats disponibles." : " résultat disponible."));
       }
       searchResults.classList.add("is-open");
+      searchInput.setAttribute("aria-expanded", "true");
     });
   }
 
   /* ---------- Accordéon ---------- */
   document.querySelectorAll(".accordion__trigger").forEach(function (t) {
+    var panel = document.getElementById(t.getAttribute("aria-controls"));
+    if (!panel) return;
     t.addEventListener("click", function () {
       var open = t.getAttribute("aria-expanded") === "true";
-      var panel = t.nextElementSibling;
       t.setAttribute("aria-expanded", String(!open));
-      panel.style.maxHeight = open ? "0" : panel.scrollHeight + "px";
+      if (open) {
+        panel.style.maxHeight = "0";
+        // `hidden` est reposé après la transition : un panneau replié doit
+        // sortir de l'arbre d'accessibilité, sinon un lecteur d'écran lit des
+        // réponses que le bouton annonce pourtant comme masquées.
+        setTimeout(function () {
+          if (t.getAttribute("aria-expanded") === "false") panel.hidden = true;
+        }, 300);
+      } else {
+        panel.hidden = false;
+        requestAnimationFrame(function () { panel.style.maxHeight = panel.scrollHeight + "px"; });
+      }
     });
   });
 
@@ -174,6 +267,8 @@
   /* ---------- Compteurs animés ---------- */
   function animateCount(el) {
     var raw = el.getAttribute("data-count") || el.textContent;
+    // Sans cette garde, le compteur défilait malgré prefers-reduced-motion.
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     var match = String(raw).match(/[\d\s.,]+/);
     if (!match) return;
     var target = parseFloat(match[0].replace(/[\s.,]/g, ""));
@@ -219,6 +314,12 @@
      par votre URL de point de terminaison (ex. https://formspree.io/f/xxxx).
      ======================================================================= */
   var ACCI_FORM_ENDPOINT = "";              // ← coller ici votre endpoint
+  if (!ACCI_FORM_ENDPOINT) {
+    console.warn("[ACCI] Aucun ACCI_FORM_ENDPOINT configuré : les formulaires " +
+      "basculent sur l’ouverture du client e-mail du visiteur. Renseignez un " +
+      "service de formulaire (Formspree, Web3Forms) avant la mise en ligne " +
+      "pour que les envois parviennent réellement à l’association.");
+  }
   var ACCI_CONTACT_EMAIL = "contact@acci.ci";
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -269,15 +370,14 @@
     window.location.href = href;
   }
 
-  function saveToCrmInbox(rec) {
-    // Enregistre la demande dans la boîte de réception du CRM (même navigateur)
-    try {
-      var k = "acci_crm_inbox";
-      var arr = JSON.parse(localStorage.getItem(k) || "[]");
-      arr.unshift(rec);
-      localStorage.setItem(k, JSON.stringify(arr.slice(0, 500)));
-    } catch (e) {}
-  }
+  /* NOTE — les envois ne sont volontairement PAS conservés dans le navigateur.
+     Une version antérieure écrivait chaque message (nom, e-mail, téléphone et
+     contenu, y compris les signalements adressés à la cellule d'écoute) dans
+     le localStorage du visiteur. Ces données restaient donc sur SON appareil,
+     lisibles par la personne suivante à l'utiliser — un poste partagé, un
+     cybercafé — sans jamais parvenir à l'ACCI : l'espace d'administration lit
+     le localStorage de l'ordinateur de l'association, pas celui du visiteur.
+     Aucun bénéfice, un risque réel pour des personnes vulnérables. Supprimé. */
 
   function postEndpoint(data) {
     return fetch(ACCI_FORM_ENDPOINT, {
@@ -305,8 +405,6 @@
         name: fd.get("name"), email: fd.get("email"), phone: fd.get("phone") || "—",
         subject: fd.get("subject"), message: fd.get("message"), _source: "Site ACCI"
       };
-      saveToCrmInbox({ name: data.name, email: data.email, phone: fd.get("phone") || "",
-        subject: data.subject, message: data.message, date: new Date().toISOString() });
       var btn = document.getElementById("contact-submit");
       var orig = btn.textContent;
 
@@ -316,25 +414,40 @@
           note(noteEl, "Merci " + data.name + " ! Votre message a bien été envoyé. Nous vous répondrons rapidement.", "ok");
           contactForm.reset();
         }).catch(function () {
-          note(noteEl, "L'envoi automatique a échoué. Ouverture de votre messagerie…", "err");
+          note(noteEl, "L’envoi automatique a échoué : votre messagerie s’ouvre avec le message pré-rempli. " +
+                       "Si rien ne s’ouvre, écrivez à " + ACCI_CONTACT_EMAIL + ".", "err");
           mailtoFallback("Contact ACCI — " + data.subject, contactBody(data));
         }).finally(function () { btn.disabled = false; btn.textContent = orig; });
       } else {
         mailtoFallback("Contact ACCI — " + data.subject, contactBody(data));
-        note(noteEl, "Votre messagerie s'ouvre avec le message pré-rempli. Cliquez sur « Envoyer » pour finaliser.", "ok");
-        contactForm.reset();
+        // Le formulaire n'est volontairement PAS réinitialisé : tant que le
+        // visiteur n'a pas cliqué « Envoyer » dans sa messagerie, rien n'est
+        // parti. Effacer sa saisie lui ferait perdre son message si aucun
+        // client e-mail n'est configuré — courant sur Android.
+        note(noteEl, "Votre messagerie s’ouvre avec le message pré-rempli : il reste à cliquer sur « Envoyer » pour finaliser. " +
+                     "Si rien ne s’ouvre, écrivez directement à " + ACCI_CONTACT_EMAIL + " — votre message est conservé ci-dessus.", "ok");
       }
     });
   }
 
   function contactBody(d) {
     return "Nom : " + d.name + "\nE-mail : " + d.email + "\nTéléphone : " + d.phone +
-      "\nObjet : " + d.subject + "\n\nMessage :\n" + d.message + "\n\n— Envoyé depuis le site de l'ACCI";
+      "\nObjet : " + d.subject + "\n\nMessage :\n" + d.message + "\n\n— Envoyé depuis le site de l’ACCI";
   }
 
   /* ---- Formulaire newsletter ---- */
   var newsForm = document.getElementById("newsletter-form");
   if (newsForm) {
+    var newsInput = newsForm.querySelector('input[type="email"]');
+    if (newsInput) newsInput.addEventListener("input", function () {
+      if (!newsInput.classList.contains("is-invalid")) return;
+      if (EMAIL_RE.test(newsInput.value.trim())) {
+        newsInput.classList.remove("is-invalid");
+        newsInput.setAttribute("aria-invalid", "false");
+        var n = document.getElementById("newsletter-note");
+        if (n) n.hidden = true;
+      }
+    });
     newsForm.addEventListener("submit", function (e) {
       e.preventDefault();
       var input = newsForm.querySelector('input[type="email"]');
@@ -342,25 +455,27 @@
       var email = (input.value || "").trim();
       if (!EMAIL_RE.test(email)) {
         input.classList.add("is-invalid");
+        input.setAttribute("aria-invalid", "true");
+        if (noteEl && noteEl.id) input.setAttribute("aria-describedby", noteEl.id);
         note(noteEl, "Veuillez saisir une adresse e-mail valide.", "err");
         input.focus();
         return;
       }
       input.classList.remove("is-invalid");
-      saveToCrmInbox({ name: "", email: email, phone: "", subject: "Inscription newsletter", message: "", date: new Date().toISOString() });
+      input.setAttribute("aria-invalid", "false");
       var btn = newsForm.querySelector("button");
       if (ACCI_FORM_ENDPOINT) {
         btn.disabled = true; btn.textContent = "…";
         postEndpoint({ email: email, _form: "newsletter", _source: "Site ACCI" }).then(function () {
           note(noteEl, "Merci ! Votre inscription est confirmée.", "ok"); newsForm.reset();
         }).catch(function () {
-          mailtoFallback("Inscription à la newsletter de l'ACCI", "Je souhaite m'abonner à la newsletter avec l'adresse : " + email);
-          note(noteEl, "Ouverture de votre messagerie pour confirmer l'inscription.", "ok");
-        }).finally(function () { btn.disabled = false; btn.textContent = "S'abonner"; });
+          mailtoFallback("Inscription à la newsletter de l’ACCI", "Je souhaite m’abonner à la newsletter avec l’adresse : " + email);
+          note(noteEl, "Ouverture de votre messagerie pour confirmer l’inscription.", "ok");
+        }).finally(function () { btn.disabled = false; btn.textContent = "S’abonner"; });
       } else {
-        mailtoFallback("Inscription à la newsletter de l'ACCI", "Je souhaite m'abonner à la newsletter avec l'adresse : " + email);
-        note(noteEl, "Merci ! Votre messagerie s'ouvre pour confirmer l'inscription.", "ok");
-        newsForm.reset();
+        mailtoFallback("Inscription à la newsletter de l’ACCI", "Je souhaite m’abonner à la newsletter avec l’adresse : " + email);
+        // Idem : l'inscription n'est effective qu'une fois l'e-mail envoyé.
+        note(noteEl, "Votre messagerie s’ouvre pour confirmer l’inscription : il reste à cliquer sur « Envoyer ».", "ok");
       }
     });
   }

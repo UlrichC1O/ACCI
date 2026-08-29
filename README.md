@@ -2,8 +2,8 @@
 
 **Association des Créateurs de Contenu Ivoiriens**
 Site institutionnel professionnel de 50 pages en français, dédié à la promotion
-d'un usage responsable des réseaux sociaux en Côte d'Ivoire et à la lutte contre
-les mauvaises pratiques en ligne.
+d'un usage responsable des réseaux sociaux en Côte d'Ivoire et à la prévention
+des mauvaises pratiques en ligne.
 
 ## Aperçu
 
@@ -13,10 +13,20 @@ les mauvaises pratiques en ligne.
 - Entièrement **responsive** (ordinateur, tablette, mobile)
 - **Accessible** : navigation clavier, lien d'évitement, contrastes, `prefers-reduced-motion`
 - Méga-menu, menu mobile, **recherche intégrée**, accordéons, animations au défilement
-- **Photos professionnelles** intégrées (héros, sections, galerie)
+- **Photos professionnelles** intégrées (héros, sections, galerie), servies en
+  **WebP responsive** (`<picture>` + `srcset`) avec repli JPEG
 - **Graphiques animés** (barres et anneau) en SVG, sans bibliothèque externe
+- **Jeu d’icônes maison** : 42 pictogrammes tracés sur une grille de 24 × 24,
+  trait unique de 1,5 px, registre institutionnel
 - **Assistant conversationnel** (chat) à base de règles, présent sur toutes les pages
 - **Aucune dépendance** : généré par un script Python 3, hébergeable partout
+- **Polices auto-hébergées** (Inter + Sora, sous-ensembles latin) : aucune
+  requête vers un tiers, pas de rendu bloqué par Google Fonts
+- **Référencement** : canoniques, sitemap daté, données structurées JSON-LD
+  (NGO, WebSite, BreadcrumbList, FAQPage), Open Graph et carte Twitter
+- **Accessibilité** : contrastes conformes WCAG 2.1 AA, anneau de focus visible,
+  gestion du focus dans les panneaux, `prefers-reduced-motion` complet
+- **Le contenu reste lisible sans JavaScript** (et si un script échoue à charger)
 
 ## Blocs de contenu disponibles
 
@@ -28,6 +38,22 @@ les mauvaises pratiques en ligne.
 
 Les images vont dans `assets/img/` ; un bloc les référence par leur nom de
 fichier (ex. `{"type": "image", "image": "formation.jpg", "alt": "…"}`).
+
+### Photos des cartes
+
+Les blocs `cards` et `posts` affichent une photo au-dessus du titre. Elle est
+résolue dans cet ordre :
+
+1. la clé `image` de la carte, si elle est renseignée ;
+2. `content/card_images.json`, qui associe un intitulé de carte à un fichier —
+   la clé `"page::Titre"` prime sur la clé `"Titre"` seule, ce qui permet de
+   distinguer deux cartes homonymes ;
+3. à défaut, la carte retombe sur son icône (et le bloc `posts` sur un aplat de
+   marque). Le build **signale alors chaque carte sans photo**, pour qu'un oubli
+   ne passe pas inaperçu.
+
+Lorsqu'une photo est présente, l'icône n'est pas affichée : les cumuler
+alourdirait la carte sans rien apporter.
 L'assistant de chat se configure dans `assets/js/chat.js` (base de
 connaissances `INTENTS` + suggestions `QUICK`).
 
@@ -48,15 +74,22 @@ Un **CRM d'administration** complet et gratuit, sans serveur, est inclus dans
   nouveaux du mois) + graphiques par domaine et par statut.
 - **Membres** : ajouter / modifier / supprimer, recherche, filtres (statut,
   domaine), tri, sélection multiple (suppression / changement de statut en lot).
-- **Boîte de réception** : les envois des formulaires du site (sur le même
-  navigateur) y arrivent et se convertissent en membre en un clic.
+- **Boîte de réception** : convertit une demande en membre en un clic.
+  *Elle n'est plus alimentée automatiquement par les formulaires du site* : ceux-ci
+  écrivaient auparavant chaque message (nom, e-mail, téléphone, contenu — y compris
+  les signalements adressés à la cellule d'écoute) dans le `localStorage` **du
+  visiteur**, où la personne suivante à utiliser l'appareil pouvait les lire, et
+  d'où ils ne parvenaient de toute façon jamais à l'ACCI. Alimentez-la par import
+  CSV/JSON depuis votre service de formulaire.
 - **Import / Export** : CSV et JSON (sauvegarde, portabilité, modèle fourni).
 - **Base de données** : les données sont stockées dans le navigateur
   (`localStorage`). Exportez régulièrement pour sauvegarder.
 
-**Sécurité / production** : la protection par code et le stockage local
-conviennent à un usage simple sur un poste. Pour un accès **partagé, en ligne
-et multi-appareils**, connectez une base **Supabase** (offre gratuite) :
+**Sécurité / production** : le code d'accès est vérifié *dans le navigateur* —
+il masque l'interface, il ne protège pas les données. Toute personne ayant accès
+à l'ordinateur peut lire le fichier des membres via les outils de développement,
+sans connaître le code. Cet espace convient donc à **un poste unique et de
+confiance**. Pour un accès **partagé, en ligne et multi-appareils**, connectez une base **Supabase** (offre gratuite) :
 créez une table `members`, puis renseignez l'URL + la clé publique dans
 `admin/admin.js` (section `DB`). L'interface reste identique.
 
@@ -91,10 +124,16 @@ ACCI/
 │   ├── services.py       # Pages 29-38 — Services & ressources
 │   ├── actualites.py     # Pages 39-44 — Actualités & événements
 │   └── engagement.py     # Pages 45-50 — Engagement & légal
+├── tools/
+│   └── optimize-images.sh # Préparation des photos (WebP responsive)
 ├── assets/
 │   ├── css/styles.css    # Système de design complet
+│   ├── css/fonts.css     # @font-face auto-hébergés (Inter + Sora)
 │   ├── js/main.js        # Interactions (menu, recherche, accordéon…)
-│   └── img/favicon.svg
+│   ├── js/chat.js        # Assistant conversationnel
+│   ├── fonts/            # Sous-ensembles woff2 (latin, latin-ext)
+│   └── img/              # Variantes responsives + manifest.json
+├── vercel.json           # Déploiement : en-têtes de sécurité et de cache
 └── dist/                 # Site généré (sortie) — à publier
 ```
 
@@ -106,6 +145,43 @@ Prérequis : **Python 3** (aucune autre dépendance).
 python3 build.py            # génère le site dans ./dist
 python3 build.py --serve    # génère puis lance http://localhost:8000
 ```
+
+Les fichiers CSS et JS reçoivent une **empreinte de contenu** au build
+(`styles.<hash>.css`) : ils peuvent ainsi être servis avec un cache d'un an
+sans qu'un visiteur reçoive jamais une version périmée.
+
+### Photos — préparation (ponctuelle)
+
+Les photos servies sont des variantes générées (`nom-640.webp`, `nom-1024.webp`,
+`nom-1600.webp`, plus un repli `nom-1200.jpg`), **versionnées dans le dépôt** :
+le build reste ainsi sans dépendance. Pour ajouter ou remplacer une photo :
+
+```bash
+mkdir -p assets/img/_originals      # dossier non versionné
+cp ma-photo.jpg assets/img/_originals/
+bash tools/optimize-images.sh       # nécessite Node.js (npx sharp-cli)
+```
+
+Le script régénère aussi `assets/img/manifest.json`, dont `build.py` se sert
+pour écrire les `srcset` et les dimensions intrinsèques (`width`/`height`, qui
+évitent les sauts de mise en page au chargement).
+
+**Direction artistique.** Les photos suivent une ligne unique : photographie
+documentaire éditoriale, cadre ivoirien, lumière naturelle douce, un sujet clair
+sur fond dégagé — le registre d'un rapport d'activité, non celui de la banque
+d'images. Deux règles sont impératives : aucun texte ni logo de marque lisible
+dans l'image (une photo montrant une carte bancaire de marque réelle sur une page
+consacrée aux arnaques a dû être remplacée), et un traitement digne des sujets
+sensibles — on photographie l'accompagnement, jamais la détresse mise en scène,
+et jamais un mineur en situation d'exposition.
+
+### URL canonique — à renseigner avant la mise en ligne
+
+`SITE["url"]` alimente les balises canoniques, le sitemap, `robots.txt` et les
+données structurées. La valeur par défaut est `https://www.acci.ci`, **domaine
+qui ne résout pas à ce jour** (NXDOMAIN, constaté le 29/08/2026). Renseignez le
+domaine réel via la variable d'environnement `SITE_URL` (Vercel : *Settings →
+Environment Variables*) ou en modifiant `content/site.py`.
 
 ## Publier
 

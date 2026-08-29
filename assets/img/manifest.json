@@ -1,0 +1,1590 @@
+{
+ "a-propos.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "a-propos-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "accompagnement-juridique.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "accompagnement-juridique-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "adhesion.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "adhesion-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "bonnes-pratiques.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "bonnes-pratiques-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "bureau-executif.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "bureau-executif-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "charte.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "charte-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "communaute.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "communaute-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "contenus-explicites.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "contenus-explicites-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "cyber-escroquerie.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "cyber-escroquerie-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "cyberharcelement.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "cyberharcelement-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "defis-dangereux.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "defis-dangereux-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "deontologie.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "deontologie-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "desinformation.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "desinformation-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "diffamation.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "diffamation-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "discours-haine.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "discours-haine-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "droits-auteur.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "droits-auteur-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "ecoute.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "ecoute-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "formation.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "formation-1200.jpg",
+  "w": 1200,
+  "h": 822
+ },
+ "formations-hero.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "formations-hero-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "guide-debutant.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "guide-debutant-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "hero-creators.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "hero-creators-1200.jpg",
+  "w": 1200,
+  "h": 687
+ },
+ "histoire.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "histoire-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "logo-wordmark-light.png": {
+  "widths": [
+   240,
+   480
+  ],
+  "fallback": "logo-wordmark-light-480.png",
+  "w": 480,
+  "h": 293
+ },
+ "logo-wordmark.png": {
+  "widths": [
+   240,
+   480
+  ],
+  "fallback": "logo-wordmark-480.png",
+  "w": 480,
+  "h": 293
+ },
+ "mauvaises-pratiques.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "mauvaises-pratiques-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "mission-vision.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "mission-vision-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "monetisation-ethique.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "monetisation-ethique-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "partenaires.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "partenaires-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "protection-enfants.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "protection-enfants-1200.jpg",
+  "w": 1200,
+  "h": 822
+ },
+ "protection-mineurs.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "protection-mineurs-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "securite-numerique.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "securite-numerique-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "services.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "services-1200.jpg",
+  "w": 1200,
+  "h": 687
+ },
+ "sextorsion.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "sextorsion-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "solidarite.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "solidarite-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "statuts.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "statuts-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "usage-responsable.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "usage-responsable-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "valeurs.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "valeurs-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "verification-information.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "verification-information-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "vie-privee.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "vie-privee-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "abidjan-lagoon-golden-hour.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "abidjan-lagoon-golden-hour-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "actualites-bureau-communication.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "actualites-bureau-communication-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "adhesion-signature-salle.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "adhesion-signature-salle-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "affiches-still-life-table.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "affiches-still-life-table-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "agenda-hall-setup.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "agenda-hall-setup-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "annuaire-createurs-toit-abidjan.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "annuaire-createurs-toit-abidjan-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "annuaire-culture-societe.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "annuaire-culture-societe-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "annuaire-education-savoir.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "annuaire-education-savoir-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "annuaire-entrepreneuriat.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "annuaire-entrepreneuriat-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "annuaire-humour-divertissement.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "annuaire-humour-divertissement-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "annuaire-lifestyle-mode.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "annuaire-lifestyle-mode-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "annuaire-sport-sante.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "annuaire-sport-sante-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "appui-juridique-bureau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "appui-juridique-bureau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "arnaques-kiosque-mobile-money.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "arnaques-kiosque-mobile-money-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "asking-for-help-community-desk.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "asking-for-help-community-desk-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "atelier-formation-bouake.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "atelier-formation-bouake-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "atelier-verification-information.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "atelier-verification-information-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "ateliers-formations.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "ateliers-formations-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "badge-epingle-chemise.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "badge-epingle-chemise-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "bouake-training-desk-mentor.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "bouake-training-desk-mentor-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "cafe-des-createurs.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "cafe-des-createurs-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "campagnes-proximite.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "campagnes-proximite-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "campagnes-sensibilisation-marche.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "campagnes-sensibilisation-marche-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "campagnes-sensibilisation-rue.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "campagnes-sensibilisation-rue-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "campagnes-volontaires-rue.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "campagnes-volontaires-rue-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "capsules-video-tripod-room.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "capsules-video-tripod-room-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "caravane-numerique-regions.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "caravane-numerique-regions-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "cellule-ecoute-bureau-benevole.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "cellule-ecoute-bureau-benevole-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "cellule-ecoute-bureau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "cellule-ecoute-bureau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "cellule-ecoute-salle-calme.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "cellule-ecoute-salle-calme-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "champs-action-terrasse-abidjan.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "champs-action-terrasse-abidjan-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "charte-mains-papier-table.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "charte-mains-papier-table-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "common-sense-street-pause.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "common-sense-street-pause-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "communaute-cour-manguier.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "communaute-cour-manguier-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "communiques-office-window.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "communiques-office-window-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "communiques-presse-micros-table.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "communiques-presse-micros-table-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "community-hall-circle-chairs.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "community-hall-circle-chairs-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "confidentialite-dossier-ferme.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "confidentialite-dossier-ferme-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "confidentialite-tiroir-dossiers.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "confidentialite-tiroir-dossiers-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "contact-bureau-accueil-abidjan.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "contact-bureau-accueil-abidjan-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "contact-presse-headset.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "contact-presse-headset-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "contact-presse-journalists-terrace.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "contact-presse-journalists-terrace-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "contact-signalement-phone-desk.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "contact-signalement-phone-desk-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "contenus-choquants-telephone-retourne.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "contenus-choquants-telephone-retourne-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "counselling-room-hands-phone.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "counselling-room-hands-phone-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "cyberharcelement-main-sur-epaule.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "cyberharcelement-main-sur-epaule-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "date-check-still-life.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "date-check-still-life-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "defis-dangereux-cour-ecole-tripode.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "defis-dangereux-cour-ecole-tripode-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "deploiement-regional-route.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "deploiement-regional-route-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "desinformation-deux-telephones-bureau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "desinformation-deux-telephones-bureau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "desinformation-table-concertation.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "desinformation-table-concertation-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "diffamation-femme-fenetre-bureau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "diffamation-femme-fenetre-bureau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "discours-de-haine-cercle-manguier.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "discours-de-haine-cercle-manguier-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "dossiers-presse-flatlay.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "dossiers-presse-flatlay-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "ecoles-universites-amphi.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "ecoles-universites-amphi-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "ecoute-bienveillante-salle.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "ecoute-bienveillante-salle-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "empty-meeting-room-morning.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "empty-meeting-room-morning-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "evenements-salle-chaises-vides.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "evenements-salle-chaises-vides-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "factcheck-newsroom-screen.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "factcheck-newsroom-screen-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "faire-un-don-preparation-cartons.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "faire-un-don-preparation-cartons-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "faq-main-levee-atelier.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "faq-main-levee-atelier-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "formations-atelier-bouake.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "formations-atelier-bouake-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "formations-atelier-classe.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "formations-atelier-classe-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "forum-createur-responsable-2026.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "forum-createur-responsable-2026-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "forum-createur-responsable-salle.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "forum-createur-responsable-salle-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "forum-createur-responsable.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "forum-createur-responsable-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "galerie-photographe-revoit-images.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "galerie-photographe-revoit-images-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "glossaire-booklet-shade.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "glossaire-booklet-shade-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "glossaire-carnet-pages-vierges.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "glossaire-carnet-pages-vierges-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "harcelement-balcon-abidjan.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "harcelement-balcon-abidjan-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "harcelement-en-ligne-mains-telephone.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "harcelement-en-ligne-mains-telephone-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "initiatives-terrasse-plateau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "initiatives-terrasse-plateau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "institutions-publiques-reunion.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "institutions-publiques-reunion-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "juridique-dossiers-bureau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "juridique-dossiers-bureau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "kit-campagne-volunteers.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "kit-campagne-volunteers-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "kit-parents-veranda-dusk.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "kit-parents-veranda-dusk-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "kit-pedagogique-classroom.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "kit-pedagogique-classroom-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "lancement-2026-salle-communautaire.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "lancement-2026-salle-communautaire-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "lien-juridique-bureau-avocate.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "lien-juridique-bureau-avocate-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "mauvaises-pratiques-telephones-table.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "mauvaises-pratiques-telephones-table-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "medias-studio-radio.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "medias-studio-radio-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "mediatheque-rooftop-photographer.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "mediatheque-rooftop-photographer-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "mentions-legales-nature-morte-bureau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "mentions-legales-nature-morte-bureau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "mineurs-mere-enfant-veranda.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "mineurs-mere-enfant-veranda-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "mise-en-securite-mains-telephone.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "mise-en-securite-mains-telephone-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "nos-services-accueil-adhesion.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "nos-services-accueil-adhesion-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "notre-action-assemblee-communautaire.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "notre-action-assemblee-communautaire-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "nous-contacter-accueil-casque.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "nous-contacter-accueil-casque-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "orientation-cour-ombragee.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "orientation-cour-ombragee-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "partagevrai-campagne-marche-abidjan.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "partagevrai-campagne-marche-abidjan-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "partenariats-plan-bureau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "partenariats-plan-bureau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "plateformes-numeriques-nature-morte.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "plateformes-numeriques-nature-morte-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "porte-parole-interview.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "porte-parole-interview-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "presse-videojournaliste-rue.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "presse-videojournaliste-rue-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "primary-sources-archive-room.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "primary-sources-archive-room-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "protection-mineurs-parent-enfant.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "protection-mineurs-parent-enfant-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "protection-mineurs-pere-et-fils.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "protection-mineurs-pere-et-fils-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "protection-mineurs-veranda.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "protection-mineurs-veranda-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "proteger-les-enfants-en-ligne.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "proteger-les-enfants-en-ligne-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "rencontres-partenaires.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "rencontres-partenaires-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "ressources-guides-table.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "ressources-guides-table-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "ressources-livrets-table.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "ressources-livrets-table-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "ressources-livrets-vue-plongee.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "ressources-livrets-vue-plongee-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "reverse-image-search-phone.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "reverse-image-search-phone-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "secteur-prive-bureau-plateau.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "secteur-prive-bureau-plateau-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "securiser-ses-comptes-webinaire.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "securiser-ses-comptes-webinaire-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "sextorsion-bureau-ecoute.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "sextorsion-bureau-ecoute-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "sextorsion-ecoute-salle-entretien.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "sextorsion-ecoute-salle-entretien-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "signalement-telephone-table.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "signalement-telephone-table-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "societe-civile-cercle-manguier.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "societe-civile-cercle-manguier-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "soutien-cellule-ecoute.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "soutien-cellule-ecoute-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "soutien-proches-veranda.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "soutien-proches-veranda-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "temoignages-entretien-chaise-simple.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "temoignages-entretien-chaise-simple-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "tournee-des-ecoles.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "tournee-des-ecoles-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "tournee-ecoles-classe-bouake.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "tournee-ecoles-classe-bouake-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "videotheque-petit-studio-tournage.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "videotheque-petit-studio-tournage-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "vie-de-la-communaute.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "vie-de-la-communaute-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "vie-privee-ecran-protege-main.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "vie-privee-ecran-protege-main-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "village-courtyard-tripod-dusk.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "village-courtyard-tripod-dusk-1200.jpg",
+  "w": 1200,
+  "h": 800
+ },
+ "visibilite-scene-soiree.jpg": {
+  "widths": [
+   640,
+   1024,
+   1600
+  ],
+  "fallback": "visibilite-scene-soiree-1200.jpg",
+  "w": 1200,
+  "h": 800
+ }
+}
