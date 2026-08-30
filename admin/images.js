@@ -592,7 +592,7 @@
   /* ---------------------------- Enregistrement ---------------------------- */
 
   A.register(
-    { view: "images", icon: "🖼", label: "Images du site" },
+    { view: "images", icon: "image", label: "Images du site" },
     { title: "Images du site", tabs: [
       { id: "library", l: "Photothèque" },
       { id: "placements", l: "Emplacements" }

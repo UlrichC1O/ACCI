@@ -528,7 +528,7 @@
   /* --------------------------- Enregistrement ----------------------------- */
 
   A.register(
-    { view: "identity", icon: "🏷", label: "Identité du site" },
+    { view: "identity", icon: "palette", label: "Identité du site" },
     { title: "Identité du site", tabs: [
       { id: "general", l: "Identité & contact" },
       { id: "social",  l: "Réseaux sociaux" },
