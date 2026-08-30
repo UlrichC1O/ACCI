@@ -498,3 +498,33 @@ input,select,textarea{font-family:inherit;font-size:14px;}
 .focalwrap img{max-width:100%;display:block;border-radius:8px;}
 .focaldot{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
   border:2px solid #fff;background:var(--orange-solid);box-shadow:0 0 0 2px rgba(0,0,0,.35);pointer-events:none;}
+
+/* ---------------------------------------------------------------------------
+   Icônes
+   Le CRM employait des émojis : dessin variable d'un système à l'autre, graisse
+   désaccordée du texte, couleur non contrôlable. Ces tracés partagent la grille
+   et le style du site public, et héritent de la couleur du contexte.
+   --------------------------------------------------------------------------- */
+.ai{flex-shrink:0;vertical-align:-.18em;}
+.snav{display:flex;align-items:center;gap:11px;}
+.snav .ai{opacity:.75;}
+.snav.is-active .ai,.snav:hover .ai{opacity:1;}
+.snav span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sidebar__user .su-role{display:inline-flex;align-items:center;gap:5px;}
+.empty-state__ic{color:var(--muted);opacity:.5;display:flex;justify-content:center;margin-bottom:10px;}
+.stat-box__ic .ai,.stat-ic .ai{color:var(--orange-text);}
+.abtn .ai{margin-right:2px;}
+.iact{display:inline-grid;place-items:center;}
+
+/* ---------------------------------------------------------------------------
+   Pastilles d'état
+   Deux teintes n'atteignaient pas le rapport de contraste de 4,5:1 exigé pour
+   du texte : l'ambre (2,96:1) et le gris (4,08:1). Le violet et le sarcelle,
+   eux, n'appartiennent pas à la charte — orange et vert — et faisaient passer
+   des états voisins pour des familles distinctes.
+   --------------------------------------------------------------------------- */
+.badge--prospect,.badge--qualifie,.badge--en-attente,
+.badge--moyen,.badge--en-pause{background:#FDF4E3;color:#8F5800;}
+.badge--inactive,.badge--ferme,.badge--faible,
+.badge--brouillon,.badge--annule{background:#EEF0EF;color:#4C574F;}
+.badge--negociation,.badge--devis,.badge--planifie{background:#EDF1EF;color:#14603F;}

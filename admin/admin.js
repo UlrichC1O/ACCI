@@ -59,7 +59,12 @@ function slug(s){return norm(s).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
    texte est échappé puisqu'il est injecté en HTML — comme dans custOpt. */
 function optH(arr,v){var extra=(v!=null&&v!==""&&arr.indexOf(v)===-1)?"<option selected>"+esc(v)+"</option>":"";return extra+arr.map(function(o){return"<option"+(o===v?" selected":"")+">"+esc(o)+"</option>";}).join("");}
 function custOpt(sel){return'<option value="">\u2014 Choisir \u2014</option>'+S.customers.all().map(function(c){return'<option value="'+c.id+'"'+(c.id===sel?" selected":"")+'>'+esc(c.name)+'</option>';}).join("");}
-function pctBar(val,max,color){var p=max?Math.round(val/max*100):0;return'<span class="cb__track"><span class="cb__fill" style="width:'+p+'%;background:'+(color||PAL[0])+'"></span></span>';}
+function pctBar(val,max,color){
+  var p=max?Math.round(val/max*100):0;
+  /* À zéro on n'affiche rien : l'arrondi de la barre laissait sinon un éclat de
+     couleur qui se lisait comme une valeur non nulle. */
+  return'<span class="cb__track">'+(p>0?'<span class="cb__fill" style="width:'+p+'%;background:'+(color||PAL[0])+'"></span>':"")+'</span>';
+}
 
 /* =========================== APPROVAL CODE ============================== */
 function genCode(){
@@ -160,6 +165,12 @@ function currentAdmin(){
   return a;
 }
 function isSuperAdmin(){var a=currentAdmin();return a&&a.role==="super_admin";}
+/* Le CRM doit toujours conserver un compte capable de gérer les accès :
+   rétrograder ou suspendre le dernier Super Admin fermerait la gestion des
+   comptes à tout le monde, sans moyen de revenir en arrière — les comptes ne
+   vivent que dans ce navigateur. */
+function superCount(){return S.admins.all().filter(function(x){return x.role==="super_admin"&&x.approved;}).length;}
+function isLastSuper(a){return!!(a&&a.role==="super_admin"&&a.approved&&superCount()<=1);}
 /* « Tous les modules » est enregistré comme le seul jeton "*". Le jeton est gardé
    tel quel plutôt qu'étendu à la création, sinon les rubriques déclarées ensuite
    (images.js) manqueraient à un compte censé tout couvrir. */
@@ -168,24 +179,24 @@ function canAccess(mod){var a=currentAdmin();if(!a)return false;if(a.role==="sup
 
 /* All sidebar items definition */
 var SIDEBAR_ITEMS=[
-  {view:"dashboard",icon:"📊",label:"Tableau de bord"},
-  {view:"customers",icon:"👥",label:"Membres & Partenaires"},
-  {view:"contacts",icon:"📇",label:"Contacts"},
-  {view:"tickets",icon:"🎫",label:"Demandes & Signalements"},
-  {view:"pipeline",icon:"💰",label:"Adhésions & Pipeline"},
-  {view:"invoices",icon:"📄",label:"Cotisations & Factures"},
-  {view:"marketing",icon:"📣",label:"Sensibilisation"},
-  {view:"projects",icon:"📁",label:"Projets & Initiatives"},
-  {view:"comms",icon:"💬",label:"Communication"},
-  {view:"team",icon:"👔",label:"Équipe ACCI"},
-  {view:"docs",icon:"📎",label:"Documents & Chartes"},
-  {view:"reports",icon:"📈",label:"Rapports"},
-  {view:"productivity",icon:"⭐",label:"Productivité"},
-  {view:"success",icon:"🤝",label:"Suivi Membres"},
+  {view:"dashboard",icon:"chart",label:"Tableau de bord"},
+  {view:"customers",icon:"users",label:"Membres & Partenaires"},
+  {view:"contacts",icon:"contacts",label:"Contacts"},
+  {view:"tickets",icon:"ticket",label:"Demandes & Signalements"},
+  {view:"pipeline",icon:"money",label:"Adhésions & Pipeline"},
+  {view:"invoices",icon:"invoice",label:"Cotisations & Factures"},
+  {view:"marketing",icon:"megaphone",label:"Sensibilisation"},
+  {view:"projects",icon:"folder",label:"Projets & Initiatives"},
+  {view:"comms",icon:"chat",label:"Communication"},
+  {view:"team",icon:"team",label:"Équipe ACCI"},
+  {view:"docs",icon:"clip",label:"Documents & Chartes"},
+  {view:"reports",icon:"trend",label:"Rapports"},
+  {view:"productivity",icon:"star",label:"Productivité"},
+  {view:"success",icon:"handshake",label:"Suivi Membres"},
   {sep:true},
-  {view:"inbox",icon:"📥",label:"Réception",badge:"inbox-count"},
-  {view:"data",icon:"↕",label:"Import / Export"},
-  {view:"admin",icon:"🔧",label:"Administration"}
+  {view:"inbox",icon:"inbox",label:"Réception",badge:"inbox-count"},
+  {view:"data",icon:"swap",label:"Import / Export"},
+  {view:"admin",icon:"cog",label:"Administration"}
 ];
 /* Module keys for permission checkboxes */
 var ALL_MODULES=["dashboard","customers","contacts","tickets","pipeline","invoices","marketing","projects","comms","team","docs","reports","productivity","success","inbox","data","admin"];
@@ -195,17 +206,17 @@ function buildSidebar(){
   var isSuper=adm.role==="super_admin";
   /* User info */
   $("#sidebar-user").innerHTML='<strong>'+esc(adm.name||adm.username)+'</strong><span class="su-role'+(isSuper?' su-role--super':'')+'">'+
-    (isSuper?'👑 Super Admin':'🔧 Admin')+'</span>';
+    (isSuper?'<i data-ic=badge></i> Super Admin':'<i data-ic=cog></i> Admin')+'</span>';paintIcons($("#sidebar-user"));
   /* Nav */
   var html="";
   SIDEBAR_ITEMS.forEach(function(item){
     if(item.sep){html+='<hr class="sidebar__sep">';return;}
     if(!isSuper&&!canAccess(item.view))return;
-    html+='<button class="snav" data-view="'+item.view+'">'+item.icon+' '+item.label;
+    html+='<button class="snav" data-view="'+item.view+'">'+ICO(item.icon,18)+'<span>'+item.label+'</span>';
     if(item.badge)html+=' <span class="snav__badge" id="'+item.badge+'" hidden>0</span>';
     html+='</button>';
   });
-  $("#snav").innerHTML=html;
+  $("#snav").innerHTML=html;paintIcons($("#snav"));
 }
 
 /* =========================== AUTH ======================================= */
@@ -320,7 +331,7 @@ function renderMemberPortal(member){
   var kbArticles=S.kb.all();
   var anns=S.announcements.all();
   var openT=tks.filter(function(t){return t.status==="Ouvert"||t.status==="En cours";}).length;
-  var svcIcons=["🎓","⚖️","🏅","🔍","🤝","💰","🚨","💚","✅"];
+  var svcIcons=["<i data-ic=graduation></i>","<i data-ic=scale></i>","<i data-ic=badge></i>","<i data-ic=search></i>","<i data-ic=handshake></i>","<i data-ic=money></i>","<i data-ic=alert></i>","<i data-ic=heart></i>","<i data-ic=check></i>"];
 
   var html='';
 
@@ -334,25 +345,25 @@ function renderMemberPortal(member){
 
   /* KPI cards */
   html+='<div class="kpis" style="margin-bottom:28px">';
-  html+='<div class="kpi"><span class="kpi__icon kpi__icon--info">🎫</span><span class="kpi__val">'+tks.length+'</span><span class="kpi__label">Demandes ACCI</span></div>';
-  html+='<div class="kpi"><span class="kpi__icon kpi__icon--warn">⏳</span><span class="kpi__val">'+openT+'</span><span class="kpi__label">En cours</span></div>';
-  html+='<div class="kpi"><span class="kpi__icon kpi__icon--ok">📄</span><span class="kpi__val">'+invs.length+'</span><span class="kpi__label">Factures</span></div>';
-  html+='<div class="kpi"><span class="kpi__icon kpi__icon--'+(member.charter?"ok":"danger")+'">📜</span><span class="kpi__val">'+(member.charter?"Signée":"Non signée")+'</span><span class="kpi__label">Charte ACCI</span></div>';
+  html+='<div class="kpi"><span class="kpi__icon kpi__icon--info"><i data-ic=ticket></i></span><span class="kpi__val">'+tks.length+'</span><span class="kpi__label">Demandes ACCI</span></div>';
+  html+='<div class="kpi"><span class="kpi__icon kpi__icon--warn"><i data-ic=clock></i></span><span class="kpi__val">'+openT+'</span><span class="kpi__label">En cours</span></div>';
+  html+='<div class="kpi"><span class="kpi__icon kpi__icon--ok"><i data-ic=invoice></i></span><span class="kpi__val">'+invs.length+'</span><span class="kpi__label">Factures</span></div>';
+  html+='<div class="kpi"><span class="kpi__icon kpi__icon--'+(member.charter?"ok":"danger")+'"><i data-ic=doc></i></span><span class="kpi__val">'+(member.charter?"Signée":"Non signée")+'</span><span class="kpi__label">Charte ACCI</span></div>';
   html+='</div>';
 
   /* Services catalog — card grid */
-  html+='<div class="member-section"><h2>🛡️ Services ACCI <span>· Sensibiliser · Former · Protéger · Plaider</span></h2>';
+  html+='<div class="member-section"><h2><i data-ic=shield></i> Services ACCI <span>· Sensibiliser · Former · Protéger · Plaider</span></h2>';
   html+='<div class="member-services">';
   svcs.forEach(function(s,i){
-    html+='<div class="member-svc"><div class="member-svc__icon">'+(svcIcons[i]||"⚙️")+'</div>';
+    html+='<div class="member-svc"><div class="member-svc__icon">'+(svcIcons[i]||"<i data-ic=cog></i>")+'</div>';
     html+='<h3>'+esc(s.name)+'</h3>';
-    html+=(s.defaultPrice>0?'<div class="member-svc__price">'+fmtMoney(s.defaultPrice)+'</div>':'<div class="member-svc__free">✓ Gratuit</div>');
+    html+=(s.defaultPrice>0?'<div class="member-svc__price">'+fmtMoney(s.defaultPrice)+'</div>':'<div class="member-svc__free"><i data-ic=check></i> Gratuit</div>');
     html+='</div>';
   });
   html+='</div></div>';
 
   /* Tickets */
-  html+='<div class="member-section"><h2>🎫 Mes demandes & signalements <span>('+tks.length+')</span></h2>';
+  html+='<div class="member-section"><h2><i data-ic=ticket></i> Mes demandes & signalements <span>('+tks.length+')</span></h2>';
   if(tks.length){
     html+='<div class="member-panel"><div class="dtable"><table><thead><tr><th>Titre</th><th>Priorité</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
     tks.forEach(function(t){html+='<tr><td><b>'+esc(t.title)+'</b></td><td>'+badge(t.priority)+'</td><td>'+badge(t.status)+'</td><td class="muted">'+fmtDate(t.createdAt)+'</td></tr>';});
@@ -363,7 +374,7 @@ function renderMemberPortal(member){
   html+='</div>';
 
   /* Invoices */
-  html+='<div class="member-section"><h2>📄 Mes cotisations & factures <span>('+invs.length+')</span></h2>';
+  html+='<div class="member-section"><h2><i data-ic=invoice></i> Mes cotisations & factures <span>('+invs.length+')</span></h2>';
   if(invs.length){
     html+='<div class="member-panel"><div class="dtable"><table><thead><tr><th>N°</th><th>Type</th><th>Total</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
     invs.forEach(function(i){html+='<tr><td>'+esc(i.number)+'</td><td>'+badge(i.type)+'</td><td><b>'+fmtMoney(i.total)+'</b></td><td>'+badge(i.status)+'</td><td class="muted">'+fmtDate(i.issueDate)+'</td></tr>';});
@@ -374,7 +385,7 @@ function renderMemberPortal(member){
   html+='</div>';
 
   /* Knowledge base */
-  html+='<div class="member-section"><h2>📚 Ressources & Base de connaissances</h2>';
+  html+='<div class="member-section"><h2><i data-ic=book></i> Ressources & Base de connaissances</h2>';
   if(kbArticles.length){
     kbArticles.forEach(function(a){
       html+='<div class="member-panel"><h3>'+esc(a.title)+'</h3><p style="font-size:14px;line-height:1.7;color:var(--body);margin-top:6px">'+esc(a.content)+'</p></div>';
@@ -385,7 +396,7 @@ function renderMemberPortal(member){
   html+='</div>';
 
   /* Announcements */
-  html+='<div class="member-section"><h2>📢 Annonces ACCI</h2>';
+  html+='<div class="member-section"><h2><i data-ic=megaphone></i> Annonces ACCI</h2>';
   if(anns.length){
     anns.forEach(function(a){
       html+='<div class="member-panel" style="border-left:4px solid var(--orange)"><h3>'+esc(a.title)+'</h3><p style="font-size:14px;line-height:1.7;color:var(--body);margin-top:4px">'+esc(a.content)+'</p><span class="muted" style="font-size:12px">'+fmtDate(a.createdAt)+'</span></div>';
@@ -403,26 +414,26 @@ function renderMemberPortal(member){
 /* =========================== ARTISTE PREMIUM PORTAL ===================== */
 var artisteState={view:"home"};
 var ARTISTE_NAV=[
-  {id:"home",icon:"🏠",label:"Accueil"},
-  {id:"portfolio",icon:"🎨",label:"Mon Portfolio"},
-  {id:"analytics",icon:"📊",label:"Analytique"},
-  {id:"services",icon:"🛡️",label:"Services ACCI"},
-  {id:"contracts",icon:"📃",label:"Contrats & Deals"},
-  {id:"finances",icon:"💰",label:"Finances"},
-  {id:"tickets",icon:"🎫",label:"Mes Demandes"},
-  {id:"network",icon:"🤝",label:"Réseau"},
-  {id:"resources",icon:"📚",label:"Ressources Pro"},
-  {id:"settings",icon:"⚙️",label:"Paramètres"}
+  {id:"home",icon:"grid",label:"Accueil"},
+  {id:"portfolio",icon:"palette",label:"Mon Portfolio"},
+  {id:"analytics",icon:"chart",label:"Analytique"},
+  {id:"services",icon:"shield",label:"Services ACCI"},
+  {id:"contracts",icon:"invoice",label:"Contrats & Deals"},
+  {id:"finances",icon:"money",label:"Finances"},
+  {id:"tickets",icon:"ticket",label:"Mes Demandes"},
+  {id:"network",icon:"handshake",label:"Réseau"},
+  {id:"resources",icon:"book",label:"Ressources Pro"},
+  {id:"settings",icon:"cog",label:"Paramètres"}
 ];
 
 function renderArtistePortal(artiste){
   /* Sidebar user */
   var userEl=$("#artiste-user");
-  if(userEl)userEl.innerHTML='<strong>'+esc(artiste.name)+'</strong><span class="artiste-tier">🎨 Artiste Premium</span>';
+  if(userEl)userEl.innerHTML='<strong>'+esc(artiste.name)+'</strong><span class="artiste-tier"><i data-ic=palette></i> Artiste Premium</span>';
   /* Sidebar nav */
   var navEl=$("#artiste-nav");
   if(navEl){
-    navEl.innerHTML=ARTISTE_NAV.map(function(n){return'<button class="snav'+(n.id===artisteState.view?" is-active":"")+'" data-av="'+n.id+'">'+n.icon+' '+n.label+'</button>';}).join("");
+    navEl.innerHTML=ARTISTE_NAV.map(function(n){return'<button class="snav'+(n.id===artisteState.view?" is-active":"")+'" data-av="'+n.id+'">'+ICO(n.icon,18)+'<span>'+n.label+'</span></button>';}).join("");
     $$("[data-av]",navEl).forEach(function(b){b.addEventListener("click",function(){
       artisteState.view=b.getAttribute("data-av");
       renderArtistePortal(artiste);
@@ -447,7 +458,7 @@ function renderArtistePortal(artiste){
     /* Hero */
     html+='<div class="artiste-hero"><h1>Bienvenue, '+esc(artiste.name)+'</h1>';
     html+='<p>Votre espace professionnel <strong>Artiste Premium ACCI</strong> — accès complet aux outils, analytiques et services de l\'Association des Créateurs de Contenu Ivoiriens.</p>';
-    html+='<span class="artiste-hero__badge">🎨 Artiste Premium Certifié</span>';
+    html+='<span class="artiste-hero__badge"><i data-ic=palette></i> Artiste Premium Certifié</span>';
     html+='<span class="artiste-hero__code">'+esc(artiste.approvalCode)+'</span>';
     html+='</div>';
     /* Stats */
@@ -456,12 +467,12 @@ function renderArtistePortal(artiste){
     var activeDeals=deals.filter(function(d){return d.stage!=="Perdu"&&d.stage!=="Gagné";});
     var pipeVal=activeDeals.reduce(function(s,d){return s+(d.value||0);},0);
     html+='<div class="artiste-stats">';
-    html+='<div class="artiste-stat"><div class="artiste-stat__icon">🎫</div><div class="artiste-stat__val">'+tks.length+'</div><div class="artiste-stat__label">Demandes ACCI</div></div>';
-    html+='<div class="artiste-stat"><div class="artiste-stat__icon">⏳</div><div class="artiste-stat__val">'+openT+'</div><div class="artiste-stat__label">En cours</div></div>';
-    html+='<div class="artiste-stat"><div class="artiste-stat__icon">💰</div><div class="artiste-stat__val">'+fmtMoney(totalRev)+'</div><div class="artiste-stat__label">Revenu total</div></div>';
-    html+='<div class="artiste-stat"><div class="artiste-stat__icon">📈</div><div class="artiste-stat__val">'+fmtMoney(pipeVal)+'</div><div class="artiste-stat__label">Pipeline actif</div></div>';
-    html+='<div class="artiste-stat"><div class="artiste-stat__icon">📃</div><div class="artiste-stat__val">'+contracts.length+'</div><div class="artiste-stat__label">Contrats</div></div>';
-    html+='<div class="artiste-stat"><div class="artiste-stat__icon">📜</div><div class="artiste-stat__val">'+(artiste.charter?"✓":"✗")+'</div><div class="artiste-stat__label">Charte ACCI</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=ticket></i></div><div class="artiste-stat__val">'+tks.length+'</div><div class="artiste-stat__label">Demandes ACCI</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=clock></i></div><div class="artiste-stat__val">'+openT+'</div><div class="artiste-stat__label">En cours</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=money></i></div><div class="artiste-stat__val">'+fmtMoney(totalRev)+'</div><div class="artiste-stat__label">Revenu total</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=trend></i></div><div class="artiste-stat__val">'+fmtMoney(pipeVal)+'</div><div class="artiste-stat__label">Pipeline actif</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=invoice></i></div><div class="artiste-stat__val">'+contracts.length+'</div><div class="artiste-stat__label">Contrats</div></div>';
+    html+='<div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=doc></i></div><div class="artiste-stat__val">'+(artiste.charter?"<i data-ic=check></i>":"<i data-ic=x-circle></i>")+'</div><div class="artiste-stat__label">Charte ACCI</div></div>';
     html+='</div>';
     /* Recent activity */
     var recentT=tks.slice(0,5);
@@ -476,7 +487,7 @@ function renderArtistePortal(artiste){
 
   else if(v==="portfolio"){
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mon Profil Artiste</h2></div>';
-    var info=[["Nom",esc(artiste.name)],["Type",badge(artiste.type||"Individuel")],["E-mail",esc(artiste.email||"—")],["Téléphone",esc(artiste.phone||"—")],["Ville",esc(artiste.city||"—")+" "+(artiste.country?", "+esc(artiste.country):"")],["Domaines",(artiste.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"—"],["Statut",badge(artiste.status)],["Charte ACCI",artiste.charter?"✅ Signée":"❌ Non signée"],["Membre depuis",fmtDate(artiste.createdAt)]];
+    var info=[["Nom",esc(artiste.name)],["Type",badge(artiste.type||"Individuel")],["E-mail",esc(artiste.email||"—")],["Téléphone",esc(artiste.phone||"—")],["Ville",esc(artiste.city||"—")+" "+(artiste.country?", "+esc(artiste.country):"")],["Domaines",(artiste.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"—"],["Statut",badge(artiste.status)],["Charte ACCI",artiste.charter?"<i data-ic=check></i> Signée":"<i data-ic=x-circle></i> Non signée"],["Membre depuis",fmtDate(artiste.createdAt)]];
     info.forEach(function(r){html+='<div class="drow"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';});
     html+=(artiste.notes?'<div style="margin-top:10px"><span class="dk">Bio / Notes</span><p style="margin-top:4px;padding:12px;background:rgba(30,58,138,.1);border-radius:10px;color:#cbd5e1">'+esc(artiste.notes)+'</p></div>':'');
     html+='</section>';
@@ -487,7 +498,7 @@ function renderArtistePortal(artiste){
     var months=Object.keys(byMonth).sort();
     var totalPaid=invs.filter(function(i){return i.status==="Payé";}).reduce(function(s,i){return s+(i.total||0);},0);
     var pending=invs.filter(function(i){return i.status==="Envoyé"||i.status==="En retard";}).reduce(function(s,i){return s+(i.total||0);},0);
-    html+='<div class="artiste-stats"><div class="artiste-stat"><div class="artiste-stat__icon">💵</div><div class="artiste-stat__val">'+fmtMoney(totalPaid)+'</div><div class="artiste-stat__label">Total encaissé</div></div><div class="artiste-stat"><div class="artiste-stat__icon">⏳</div><div class="artiste-stat__val">'+fmtMoney(pending)+'</div><div class="artiste-stat__label">En attente</div></div><div class="artiste-stat"><div class="artiste-stat__icon">📄</div><div class="artiste-stat__val">'+invs.length+'</div><div class="artiste-stat__label">Documents</div></div></div>';
+    html+='<div class="artiste-stats"><div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=money></i></div><div class="artiste-stat__val">'+fmtMoney(totalPaid)+'</div><div class="artiste-stat__label">Total encaissé</div></div><div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=clock></i></div><div class="artiste-stat__val">'+fmtMoney(pending)+'</div><div class="artiste-stat__label">En attente</div></div><div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=invoice></i></div><div class="artiste-stat__val">'+invs.length+'</div><div class="artiste-stat__label">Documents</div></div></div>';
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Revenu par mois</h2></div>';
     if(months.length){var max=Math.max.apply(null,months.map(function(m){return byMonth[m];}));html+='<div class="chartbars">'+months.map(function(m,i){return'<div class="cb"><span class="cb__label">'+m+'</span>'+pctBar(byMonth[m],max,PAL[i%PAL.length])+'<span class="cb__val">'+fmtMoney(byMonth[m])+'</span></div>';}).join("")+'</div>';}
     else{html+='<p class="muted">Aucune donnée de revenu.</p>';}
@@ -499,13 +510,13 @@ function renderArtistePortal(artiste){
   }
 
   else if(v==="services"){
-    var svcIcons=["🎓","⚖️","🏅","🔍","🤝","💰","🚨","💚","✅"];
+    var svcIcons=["<i data-ic=graduation></i>","<i data-ic=scale></i>","<i data-ic=badge></i>","<i data-ic=search></i>","<i data-ic=handshake></i>","<i data-ic=money></i>","<i data-ic=alert></i>","<i data-ic=heart></i>","<i data-ic=check></i>"];
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Services ACCI disponibles</h2></div>';
     html+='<p class="muted" style="margin-bottom:14px">En tant qu\'Artiste Premium, vous bénéficiez d\'un accès prioritaire aux services ACCI.</p>';
     html+='<div class="card-grid">';
     svcs.forEach(function(s,i){
-      html+='<div class="wcard"><div class="wcard__icon">'+(svcIcons[i]||"⚙️")+'</div><h3>'+esc(s.name)+'</h3>';
-      html+=(s.defaultPrice>0?'<p style="color:#F77F00;font-weight:800;font-family:var(--font-head)">'+fmtMoney(s.defaultPrice)+'</p>':'<p style="color:#27ae60;font-weight:700">✓ Gratuit</p>');
+      html+='<div class="wcard"><div class="wcard__icon">'+(svcIcons[i]||"<i data-ic=cog></i>")+'</div><h3>'+esc(s.name)+'</h3>';
+      html+=(s.defaultPrice>0?'<p style="color:#F77F00;font-weight:800;font-family:var(--font-head)">'+fmtMoney(s.defaultPrice)+'</p>':'<p style="color:#27ae60;font-weight:700"><i data-ic=check></i> Gratuit</p>');
       html+='</div>';
     });
     html+='</div></section>';
@@ -533,7 +544,7 @@ function renderArtistePortal(artiste){
     var paid=invs.filter(function(i){return i.status==="Payé";}).reduce(function(s,i){return s+(i.total||0);},0);
     var pend=invs.filter(function(i){return i.status==="Envoyé";}).reduce(function(s,i){return s+(i.total||0);},0);
     var overdue=invs.filter(function(i){return i.status==="En retard";}).reduce(function(s,i){return s+(i.total||0);},0);
-    html+='<div class="artiste-stats"><div class="artiste-stat"><div class="artiste-stat__icon">✅</div><div class="artiste-stat__val">'+fmtMoney(paid)+'</div><div class="artiste-stat__label">Payé</div></div><div class="artiste-stat"><div class="artiste-stat__icon">⏳</div><div class="artiste-stat__val">'+fmtMoney(pend)+'</div><div class="artiste-stat__label">En attente</div></div><div class="artiste-stat"><div class="artiste-stat__icon">⚠️</div><div class="artiste-stat__val">'+fmtMoney(overdue)+'</div><div class="artiste-stat__label">En retard</div></div></div>';
+    html+='<div class="artiste-stats"><div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=check></i></div><div class="artiste-stat__val">'+fmtMoney(paid)+'</div><div class="artiste-stat__label">Payé</div></div><div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=clock></i></div><div class="artiste-stat__val">'+fmtMoney(pend)+'</div><div class="artiste-stat__label">En attente</div></div><div class="artiste-stat"><div class="artiste-stat__icon"><i data-ic=warning></i></div><div class="artiste-stat__val">'+fmtMoney(overdue)+'</div><div class="artiste-stat__label">En retard</div></div></div>';
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Toutes les factures</h2></div>';
     if(invs.length){
       html+='<div class="dtable"><table><thead><tr><th>N°</th><th>Type</th><th>Total</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
@@ -569,15 +580,15 @@ function renderArtistePortal(artiste){
 
   else if(v==="resources"){
     var kbArticles=S.kb.all();var faqs=S.faq.all();var anns=S.announcements.all();
-    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">📚 Base de connaissances ACCI</h2></div>';
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=book></i> Base de connaissances ACCI</h2></div>';
     if(kbArticles.length){kbArticles.forEach(function(a){html+='<div style="padding:14px;margin-bottom:8px;background:rgba(30,58,138,.1);border-radius:12px;border:1px solid rgba(30,58,138,.15)"><b style="color:#f1f5f9">'+esc(a.title)+'</b><p style="margin-top:6px;color:#94a3b8;font-size:14px;line-height:1.65">'+esc(a.content)+'</p></div>';});}
     else{html+='<p class="muted">Aucun article.</p>';}
     html+='</section>';
-    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">❓ FAQ ACCI</h2></div>';
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=lightbulb></i> FAQ ACCI</h2></div>';
     if(faqs.length){faqs.forEach(function(f){html+='<div style="padding:14px;margin-bottom:8px;background:rgba(30,58,138,.1);border-radius:12px;border:1px solid rgba(30,58,138,.15)"><b style="color:#f1f5f9">'+esc(f.question)+'</b><p style="margin-top:6px;color:#94a3b8;font-size:14px;line-height:1.65">'+esc(f.answer)+'</p></div>';});}
     else{html+='<p class="muted">Aucune FAQ.</p>';}
     html+='</section>';
-    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">📢 Annonces</h2></div>';
+    html+='<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=megaphone></i> Annonces</h2></div>';
     if(anns.length){anns.forEach(function(a){html+='<div style="padding:14px;margin-bottom:8px;border-left:3px solid #F77F00;background:rgba(247,127,0,.05);border-radius:0 12px 12px 0;border:1px solid rgba(247,127,0,.12);border-left:3px solid #F77F00"><b style="color:#f1f5f9">'+esc(a.title)+'</b><p style="margin-top:6px;color:#94a3b8;font-size:14px">'+esc(a.content)+'</p><span style="font-size:11px;color:#475569">'+fmtDate(a.createdAt)+'</span></div>';});}
     else{html+='<p class="muted">Aucune annonce.</p>';}
     html+='</section>';
@@ -585,7 +596,7 @@ function renderArtistePortal(artiste){
 
   else if(v==="settings"){
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mon Compte Artiste Premium</h2></div>';
-    var info=[["Nom",artiste.name],["E-mail",artiste.email||"—"],["Téléphone",artiste.phone||"—"],["Code Premium",artiste.approvalCode],["Statut Premium","✅ Actif"],["Ville",artiste.city||"—"],["Membre depuis",fmtDate(artiste.createdAt)]];
+    var info=[["Nom",artiste.name],["E-mail",artiste.email||"—"],["Téléphone",artiste.phone||"—"],["Code Premium",artiste.approvalCode],["Statut Premium","<i data-ic=check></i> Actif"],["Ville",artiste.city||"—"],["Membre depuis",fmtDate(artiste.createdAt)]];
     info.forEach(function(r){html+='<div class="drow"><span class="dk">'+esc(r[0])+'</span><span class="dv">'+esc(r[1])+'</span></div>';});
     html+='</section>';
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">À propos</h2></div><p class="muted">L\'espace Artiste Premium ACCI offre un accès professionnel complet : analytiques financières, gestion de contrats, réseau de créateurs, services prioritaires et ressources exclusives. Géré par l\'Association des Créateurs de Contenu Ivoiriens.</p></section>';
@@ -711,9 +722,33 @@ function seedAll(){
 function avatar(x,sz){var ini=(x.name||"?").split(/\s+/).slice(0,2).map(function(w){return w[0];}).join("").toUpperCase();var s=sz||32;return'<span class="avatar" style="width:'+s+'px;height:'+s+'px;font-size:'+(s/2.6)+'px">'+esc(ini)+'</span>';}
 function badge(v){return'<span class="badge badge--'+slug(v)+'">'+esc(v)+'</span>';}
 function ffield(l,c){return'<label class="afield"><span>'+l+'</span>'+c+'</label>';}
-function emptyHTML(icon,msg){return'<div class="empty-state"><div class="empty-state__ic">'+(icon||"📋")+'</div><h2>'+(msg||"Vide.")+'</h2><button class="abtn abtn--primary crud-add">+ Ajouter</button></div>';}
+/* Les gabarits déposent un marqueur <i data-ic="nom"> ; il est converti ici en
+   tracé SVG après chaque rendu. Ce détour évite d'insérer des appels de fonction
+   au milieu de littéraux dont le guillemet varie, et laisse le balisage lisible. */
+function ICO(n,s){return window.ACCI_ICON?window.ACCI_ICON(n,s):"";}
+function paintIcons(root){
+  (root||document).querySelectorAll("i[data-ic]").forEach(function(el){
+    var svg=ICO(el.getAttribute("data-ic"),el.getAttribute("data-sz")||18);
+    if(!svg)return;
+    var t=document.createElement("template");t.innerHTML=svg;
+    var node=t.content.firstChild;
+    if(el.className)node.setAttribute("class",node.getAttribute("class")+" "+el.className);
+    el.replaceWith(node);
+  });
+}
+function emptyHTML(icon,msg){return'<div class="empty-state"><div class="empty-state__ic">'+ICO(icon||"doc",34)+'</div><h2>'+(msg||"Vide.")+'</h2><button class="abtn abtn--primary crud-add">+ Ajouter</button></div>';}
 function kpiCard(icon,val,label,cls){return'<div class="kpi"><span class="kpi__icon kpi__icon--'+(cls||"n")+'">'+icon+'</span><span class="kpi__val">'+val+'</span><span class="kpi__label">'+label+'</span></div>';}
-function chartBars(data){var max=Math.max.apply(null,data.map(function(d){return d.val;}).concat([1]));return'<div class="chartbars">'+data.map(function(d,i){return'<div class="cb"><span class="cb__label">'+(d.badge?badge(d.label):esc(d.label))+'</span>'+pctBar(d.val,max,PAL[i%PAL.length])+'<span class="cb__val">'+(d.fmt||d.val)+'</span></div>';}).join("")+'</div>';}
+function chartBars(data){
+  var max=Math.max.apply(null,data.map(function(d){return d.val;}).concat([1]));
+  return'<div class="chartbars">'+data.map(function(d){
+    /* Toutes les barres décrivent la même mesure : une seule teinte. La valeur
+       dominante est simplement plus soutenue, ce qui la fait ressortir sans
+       introduire une couleur qui n'a pas de sens propre. */
+    var couleur=(d.val===max&&max>0)?"var(--orange-solid)":"#8FB8A4";
+    return'<div class="cb"><span class="cb__label">'+(d.badge?badge(d.label):esc(d.label))+'</span>'+
+      pctBar(d.val,max,couleur)+'<span class="cb__val">'+(d.fmt||d.val)+'</span></div>';
+  }).join("")+'</div>';
+}
 
 /* Le clic sur le fond n'est câblé qu'UNE fois : #modal n'est jamais remplacé
    (seul son contenu l'est), si bien qu'un abonnement par ouverture s'accumulait
@@ -721,7 +756,7 @@ function chartBars(data){var max=Math.max.apply(null,data.map(function(d){return
 function backdropClose(e){if(e.target===e.currentTarget)closeModal();}
 function openModal(h,wide){
   var m=$("#modal");
-  m.innerHTML='<div class="modal__box'+(wide?" modal__box--wide":"")+'">'+h+'</div>';
+  m.innerHTML='<div class="modal__box'+(wide?" modal__box--wide":"")+'">'+h+'</div>';paintIcons(m);
   m.hidden=false;
   $$("[data-close]",m).forEach(function(b){b.addEventListener("click",closeModal);});
   if(!m.dataset.backdropBound){m.addEventListener("click",backdropClose);m.dataset.backdropBound="1";}
@@ -749,7 +784,7 @@ function crudHTML(store,cfg){
       if(typeof v==="string"&&c.mx&&v.length>c.mx)v=v.slice(0,c.mx)+"\u2026";
       return'<td>'+(c.b?'<b>'+esc(v)+'</b>':esc(v))+'</td>';
     }).join("");
-    return'<tr class="rowlink cr" data-id="'+x.id+'">'+tds+'<td class="rowact"><button class="iact ce" data-id="'+x.id+'">✎</button><button class="iact iact--del cd" data-id="'+x.id+'">🗑</button></td></tr>';
+    return'<tr class="rowlink cr" data-id="'+x.id+'">'+tds+'<td class="rowact"><button class="iact ce" data-id="'+x.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+x.id+'"><i data-ic=trash></i></button></td></tr>';
   }).join("");
   return'<div class="filterbar"><span class="filterbar__count">'+list.length+' enreg.</span></div><div class="dtable"><table><thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table></div>';
 }
@@ -826,14 +861,14 @@ RA("dashboard.overview",function(){
   var rev=inv.filter(function(x){return x.status==="Payé";}).reduce(function(s,x){return s+(x.total||0);},0);
   var certified=c.filter(function(x){return x.charter===true;}).length;
   var overdue=inv.filter(function(x){return x.status==="En retard";}).length;
-  var kpis=[kpiCard("👥",c.length,"Membres ACCI",""),kpiCard("✅",actifs,"Actifs","ok"),kpiCard("🔑",approvedN,"Membres approuvés","info"),kpiCard("🎫",openT,"Signalements en cours","info"),kpiCard("🎓",certified,"Créateurs certifiés (charte)","ok"),kpiCard("💰",fmtMoney(rev),"Cotisations encaissées","ok"),kpiCard("📈",fmtMoney(pVal),"Pipeline adhésions","warn"),kpiCard("⚠️",overdue,"Factures en retard",overdue?"danger":"")].join("");
+  var kpis=[kpiCard("<i data-ic=users></i>",c.length,"Membres ACCI",""),kpiCard("<i data-ic=check></i>",actifs,"Actifs","ok"),kpiCard("<i data-ic=key></i>",approvedN,"Membres approuvés","info"),kpiCard("<i data-ic=ticket></i>",openT,"Signalements en cours","info"),kpiCard("<i data-ic=graduation></i>",certified,"Créateurs certifiés (charte)","ok"),kpiCard("<i data-ic=money></i>",fmtMoney(rev),"Cotisations encaissées","ok"),kpiCard("<i data-ic=trend></i>",fmtMoney(pVal),"Pipeline adhésions","warn"),kpiCard("<i data-ic=warning></i>",overdue,"Factures en retard",overdue?"danger":"")].join("");
   var stageData=DEAL_STAGES.map(function(s){return{label:s,val:d.filter(function(x){return x.stage===s;}).length,badge:true};});
   var tsData=TICKET_STATUSES.map(function(s){return{label:s,val:t.filter(function(x){return x.status===s;}).length,badge:true};});
   var recent=S.audit.all().slice(0,8);
   var auditRows=recent.length?recent.map(function(a){return'<tr><td>'+badge(a.entity)+'</td><td>'+esc(a.action)+'</td><td>'+esc(a.detail)+'</td><td class="muted">'+fmtDate(a.createdAt)+'</td></tr>';}).join(""):'<tr><td colspan="4" class="muted" style="padding:18px">Aucune activité enregistrée dans le CRM ACCI.</td></tr>';
   var inboxN=S.inbox.count();
   return'<div class="banner banner--success" style="margin-bottom:16px"><b>ACCI</b> — Sensibiliser · Former · Protéger · Plaider — Pour un usage responsable des réseaux sociaux en Côte d\'Ivoire.</div>'+
-    (inboxN?'<div class="banner banner--info">📥 <b>'+inboxN+'</b> demande(s) de service ACCI. <button class="link" data-go="inbox">Voir</button></div>':"")+
+    (inboxN?'<div class="banner banner--info"><i data-ic=inbox></i> <b>'+inboxN+'</b> demande(s) de service ACCI. <button class="link" data-go="inbox">Voir</button></div>':"")+
     '<div class="kpis">'+kpis+'</div><div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title">Adhésions & partenariats par étape</h2></div>'+chartBars(stageData)+'</section><section class="panel"><div class="panel__head"><h2 class="panel__title">Demandes & signalements par statut</h2></div>'+chartBars(tsData)+'</section></div>'+
     '<section class="panel"><div class="panel__head"><h2 class="panel__title">Activité récente ACCI</h2></div><div class="dtable"><table><thead><tr><th>Entité</th><th>Action</th><th>Détail</th><th>Date</th></tr></thead><tbody>'+auditRows+'</tbody></table></div></section>';
 },function(){$$("[data-go]").forEach(function(b){b.addEventListener("click",function(){go(b.getAttribute("data-go"));});});});
@@ -841,14 +876,14 @@ RA("dashboard.overview",function(){
 /* 2. dashboard.widgets */
 RA("dashboard.widgets",function(){
   var widgets=[
-    {icon:"👥",title:"Nouveaux membres ACCI ce mois",val:S.customers.where(function(c){var d=new Date(c.createdAt),n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}).length},
-    {icon:"🎫",title:"Signalements urgents (Protéger)",val:S.tickets.where(function(t){return t.priority==="Urgent"&&t.status!=="Fermé"&&t.status!=="Résolu";}).length},
-    {icon:"💰",title:"Adhésions gagnées ce mois",val:S.deals.where(function(d){var dt=new Date(d.updatedAt||d.createdAt),n=new Date();return d.stage==="Gagné"&&dt.getMonth()===n.getMonth();}).length},
-    {icon:"📄",title:"Cotisations en attente",val:S.invoices.where(function(i){return i.status==="Envoyé";}).length},
-    {icon:"📁",title:"Initiatives ACCI actives",val:S.projects.where(function(p){return p.status==="En cours";}).length},
-    {icon:"🎓",title:"Formations dispensées (Former)",val:S.trainings.count()},
-    {icon:"🔑",title:"Portails membres actifs",val:S.customers.where(function(c){return c.approved===true;}).length},
-    {icon:"📝",title:"Notes de suivi",val:S.notes.count()}
+    {icon:"users",title:"Nouveaux membres ACCI ce mois",val:S.customers.where(function(c){var d=new Date(c.createdAt),n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}).length},
+    {icon:"ticket",title:"Signalements urgents (Protéger)",val:S.tickets.where(function(t){return t.priority==="Urgent"&&t.status!=="Fermé"&&t.status!=="Résolu";}).length},
+    {icon:"money",title:"Adhésions gagnées ce mois",val:S.deals.where(function(d){var dt=new Date(d.updatedAt||d.createdAt),n=new Date();return d.stage==="Gagné"&&dt.getMonth()===n.getMonth();}).length},
+    {icon:"invoice",title:"Cotisations en attente",val:S.invoices.where(function(i){return i.status==="Envoyé";}).length},
+    {icon:"folder",title:"Initiatives ACCI actives",val:S.projects.where(function(p){return p.status==="En cours";}).length},
+    {icon:"graduation",title:"Formations dispensées (Former)",val:S.trainings.count()},
+    {icon:"key",title:"Portails membres actifs",val:S.customers.where(function(c){return c.approved===true;}).length},
+    {icon:"pencil",title:"Notes de suivi",val:S.notes.count()}
   ];
   return'<div class="kpis">'+widgets.map(function(w){return kpiCard(w.icon,w.val,w.title,"");}).join("")+'</div>';
 });
@@ -894,19 +929,19 @@ RA("customers.map",function(){
 });
 
 /* 8. customers.loyalty */
-RC("customers.loyalty",S.loyalty,{ic:"⭐",em:"Aucun programme de fidélité ACCI enregistré. Récompensez les créateurs engagés !",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"points",l:"Points",b:true},{k:"level",l:"Niveau",bg:true},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"points",l:"Points",t:"number"},{n:"level",l:"Niveau",t:"select",o:["Bronze","Argent","Or","Platine"]}],df:{customerId:"",points:0,level:"Bronze"},sk:["customerId"]});
+RC("customers.loyalty",S.loyalty,{ic:"star",em:"Aucun programme de fidélité ACCI enregistré. Récompensez les créateurs engagés !",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"points",l:"Points",b:true},{k:"level",l:"Niveau",bg:true},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"points",l:"Points",t:"number"},{n:"level",l:"Niveau",t:"select",o:["Bronze","Argent","Or","Platine"]}],df:{customerId:"",points:0,level:"Bronze"},sk:["customerId"]});
 
 /* 9. customers.satisfaction */
-RC("customers.satisfaction",S.satisfaction,{ic:"😊",em:"Aucun score de satisfaction ACCI. Évaluez la qualité de l'accompagnement des membres.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"score",l:"Score",b:true},{k:"feedback",l:"Commentaire",mx:50},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"score",l:"Score (1-10)",t:"number"},{n:"feedback",l:"Commentaire",t:"textarea",rows:2}],df:{customerId:"",score:0,feedback:""},sk:["feedback"]});
+RC("customers.satisfaction",S.satisfaction,{ic:"heart",em:"Aucun score de satisfaction ACCI. Évaluez la qualité de l'accompagnement des membres.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"score",l:"Score",b:true},{k:"feedback",l:"Commentaire",mx:50},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"score",l:"Score (1-10)",t:"number"},{n:"feedback",l:"Commentaire",t:"textarea",rows:2}],df:{customerId:"",score:0,feedback:""},sk:["feedback"]});
 
 /* 10. customers.documents */
-RC("customers.documents",S.custDocs,{ic:"📎",em:"Aucun document membre ACCI. Stockez chartes, contrats et pièces ici.",cs:[{k:"name",l:"Nom",b:true},{k:"type",l:"Type"},{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"type",l:"Type",t:"select",o:["Charte ACCI","Contrat","Facture","Pièce d'identité","Autre"]},{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{name:"",type:"Autre",customerId:"",notes:""},sk:["name","type"]});
+RC("customers.documents",S.custDocs,{ic:"clip",em:"Aucun document membre ACCI. Stockez chartes, contrats et pièces ici.",cs:[{k:"name",l:"Nom",b:true},{k:"type",l:"Type"},{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"type",l:"Type",t:"select",o:["Charte ACCI","Contrat","Facture","Pièce d'identité","Autre"]},{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{name:"",type:"Autre",customerId:"",notes:""},sk:["name","type"]});
 
 /* 11. customers.history */
 RA("customers.history",function(){
   var logs=S.audit.where(function(a){return a.entity==="client";}).slice(0,30);
-  if(!logs.length)return'<div class="empty-state"><div class="empty-state__ic">📋</div><h2>Aucun historique d\'interaction membre ACCI</h2><p class="muted">Les actions sur les membres seront enregistrées ici.</p></div>';
-  return'<div class="timeline">'+logs.map(function(a){return'<div class="timeline__item"><span class="timeline__icon">📋</span><div class="timeline__body"><b>'+esc(a.action)+'</b> — '+esc(a.detail)+'<div class="timeline__date">'+fmtDate(a.createdAt)+'</div></div></div>';}).join("")+'</div>';
+  if(!logs.length)return'<div class="empty-state"><div class="empty-state__ic"><i data-ic=doc></i></div><h2>Aucun historique d\'interaction membre ACCI</h2><p class="muted">Les actions sur les membres seront enregistrées ici.</p></div>';
+  return'<div class="timeline">'+logs.map(function(a){return'<div class="timeline__item"><span class="timeline__icon"><i data-ic=doc></i></span><div class="timeline__body"><b>'+esc(a.action)+'</b> — '+esc(a.detail)+'<div class="timeline__date">'+fmtDate(a.createdAt)+'</div></div></div>';}).join("")+'</div>';
 });
 
 /* 12. customers.risks */
@@ -916,7 +951,7 @@ RA("customers.risks",function(){
   var noTickets=c.filter(function(x){return S.tickets.where(function(t){return t.customerId===x.id;}).length===0;});
   var noCharter=c.filter(function(x){return!x.charter&&x.status==="Actif";});
   return'<div class="banner banner--info" style="margin-bottom:14px">Identification des risques membres ACCI — Pilier Protéger.</div>'+
-    '<div class="cols"><section class="panel panel--danger"><div class="panel__head"><h2 class="panel__title">⚠️ Membres inactifs ('+inactive.length+')</h2></div>'+(inactive.length?'<div class="dtable"><table><thead><tr><th>Membre</th><th>E-mail</th><th>Ville</th></tr></thead><tbody>'+inactive.map(function(x){return'<tr><td><b>'+esc(x.name)+'</b></td><td>'+esc(x.email||"\u2014")+'</td><td>'+esc(x.city||"\u2014")+'</td></tr>';}).join("")+'</tbody></table></div>':'<p class="muted">Aucun membre inactif.</p>')+'</section><section class="panel"><div class="panel__head"><h2 class="panel__title">Membres actifs sans charte signée ('+noCharter.length+')</h2></div><p class="muted">'+noCharter.length+' membre(s) actif(s) n\'ont pas encore signé la charte ACCI.</p></section></div>'+
+    '<div class="cols"><section class="panel panel--danger"><div class="panel__head"><h2 class="panel__title"><i data-ic=warning></i> Membres inactifs ('+inactive.length+')</h2></div>'+(inactive.length?'<div class="dtable"><table><thead><tr><th>Membre</th><th>E-mail</th><th>Ville</th></tr></thead><tbody>'+inactive.map(function(x){return'<tr><td><b>'+esc(x.name)+'</b></td><td>'+esc(x.email||"\u2014")+'</td><td>'+esc(x.city||"\u2014")+'</td></tr>';}).join("")+'</tbody></table></div>':'<p class="muted">Aucun membre inactif.</p>')+'</section><section class="panel"><div class="panel__head"><h2 class="panel__title">Membres actifs sans charte signée ('+noCharter.length+')</h2></div><p class="muted">'+noCharter.length+' membre(s) actif(s) n\'ont pas encore signé la charte ACCI.</p></section></div>'+
     '<section class="panel"><div class="panel__head"><h2 class="panel__title">Membres sans demande de service ('+noTickets.length+')</h2></div><p class="muted">'+noTickets.length+' membre(s) n\'ont jamais utilisé les services ACCI. Proposez-leur un accompagnement !</p></section>';
 });
 
@@ -924,18 +959,18 @@ RA("customers.risks",function(){
 RA("customers.events",function(){
   var c=S.customers.all();
   var recent=c.filter(function(x){var d=new Date(x.createdAt),n=new Date();return d.getMonth()===n.getMonth();});
-  return'<section class="panel"><div class="panel__head"><h2 class="panel__title">Membres inscrits ce mois à l\'ACCI ('+recent.length+')</h2></div>'+(recent.length?'<div class="dtable"><table><thead><tr><th>Membre</th><th>Inscrit le</th><th>Statut</th><th>Portail</th></tr></thead><tbody>'+recent.map(function(x){return'<tr><td><b>'+esc(x.name)+'</b></td><td>'+fmtDate(x.createdAt)+'</td><td>'+badge(x.status)+'</td><td>'+(x.approved?'<span style="color:var(--green)">✅ Approuvé</span>':'<span class="muted">En attente</span>')+'</td></tr>';}).join("")+'</tbody></table></div>':'<p class="muted">Aucun nouveau membre ACCI ce mois. Activez le pilier Sensibiliser !</p>')+'</section>';
+  return'<section class="panel"><div class="panel__head"><h2 class="panel__title">Membres inscrits ce mois à l\'ACCI ('+recent.length+')</h2></div>'+(recent.length?'<div class="dtable"><table><thead><tr><th>Membre</th><th>Inscrit le</th><th>Statut</th><th>Portail</th></tr></thead><tbody>'+recent.map(function(x){return'<tr><td><b>'+esc(x.name)+'</b></td><td>'+fmtDate(x.createdAt)+'</td><td>'+badge(x.status)+'</td><td>'+(x.approved?'<span style="color:var(--green)"><i data-ic=check></i> Approuvé</span>':'<span class="muted">En attente</span>')+'</td></tr>';}).join("")+'</tbody></table></div>':'<p class="muted">Aucun nouveau membre ACCI ce mois. Activez le pilier Sensibiliser !</p>')+'</section>';
 });
 
 /* ---- CONTACTS (4 sections) ---- */
 /* 14. contacts.list — complex, defined later */
 
 /* 15. contacts.groups */
-RC("contacts.groups",S.contactGroups,{ic:"📂",em:"Aucun groupe de contacts ACCI. Organisez vos contacts par partenaire ou initiative.",cs:[{k:"name",l:"Nom",b:true},{k:"description",l:"Description",mx:50},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",description:""},sk:["name","description"]});
+RC("contacts.groups",S.contactGroups,{ic:"folder",em:"Aucun groupe de contacts ACCI. Organisez vos contacts par partenaire ou initiative.",cs:[{k:"name",l:"Nom",b:true},{k:"description",l:"Description",mx:50},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",description:""},sk:["name","description"]});
 
 /* 16. contacts.import */
 RA("contacts.import",function(){
-  return'<section class="panel"><div class="panel__head"><h2 class="panel__title">Importer des contacts ACCI</h2></div><p class="muted">Importez des contacts depuis un fichier CSV. Colonnes attendues : name, role, email, phone, customerId.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm">⬆ Choisir un fichier<input type="file" id="ct-imp" accept=".csv" hidden></label></div><p class="ferr" id="ct-msg" hidden></p></section>';
+  return'<section class="panel"><div class="panel__head"><h2 class="panel__title">Importer des contacts ACCI</h2></div><p class="muted">Importez des contacts depuis un fichier CSV. Colonnes attendues : name, role, email, phone, customerId.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm"><i data-ic=upload></i> Choisir un fichier<input type="file" id="ct-imp" accept=".csv" hidden></label></div><p class="ferr" id="ct-msg" hidden></p></section>';
 },function(){
   var imp=$("#ct-imp");if(imp)imp.addEventListener("change",function(e){
     var file=e.target.files[0];if(!file)return;var r=new FileReader();
@@ -957,7 +992,7 @@ RA("contacts.dedup",function(){
     if(pm||pn)dupes.push({a:pm||pn,b:c,on:pm?"le même e-mail":"le même nom"});
     else{if(em)byMail[em]=c;if(nm)byName[nm]=c;}
   });
-  if(!dupes.length)return'<div class="empty-state"><div class="empty-state__ic">✅</div><h2>Aucun doublon détecté</h2><p class="muted">Tous les contacts ACCI semblent uniques.</p></div>';
+  if(!dupes.length)return'<div class="empty-state"><div class="empty-state__ic"><i data-ic=check></i></div><h2>Aucun doublon détecté</h2><p class="muted">Tous les contacts ACCI semblent uniques.</p></div>';
   var rows=dupes.map(function(d){return'<tr><td><b>'+esc(d.a.name)+'</b><br><span class="muted">'+esc(d.a.email)+'</span></td><td><b>'+esc(d.b.name)+'</b><br><span class="muted">'+esc(d.b.email)+'</span></td><td><button class="abtn abtn--danger abtn--sm dup-del" data-id="'+d.b.id+'" data-nm="'+esc(d.b.name)+'" data-em="'+esc(d.b.email)+'" data-on="'+esc(d.on)+'">Supprimer doublon</button></td></tr>';}).join("");
   return'<section class="panel"><div class="panel__head"><h2 class="panel__title">Doublons potentiels ('+dupes.length+')</h2></div><div class="dtable"><table><thead><tr><th>Contact A</th><th>Contact B (doublon)</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></section>';
 },function(){$$(".dup-del").forEach(function(b){b.addEventListener("click",function(){
@@ -995,7 +1030,7 @@ RA("tickets.sla",function(){
 });
 
 /* 21. tickets.templates */
-RC("tickets.templates",S.ticketTemplates,{ic:"📋",em:"Aucun modèle de demande ACCI. Créez des modèles pour les services fréquents (signalement, certification, etc.).",cs:[{k:"name",l:"Nom",b:true},{k:"priority",l:"Priorité",bg:true},{k:"description",l:"Description",mx:40}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:3},{n:"priority",l:"Priorité",t:"select",o:TICKET_PRIORITIES}],df:{name:"",description:"",priority:"Moyen"},sk:["name"]});
+RC("tickets.templates",S.ticketTemplates,{ic:"doc",em:"Aucun modèle de demande ACCI. Créez des modèles pour les services fréquents (signalement, certification, etc.).",cs:[{k:"name",l:"Nom",b:true},{k:"priority",l:"Priorité",bg:true},{k:"description",l:"Description",mx:40}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:3},{n:"priority",l:"Priorité",t:"select",o:TICKET_PRIORITIES}],df:{name:"",description:"",priority:"Moyen"},sk:["name"]});
 
 /* 22. tickets.escalation */
 RA("tickets.escalation",function(){
@@ -1003,17 +1038,17 @@ RA("tickets.escalation",function(){
   var high=S.tickets.where(function(t){return t.priority==="Élevé"&&t.status!=="Résolu"&&t.status!=="Fermé";});
   return'<div class="banner banner--info" style="margin-bottom:14px">File d\'escalade ACCI — Signalements urgents nécessitant une intervention immédiate (Protéger).</div>'+
     '<div class="stat-row"><div class="stat-box" style="border-color:var(--danger)"><div class="stat-box__val" style="color:var(--danger)">'+urgent.length+'</div><div class="stat-box__label">Urgents non résolus</div></div><div class="stat-box" style="border-color:var(--orange)"><div class="stat-box__val" style="color:var(--orange)">'+high.length+'</div><div class="stat-box__label">Élevés non résolus</div></div></div>'+
-    (urgent.length?'<section class="panel panel--danger"><div class="panel__head"><h2 class="panel__title">🚨 File d\'escalade urgente ACCI</h2></div><div class="dtable"><table><thead><tr><th>Titre</th><th>Membre</th><th>Statut</th><th>Créé le</th></tr></thead><tbody>'+urgent.map(function(t){var c=S.customers.get(t.customerId);return'<tr><td><b>'+esc(t.title)+'</b></td><td>'+(c?esc(c.name):"\u2014")+'</td><td>'+badge(t.status)+'</td><td class="muted">'+fmtDate(t.createdAt)+'</td></tr>';}).join("")+'</tbody></table></div></section>':'');
+    (urgent.length?'<section class="panel panel--danger"><div class="panel__head"><h2 class="panel__title"><i data-ic=alert></i> File d\'escalade urgente ACCI</h2></div><div class="dtable"><table><thead><tr><th>Titre</th><th>Membre</th><th>Statut</th><th>Créé le</th></tr></thead><tbody>'+urgent.map(function(t){var c=S.customers.get(t.customerId);return'<tr><td><b>'+esc(t.title)+'</b></td><td>'+(c?esc(c.name):"\u2014")+'</td><td>'+badge(t.status)+'</td><td class="muted">'+fmtDate(t.createdAt)+'</td></tr>';}).join("")+'</tbody></table></div></section>':'');
 });
 
 /* 23. tickets.knowledge */
-RC("tickets.knowledge",S.kb,{ic:"📚",em:"Aucun article dans la base de connaissances ACCI. Documentez les procédures de Sensibilisation, Formation, Protection et Plaidoyer.",cs:[{k:"title",l:"Titre",b:true},{k:"category",l:"Catégorie"},{k:"content",l:"Contenu",mx:60},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"category",l:"Catégorie",t:"select",o:["Sensibiliser","Former","Protéger","Plaider","Services","Technique","Autre"]},{n:"content",l:"Contenu",t:"textarea",rows:6}],df:{title:"",category:"Sensibiliser",content:""},sk:["title","content","category"]});
+RC("tickets.knowledge",S.kb,{ic:"book",em:"Aucun article dans la base de connaissances ACCI. Documentez les procédures de Sensibilisation, Formation, Protection et Plaidoyer.",cs:[{k:"title",l:"Titre",b:true},{k:"category",l:"Catégorie"},{k:"content",l:"Contenu",mx:60},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"category",l:"Catégorie",t:"select",o:["Sensibiliser","Former","Protéger","Plaider","Services","Technique","Autre"]},{n:"content",l:"Contenu",t:"textarea",rows:6}],df:{title:"",category:"Sensibiliser",content:""},sk:["title","content","category"]});
 
 /* 24. tickets.faq */
-RC("tickets.faq",S.faq,{ic:"❓",em:"Aucune FAQ ACCI. Ajoutez les questions fréquentes sur les services, l'adhésion et les piliers de l'association.",cs:[{k:"question",l:"Question",b:true},{k:"answer",l:"Réponse",mx:60},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"question",l:"Question *",rq:true},{n:"answer",l:"Réponse",t:"textarea",rows:4}],df:{question:"",answer:""},sk:["question","answer"]});
+RC("tickets.faq",S.faq,{ic:"lightbulb",em:"Aucune FAQ ACCI. Ajoutez les questions fréquentes sur les services, l'adhésion et les piliers de l'association.",cs:[{k:"question",l:"Question",b:true},{k:"answer",l:"Réponse",mx:60},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"question",l:"Question *",rq:true},{n:"answer",l:"Réponse",t:"textarea",rows:4}],df:{question:"",answer:""},sk:["question","answer"]});
 
 /* 25. tickets.surveys */
-RC("tickets.surveys",S.surveys,{ic:"📊",em:"Aucune enquête ACCI. Lancez des sondages pour évaluer l'impact de vos actions de sensibilisation.",cs:[{k:"name",l:"Nom",b:true},{k:"status",l:"Statut",bg:true},{k:"responses",l:"Réponses"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"status",l:"Statut",t:"select",o:["Brouillon","En cours","Terminé"]},{n:"responses",l:"Réponses",t:"number"},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",status:"Brouillon",responses:0,description:""},sk:["name"]});
+RC("tickets.surveys",S.surveys,{ic:"chart",em:"Aucune enquête ACCI. Lancez des sondages pour évaluer l'impact de vos actions de sensibilisation.",cs:[{k:"name",l:"Nom",b:true},{k:"status",l:"Statut",bg:true},{k:"responses",l:"Réponses"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"status",l:"Statut",t:"select",o:["Brouillon","En cours","Terminé"]},{n:"responses",l:"Réponses",t:"number"},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",status:"Brouillon",responses:0,description:""},sk:["name"]});
 
 /* 26. tickets.metrics */
 RA("tickets.metrics",function(){
@@ -1040,13 +1075,13 @@ RA("pipeline.forecast",function(){
 });
 
 /* 29. pipeline.goals */
-RC("pipeline.goals",S.salesGoals,{ic:"🎯",em:"Aucun objectif d'adhésion ACCI défini. Fixez vos objectifs pour les 4 piliers : Sensibiliser, Former, Protéger, Plaider.",cs:[{k:"name",l:"Objectif",b:true},{k:"target",l:"Cible",fn:function(v){return fmtMoney(v);}},{k:"current",l:"Actuel",fn:function(v){return fmtMoney(v);}},{k:"deadline",l:"Échéance",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"target",l:"Cible",t:"number"},{n:"current",l:"Actuel",t:"number"},{n:"deadline",l:"Échéance",t:"date"}],df:{name:"",target:0,current:0,deadline:""},sk:["name"]});
+RC("pipeline.goals",S.salesGoals,{ic:"compass",em:"Aucun objectif d'adhésion ACCI défini. Fixez vos objectifs pour les 4 piliers : Sensibiliser, Former, Protéger, Plaider.",cs:[{k:"name",l:"Objectif",b:true},{k:"target",l:"Cible",fn:function(v){return fmtMoney(v);}},{k:"current",l:"Actuel",fn:function(v){return fmtMoney(v);}},{k:"deadline",l:"Échéance",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"target",l:"Cible",t:"number"},{n:"current",l:"Actuel",t:"number"},{n:"deadline",l:"Échéance",t:"date"}],df:{name:"",target:0,current:0,deadline:""},sk:["name"]});
 
 /* 30. pipeline.won */
 RA("pipeline.won",function(){
   var won=S.deals.where(function(d){return d.stage==="Gagné";});
   var total=won.reduce(function(s,d){return s+(d.value||0);},0);
-  if(!won.length)return'<div class="empty-state"><div class="empty-state__ic">🏆</div><h2>Aucune adhésion ou partenariat ACCI conclu</h2><p class="muted">Les adhésions gagnées apparaîtront ici. Continuez le travail de sensibilisation !</p></div>';
+  if(!won.length)return'<div class="empty-state"><div class="empty-state__ic"><i data-ic=badge></i></div><h2>Aucune adhésion ou partenariat ACCI conclu</h2><p class="muted">Les adhésions gagnées apparaîtront ici. Continuez le travail de sensibilisation !</p></div>';
   return'<div class="stat-row"><div class="stat-box"><div class="stat-box__val">'+won.length+'</div><div class="stat-box__label">Adhésions/partenariats gagnés</div></div><div class="stat-box"><div class="stat-box__val">'+fmtMoney(total)+'</div><div class="stat-box__label">Revenu total ACCI</div></div></div>'+
     '<div class="dtable"><table><thead><tr><th>Affaire</th><th>Membre/Partenaire</th><th>Valeur</th><th>Date</th></tr></thead><tbody>'+won.map(function(d){var c=S.customers.get(d.customerId);return'<tr><td><b>'+esc(d.title)+'</b></td><td>'+(c?esc(c.name):"\u2014")+'</td><td>'+fmtMoney(d.value)+'</td><td class="muted">'+fmtDate(d.updatedAt)+'</td></tr>';}).join("")+'</tbody></table></div>';
 });
@@ -1054,17 +1089,17 @@ RA("pipeline.won",function(){
 /* 31. pipeline.lost */
 RA("pipeline.lost",function(){
   var lost=S.deals.where(function(d){return d.stage==="Perdu";});
-  if(!lost.length)return'<div class="empty-state"><div class="empty-state__ic">📉</div><h2>Aucune adhésion ACCI perdue</h2><p class="muted">Bonne nouvelle ! Aucun prospect perdu pour le moment.</p></div>';
+  if(!lost.length)return'<div class="empty-state"><div class="empty-state__ic"><i data-ic=trend></i></div><h2>Aucune adhésion ACCI perdue</h2><p class="muted">Bonne nouvelle ! Aucun prospect perdu pour le moment.</p></div>';
   return'<div class="banner banner--info" style="margin-bottom:14px">Analyse des adhésions perdues — identifiez les points d\'amélioration pour l\'ACCI.</div>'+
     '<div class="dtable"><table><thead><tr><th>Affaire</th><th>Prospect</th><th>Valeur</th><th>Notes</th></tr></thead><tbody>'+lost.map(function(d){var c=S.customers.get(d.customerId);return'<tr><td><b>'+esc(d.title)+'</b></td><td>'+(c?esc(c.name):"\u2014")+'</td><td>'+fmtMoney(d.value)+'</td><td class="muted">'+esc((d.notes||"").slice(0,50))+'</td></tr>';}).join("")+'</tbody></table></div>';
 });
 
 /* 32. pipeline.activities */
-RC("pipeline.activities",S.salesActivities,{ic:"📋",em:"Aucune activité de prospection ACCI. Suivez vos démarches de sensibilisation et d'adhésion.",cs:[{k:"type",l:"Type",bg:true},{k:"description",l:"Description",mx:50},{k:"customerId",l:"Membre/Prospect",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"type",l:"Type",t:"select",o:["Appel","E-mail","Réunion","Note","Autre"]},{n:"description",l:"Description *",rq:true},{n:"customerId",l:"Membre/Prospect",t:"customer"},{n:"date",l:"Date",t:"date"}],df:{type:"Appel",description:"",customerId:"",date:todayISO()},sk:["description","type"]});
+RC("pipeline.activities",S.salesActivities,{ic:"doc",em:"Aucune activité de prospection ACCI. Suivez vos démarches de sensibilisation et d'adhésion.",cs:[{k:"type",l:"Type",bg:true},{k:"description",l:"Description",mx:50},{k:"customerId",l:"Membre/Prospect",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"type",l:"Type",t:"select",o:["Appel","E-mail","Réunion","Note","Autre"]},{n:"description",l:"Description *",rq:true},{n:"customerId",l:"Membre/Prospect",t:"customer"},{n:"date",l:"Date",t:"date"}],df:{type:"Appel",description:"",customerId:"",date:todayISO()},sk:["description","type"]});
 
 /* 33. pipeline.leaderboard */
 RA("pipeline.leaderboard",function(){
-  return'<section class="panel"><div class="panel__head"><h2 class="panel__title">🏅 Classement équipe ACCI (adhésions gagnées)</h2></div><p class="muted">Le classement est basé sur les adhésions et partenariats gagnés par l\'équipe ACCI. En mode multi-utilisateurs, chaque agent verra ses résultats.</p><div class="stat-row"><div class="stat-box"><div class="stat-box__val">'+S.deals.where(function(d){return d.stage==="Gagné";}).length+'</div><div class="stat-box__label">Total adhésions gagnées</div></div><div class="stat-box"><div class="stat-box__val">'+fmtMoney(S.deals.where(function(d){return d.stage==="Gagné";}).reduce(function(s,d){return s+(d.value||0);},0))+'</div><div class="stat-box__label">Valeur totale ACCI</div></div></div></section>';
+  return'<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=badge></i> Classement équipe ACCI (adhésions gagnées)</h2></div><p class="muted">Le classement est basé sur les adhésions et partenariats gagnés par l\'équipe ACCI. En mode multi-utilisateurs, chaque agent verra ses résultats.</p><div class="stat-row"><div class="stat-box"><div class="stat-box__val">'+S.deals.where(function(d){return d.stage==="Gagné";}).length+'</div><div class="stat-box__label">Total adhésions gagnées</div></div><div class="stat-box"><div class="stat-box__val">'+fmtMoney(S.deals.where(function(d){return d.stage==="Gagné";}).reduce(function(s,d){return s+(d.value||0);},0))+'</div><div class="stat-box__label">Valeur totale ACCI</div></div></div></section>';
 });
 
 /* 34. pipeline.revenue */
@@ -1072,20 +1107,20 @@ RA("pipeline.revenue",function(){
   var inv=S.invoices.where(function(i){return i.status==="Payé";});
   var byMonth={};inv.forEach(function(i){var m=(i.issueDate||"").slice(0,7);byMonth[m]=(byMonth[m]||0)+(i.total||0);});
   var months=Object.keys(byMonth).sort();
-  return'<section class="panel"><div class="panel__head"><h2 class="panel__title">📈 Revenu mensuel ACCI (cotisations & services)</h2></div>'+(months.length?chartBars(months.map(function(m){return{label:m,val:byMonth[m],fmt:fmtMoney(byMonth[m])};})):'<p class="muted">Aucune donnée de revenu ACCI.</p>')+'</section>';
+  return'<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=trend></i> Revenu mensuel ACCI (cotisations & services)</h2></div>'+(months.length?chartBars(months.map(function(m){return{label:m,val:byMonth[m],fmt:fmtMoney(byMonth[m])};})):'<p class="muted">Aucune donnée de revenu ACCI.</p>')+'</section>';
 });
 
 /* ---- INVOICES (9 sections) ---- */
 /* 35. invoices.list — complex, defined later */
 
 /* 36. invoices.templates */
-RC("invoices.templates",S.invTemplates,{ic:"📄",em:"Aucun modèle de facture ACCI. Créez des modèles pour les cotisations et services récurrents.",cs:[{k:"name",l:"Nom",b:true},{k:"description",l:"Description",mx:40},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:3}],df:{name:"",description:""},sk:["name"]});
+RC("invoices.templates",S.invTemplates,{ic:"invoice",em:"Aucun modèle de facture ACCI. Créez des modèles pour les cotisations et services récurrents.",cs:[{k:"name",l:"Nom",b:true},{k:"description",l:"Description",mx:40},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:3}],df:{name:"",description:""},sk:["name"]});
 
 /* 37. invoices.payments */
-RC("invoices.payments",S.payments,{ic:"💳",em:"Aucun paiement enregistré. Suivez les cotisations et paiements des membres ACCI.",cs:[{k:"invoiceNum",l:"Facture"},{k:"amount",l:"Montant",fn:function(v){return fmtMoney(v);}},{k:"method",l:"Méthode"},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"invoiceNum",l:"N° facture"},{n:"amount",l:"Montant",t:"number"},{n:"method",l:"Méthode",t:"select",o:["Virement","Espèces","Mobile Money","Chèque","Carte","Autre"]},{n:"date",l:"Date",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{invoiceNum:"",amount:0,method:"Mobile Money",date:todayISO(),notes:""},sk:["invoiceNum"]});
+RC("invoices.payments",S.payments,{ic:"money",em:"Aucun paiement enregistré. Suivez les cotisations et paiements des membres ACCI.",cs:[{k:"invoiceNum",l:"Facture"},{k:"amount",l:"Montant",fn:function(v){return fmtMoney(v);}},{k:"method",l:"Méthode"},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"invoiceNum",l:"N° facture"},{n:"amount",l:"Montant",t:"number"},{n:"method",l:"Méthode",t:"select",o:["Virement","Espèces","Mobile Money","Chèque","Carte","Autre"]},{n:"date",l:"Date",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{invoiceNum:"",amount:0,method:"Mobile Money",date:todayISO(),notes:""},sk:["invoiceNum"]});
 
 /* 38. invoices.expenses */
-RC("invoices.expenses",S.expenses,{ic:"💸",em:"Aucune dépense ACCI enregistrée. Suivez les dépenses liées aux formations, sensibilisations et actions de protection.",cs:[{k:"description",l:"Description",b:true},{k:"amount",l:"Montant",fn:function(v){return fmtMoney(v);}},{k:"category",l:"Catégorie"},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"description",l:"Description *",rq:true},{n:"amount",l:"Montant",t:"number"},{n:"category",l:"Catégorie",t:"select",o:["Sensibilisation","Formation","Protection","Plaidoyer","Fournitures","Transport","Communication","Loyer","Autre"]},{n:"date",l:"Date",t:"date"}],df:{description:"",amount:0,category:"Autre",date:todayISO()},sk:["description","category"]});
+RC("invoices.expenses",S.expenses,{ic:"money",em:"Aucune dépense ACCI enregistrée. Suivez les dépenses liées aux formations, sensibilisations et actions de protection.",cs:[{k:"description",l:"Description",b:true},{k:"amount",l:"Montant",fn:function(v){return fmtMoney(v);}},{k:"category",l:"Catégorie"},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"description",l:"Description *",rq:true},{n:"amount",l:"Montant",t:"number"},{n:"category",l:"Catégorie",t:"select",o:["Sensibilisation","Formation","Protection","Plaidoyer","Fournitures","Transport","Communication","Loyer","Autre"]},{n:"date",l:"Date",t:"date"}],df:{description:"",amount:0,category:"Autre",date:todayISO()},sk:["description","category"]});
 
 /* 39. invoices.revdash */
 RA("invoices.revdash",function(){
@@ -1107,17 +1142,17 @@ RA("invoices.tax",function(){
 });
 
 /* 41. invoices.credits */
-RC("invoices.credits",S.creditNotes,{ic:"📝",em:"Aucun avoir ACCI émis.",cs:[{k:"number",l:"N°",b:true},{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"amount",l:"Montant",fn:function(v){return fmtMoney(v);}},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"number",l:"N°"},{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"amount",l:"Montant",t:"number"},{n:"reason",l:"Motif",t:"textarea",rows:2},{n:"date",l:"Date",t:"date"}],df:{number:"",customerId:"",amount:0,reason:"",date:todayISO()},sk:["number"]});
+RC("invoices.credits",S.creditNotes,{ic:"pencil",em:"Aucun avoir ACCI émis.",cs:[{k:"number",l:"N°",b:true},{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"amount",l:"Montant",fn:function(v){return fmtMoney(v);}},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"number",l:"N°"},{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"amount",l:"Montant",t:"number"},{n:"reason",l:"Motif",t:"textarea",rows:2},{n:"date",l:"Date",t:"date"}],df:{number:"",customerId:"",amount:0,reason:"",date:todayISO()},sk:["number"]});
 
 /* 42. invoices.recurring */
-RC("invoices.recurring",S.recurring,{ic:"🔄",em:"Aucune cotisation récurrente ACCI. Configurez les adhésions annuelles et abonnements.",cs:[{k:"name",l:"Nom",b:true},{k:"frequency",l:"Fréquence"},{k:"amount",l:"Montant",fn:function(v){return fmtMoney(v);}},{k:"nextDate",l:"Prochaine",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"frequency",l:"Fréquence",t:"select",o:["Mensuel","Trimestriel","Annuel"]},{n:"amount",l:"Montant",t:"number"},{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"nextDate",l:"Prochaine date",t:"date"}],df:{name:"",frequency:"Annuel",amount:0,customerId:"",nextDate:""},sk:["name"]});
+RC("invoices.recurring",S.recurring,{ic:"swap",em:"Aucune cotisation récurrente ACCI. Configurez les adhésions annuelles et abonnements.",cs:[{k:"name",l:"Nom",b:true},{k:"frequency",l:"Fréquence"},{k:"amount",l:"Montant",fn:function(v){return fmtMoney(v);}},{k:"nextDate",l:"Prochaine",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"frequency",l:"Fréquence",t:"select",o:["Mensuel","Trimestriel","Annuel"]},{n:"amount",l:"Montant",t:"number"},{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"nextDate",l:"Prochaine date",t:"date"}],df:{name:"",frequency:"Annuel",amount:0,customerId:"",nextDate:""},sk:["name"]});
 
 /* 43. invoices.calendar */
-RA("invoices.calendar",function(){return calendarView(S.invoices.all().map(function(i){return{date:i.dueDate||i.issueDate,label:i.number+" ("+fmtMoney(i.total)+")"};}).concat(S.recurring.all().map(function(r){return{date:r.nextDate,label:"🔄 "+r.name};})));});
+RA("invoices.calendar",function(){return calendarView(S.invoices.all().map(function(i){return{date:i.dueDate||i.issueDate,label:i.number+" ("+fmtMoney(i.total)+")"};}).concat(S.recurring.all().map(function(r){return{date:r.nextDate,label:"<i data-ic=swap></i> "+r.name};})));});
 
 /* ---- MARKETING (8 sections) ---- */
 /* 44. marketing.campaigns */
-RC("marketing.campaigns",S.campaigns,{ic:"📣",em:"Aucune campagne de sensibilisation ACCI. Lancez des campagnes pour promouvoir un usage responsable du numérique en Côte d'Ivoire !",cs:[{k:"name",l:"Nom",b:true},{k:"status",l:"Statut",bg:true},{k:"channel",l:"Canal"},{k:"startDate",l:"Début",fn:fmtDate},{k:"endDate",l:"Fin",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"status",l:"Statut",t:"select",o:CAMPAIGN_STATUSES},{n:"channel",l:"Canal",t:"select",o:["E-mail","Réseaux sociaux","SMS","Web","Terrain","Autre"]},{n:"startDate",l:"Début",t:"date"},{n:"endDate",l:"Fin",t:"date"},{n:"description",l:"Description",t:"textarea",rows:3}],df:{name:"",status:"Brouillon",channel:"Réseaux sociaux",startDate:todayISO(),endDate:"",description:""},sk:["name","channel"]});
+RC("marketing.campaigns",S.campaigns,{ic:"megaphone",em:"Aucune campagne de sensibilisation ACCI. Lancez des campagnes pour promouvoir un usage responsable du numérique en Côte d'Ivoire !",cs:[{k:"name",l:"Nom",b:true},{k:"status",l:"Statut",bg:true},{k:"channel",l:"Canal"},{k:"startDate",l:"Début",fn:fmtDate},{k:"endDate",l:"Fin",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"status",l:"Statut",t:"select",o:CAMPAIGN_STATUSES},{n:"channel",l:"Canal",t:"select",o:["E-mail","Réseaux sociaux","SMS","Web","Terrain","Autre"]},{n:"startDate",l:"Début",t:"date"},{n:"endDate",l:"Fin",t:"date"},{n:"description",l:"Description",t:"textarea",rows:3}],df:{name:"",status:"Brouillon",channel:"Réseaux sociaux",startDate:todayISO(),endDate:"",description:""},sk:["name","channel"]});
 
 /* 45. marketing.manager */
 RA("marketing.manager",function(){
@@ -1128,16 +1163,16 @@ RA("marketing.manager",function(){
 });
 
 /* 46. marketing.templates */
-RC("marketing.templates",S.emailTpl,{ic:"✉️",em:"Aucun modèle e-mail ACCI. Créez des modèles pour vos campagnes de sensibilisation.",cs:[{k:"name",l:"Nom",b:true},{k:"subject",l:"Objet",mx:40},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"subject",l:"Objet"},{n:"body",l:"Contenu",t:"textarea",rows:6}],df:{name:"",subject:"",body:""},sk:["name","subject"]});
+RC("marketing.templates",S.emailTpl,{ic:"mail",em:"Aucun modèle e-mail ACCI. Créez des modèles pour vos campagnes de sensibilisation.",cs:[{k:"name",l:"Nom",b:true},{k:"subject",l:"Objet",mx:40},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"subject",l:"Objet"},{n:"body",l:"Contenu",t:"textarea",rows:6}],df:{name:"",subject:"",body:""},sk:["name","subject"]});
 
 /* 47. marketing.subscribers */
-RC("marketing.subscribers",S.subscribers,{ic:"📧",em:"Aucun abonné aux communications ACCI. Développez votre audience pour la sensibilisation !",cs:[{k:"email",l:"E-mail",b:true},{k:"name",l:"Nom"},{k:"status",l:"Statut",bg:true},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"email",l:"E-mail *",rq:true},{n:"name",l:"Nom"},{n:"status",l:"Statut",t:"select",o:["Actif","Désabonné"]}],df:{email:"",name:"",status:"Actif"},sk:["email","name"]});
+RC("marketing.subscribers",S.subscribers,{ic:"mail",em:"Aucun abonné aux communications ACCI. Développez votre audience pour la sensibilisation !",cs:[{k:"email",l:"E-mail",b:true},{k:"name",l:"Nom"},{k:"status",l:"Statut",bg:true},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"email",l:"E-mail *",rq:true},{n:"name",l:"Nom"},{n:"status",l:"Statut",t:"select",o:["Actif","Désabonné"]}],df:{email:"",name:"",status:"Actif"},sk:["email","name"]});
 
 /* 48. marketing.calendar */
-RA("marketing.calendar",function(){return calendarView(S.campaigns.all().map(function(c){return{date:c.startDate,label:"📣 "+c.name};}));});
+RA("marketing.calendar",function(){return calendarView(S.campaigns.all().map(function(c){return{date:c.startDate,label:"<i data-ic=megaphone></i> "+c.name};}));});
 
 /* 49. marketing.social */
-RC("marketing.social",S.socialPosts,{ic:"📱",em:"Aucun post ACCI sur les réseaux sociaux. Planifiez du contenu pour sensibiliser le public ivoirien !",cs:[{k:"platform",l:"Plateforme",bg:true},{k:"content",l:"Contenu",mx:50},{k:"scheduledDate",l:"Planifié",fn:fmtDate},{k:"status",l:"Statut",bg:true}],fs:[{n:"platform",l:"Plateforme",t:"select",o:["Facebook","Instagram","X (Twitter)","TikTok","YouTube","LinkedIn"]},{n:"content",l:"Contenu *",rq:true,t:"textarea",rows:3},{n:"scheduledDate",l:"Date planifiée",t:"date"},{n:"status",l:"Statut",t:"select",o:["Brouillon","Planifié","Publié"]}],df:{platform:"Facebook",content:"",scheduledDate:todayISO(),status:"Brouillon"},sk:["content","platform"]});
+RC("marketing.social",S.socialPosts,{ic:"phone",em:"Aucun post ACCI sur les réseaux sociaux. Planifiez du contenu pour sensibiliser le public ivoirien !",cs:[{k:"platform",l:"Plateforme",bg:true},{k:"content",l:"Contenu",mx:50},{k:"scheduledDate",l:"Planifié",fn:fmtDate},{k:"status",l:"Statut",bg:true}],fs:[{n:"platform",l:"Plateforme",t:"select",o:["Facebook","Instagram","X (Twitter)","TikTok","YouTube","LinkedIn"]},{n:"content",l:"Contenu *",rq:true,t:"textarea",rows:3},{n:"scheduledDate",l:"Date planifiée",t:"date"},{n:"status",l:"Statut",t:"select",o:["Brouillon","Planifié","Publié"]}],df:{platform:"Facebook",content:"",scheduledDate:todayISO(),status:"Brouillon"},sk:["content","platform"]});
 
 /* 50. marketing.analytics */
 RA("marketing.analytics",function(){
@@ -1148,90 +1183,90 @@ RA("marketing.analytics",function(){
 });
 
 /* 51. marketing.landing */
-RC("marketing.landing",S.landingPages,{ic:"🌐",em:"Aucune page de destination ACCI. Créez des pages pour vos campagnes de sensibilisation.",cs:[{k:"name",l:"Nom",b:true},{k:"url",l:"URL",mx:40},{k:"status",l:"Statut",bg:true},{k:"visits",l:"Visites"}],fs:[{n:"name",l:"Nom *",rq:true},{n:"url",l:"URL",ph:"https://..."},{n:"status",l:"Statut",t:"select",o:["Brouillon","Active","Archivée"]},{n:"visits",l:"Visites",t:"number"}],df:{name:"",url:"",status:"Brouillon",visits:0},sk:["name","url"]});
+RC("marketing.landing",S.landingPages,{ic:"globe",em:"Aucune page de destination ACCI. Créez des pages pour vos campagnes de sensibilisation.",cs:[{k:"name",l:"Nom",b:true},{k:"url",l:"URL",mx:40},{k:"status",l:"Statut",bg:true},{k:"visits",l:"Visites"}],fs:[{n:"name",l:"Nom *",rq:true},{n:"url",l:"URL",ph:"https://..."},{n:"status",l:"Statut",t:"select",o:["Brouillon","Active","Archivée"]},{n:"visits",l:"Visites",t:"number"}],df:{name:"",url:"",status:"Brouillon",visits:0},sk:["name","url"]});
 
 /* ---- PROJECTS (6 sections) ---- */
 /* 52. projects.list */
-RC("projects.list",S.projects,{ic:"📁",em:"Aucun projet ACCI. Lancez des initiatives pour un numérique responsable en Côte d'Ivoire !",cs:[{k:"name",l:"Projet",b:true},{k:"status",l:"Statut",bg:true},{k:"startDate",l:"Début",fn:fmtDate},{k:"endDate",l:"Fin",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:3},{n:"status",l:"Statut",t:"select",o:PROJECT_STATUSES},{n:"startDate",l:"Début",t:"date"},{n:"endDate",l:"Fin",t:"date"}],df:{name:"",description:"",status:"Planifié",startDate:todayISO(),endDate:""},sk:["name","description"]});
+RC("projects.list",S.projects,{ic:"folder",em:"Aucun projet ACCI. Lancez des initiatives pour un numérique responsable en Côte d'Ivoire !",cs:[{k:"name",l:"Projet",b:true},{k:"status",l:"Statut",bg:true},{k:"startDate",l:"Début",fn:fmtDate},{k:"endDate",l:"Fin",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:3},{n:"status",l:"Statut",t:"select",o:PROJECT_STATUSES},{n:"startDate",l:"Début",t:"date"},{n:"endDate",l:"Fin",t:"date"}],df:{name:"",description:"",status:"Planifié",startDate:todayISO(),endDate:""},sk:["name","description"]});
 
 /* 53. projects.tasks */
-RC("projects.tasks",S.tasks,{ic:"✅",em:"Aucune tâche ACCI. Créez des tâches pour faire avancer les projets de l'association.",cs:[{k:"title",l:"Tâche",b:true},{k:"status",l:"Statut",bg:true},{k:"priority",l:"Priorité",bg:true},{k:"dueDate",l:"Échéance",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"description",l:"Description",t:"textarea",rows:2},{n:"status",l:"Statut",t:"select",o:TASK_STATUSES},{n:"priority",l:"Priorité",t:"select",o:TASK_PRIORITIES},{n:"dueDate",l:"Échéance",t:"date"},{n:"assignee",l:"Assigné à"}],df:{title:"",description:"",status:"À faire",priority:"Moyenne",dueDate:"",assignee:""},sk:["title","description"]});
+RC("projects.tasks",S.tasks,{ic:"check",em:"Aucune tâche ACCI. Créez des tâches pour faire avancer les projets de l'association.",cs:[{k:"title",l:"Tâche",b:true},{k:"status",l:"Statut",bg:true},{k:"priority",l:"Priorité",bg:true},{k:"dueDate",l:"Échéance",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"description",l:"Description",t:"textarea",rows:2},{n:"status",l:"Statut",t:"select",o:TASK_STATUSES},{n:"priority",l:"Priorité",t:"select",o:TASK_PRIORITIES},{n:"dueDate",l:"Échéance",t:"date"},{n:"assignee",l:"Assigné à"}],df:{title:"",description:"",status:"À faire",priority:"Moyenne",dueDate:"",assignee:""},sk:["title","description"]});
 
 /* 54. projects.calendar */
-RA("projects.calendar",function(){return calendarView(S.tasks.all().map(function(t){return{date:t.dueDate,label:"✅ "+t.title};}).concat(S.milestones.all().map(function(m){return{date:m.dueDate,label:"🏁 "+m.name};})));});
+RA("projects.calendar",function(){return calendarView(S.tasks.all().map(function(t){return{date:t.dueDate,label:"<i data-ic=check></i> "+t.title};}).concat(S.milestones.all().map(function(m){return{date:m.dueDate,label:"<i data-ic=flag></i> "+m.name};})));});
 
 /* 55. projects.time */
-RC("projects.time",S.timelogs,{ic:"⏱️",em:"Aucun temps enregistré. Suivez le temps consacré aux projets ACCI.",cs:[{k:"task",l:"Tâche",b:true},{k:"hours",l:"Heures"},{k:"date",l:"Date",fn:fmtDate},{k:"notes",l:"Notes",mx:40}],fs:[{n:"task",l:"Tâche *",rq:true},{n:"hours",l:"Heures",t:"number"},{n:"date",l:"Date",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{task:"",hours:0,date:todayISO(),notes:""},sk:["task","notes"]});
+RC("projects.time",S.timelogs,{ic:"clock",em:"Aucun temps enregistré. Suivez le temps consacré aux projets ACCI.",cs:[{k:"task",l:"Tâche",b:true},{k:"hours",l:"Heures"},{k:"date",l:"Date",fn:fmtDate},{k:"notes",l:"Notes",mx:40}],fs:[{n:"task",l:"Tâche *",rq:true},{n:"hours",l:"Heures",t:"number"},{n:"date",l:"Date",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{task:"",hours:0,date:todayISO(),notes:""},sk:["task","notes"]});
 
 /* 56. projects.milestones */
-RC("projects.milestones",S.milestones,{ic:"🏁",em:"Aucun jalon ACCI. Définissez les étapes clés de vos projets d'association.",cs:[{k:"name",l:"Jalon",b:true},{k:"status",l:"Statut",bg:true},{k:"dueDate",l:"Échéance",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"status",l:"Statut",t:"select",o:["Planifié","En cours","Atteint","Annulé"]},{n:"dueDate",l:"Échéance",t:"date"},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",status:"Planifié",dueDate:"",description:""},sk:["name"]});
+RC("projects.milestones",S.milestones,{ic:"flag",em:"Aucun jalon ACCI. Définissez les étapes clés de vos projets d'association.",cs:[{k:"name",l:"Jalon",b:true},{k:"status",l:"Statut",bg:true},{k:"dueDate",l:"Échéance",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"status",l:"Statut",t:"select",o:["Planifié","En cours","Atteint","Annulé"]},{n:"dueDate",l:"Échéance",t:"date"},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",status:"Planifié",dueDate:"",description:""},sk:["name"]});
 
 /* 57. projects.templates */
-RC("projects.templates",S.projectTpl,{ic:"📋",em:"Aucun modèle de projet ACCI. Créez des modèles pour standardiser vos initiatives.",cs:[{k:"name",l:"Nom",b:true},{k:"description",l:"Description",mx:50}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:3}],df:{name:"",description:""},sk:["name"]});
+RC("projects.templates",S.projectTpl,{ic:"doc",em:"Aucun modèle de projet ACCI. Créez des modèles pour standardiser vos initiatives.",cs:[{k:"name",l:"Nom",b:true},{k:"description",l:"Description",mx:50}],fs:[{n:"name",l:"Nom *",rq:true},{n:"description",l:"Description",t:"textarea",rows:3}],df:{name:"",description:""},sk:["name"]});
 
 /* ---- COMMUNICATION (6 sections) ---- */
 /* 58. comms.email */
-RC("comms.email",S.emails,{ic:"✉️",em:"Aucun e-mail ACCI envoyé. Communiquez avec vos membres et partenaires.",cs:[{k:"to",l:"Destinataire",b:true},{k:"subject",l:"Objet",mx:40},{k:"status",l:"Statut",bg:true},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"to",l:"Destinataire *",rq:true},{n:"subject",l:"Objet"},{n:"body",l:"Corps",t:"textarea",rows:4},{n:"status",l:"Statut",t:"select",o:["Brouillon","Envoyé"]},{n:"date",l:"Date",t:"date"}],df:{to:"",subject:"",body:"",status:"Brouillon",date:todayISO()},sk:["to","subject"]});
+RC("comms.email",S.emails,{ic:"mail",em:"Aucun e-mail ACCI envoyé. Communiquez avec vos membres et partenaires.",cs:[{k:"to",l:"Destinataire",b:true},{k:"subject",l:"Objet",mx:40},{k:"status",l:"Statut",bg:true},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"to",l:"Destinataire *",rq:true},{n:"subject",l:"Objet"},{n:"body",l:"Corps",t:"textarea",rows:4},{n:"status",l:"Statut",t:"select",o:["Brouillon","Envoyé"]},{n:"date",l:"Date",t:"date"}],df:{to:"",subject:"",body:"",status:"Brouillon",date:todayISO()},sk:["to","subject"]});
 
 /* 59. comms.sms */
-RC("comms.sms",S.sms,{ic:"💬",em:"Aucun SMS ACCI envoyé. Utilisez le SMS pour les rappels et alertes aux membres.",cs:[{k:"to",l:"Destinataire",b:true},{k:"message",l:"Message",mx:50},{k:"status",l:"Statut",bg:true},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"to",l:"Destinataire *",rq:true},{n:"message",l:"Message *",rq:true,t:"textarea",rows:2},{n:"status",l:"Statut",t:"select",o:["Brouillon","Envoyé"]},{n:"date",l:"Date",t:"date"}],df:{to:"",message:"",status:"Brouillon",date:todayISO()},sk:["to","message"]});
+RC("comms.sms",S.sms,{ic:"chat",em:"Aucun SMS ACCI envoyé. Utilisez le SMS pour les rappels et alertes aux membres.",cs:[{k:"to",l:"Destinataire",b:true},{k:"message",l:"Message",mx:50},{k:"status",l:"Statut",bg:true},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"to",l:"Destinataire *",rq:true},{n:"message",l:"Message *",rq:true,t:"textarea",rows:2},{n:"status",l:"Statut",t:"select",o:["Brouillon","Envoyé"]},{n:"date",l:"Date",t:"date"}],df:{to:"",message:"",status:"Brouillon",date:todayISO()},sk:["to","message"]});
 
 /* 60. comms.calls */
-RC("comms.calls",S.calls,{ic:"📞",em:"Aucun appel ACCI enregistré. Suivez les échanges téléphoniques avec les membres.",cs:[{k:"contact",l:"Contact",b:true},{k:"direction",l:"Direction",bg:true},{k:"duration",l:"Durée (min)"},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"contact",l:"Contact *",rq:true},{n:"direction",l:"Direction",t:"select",o:["Entrant","Sortant"]},{n:"duration",l:"Durée (min)",t:"number"},{n:"date",l:"Date",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{contact:"",direction:"Sortant",duration:0,date:todayISO(),notes:""},sk:["contact"]});
+RC("comms.calls",S.calls,{ic:"phone",em:"Aucun appel ACCI enregistré. Suivez les échanges téléphoniques avec les membres.",cs:[{k:"contact",l:"Contact",b:true},{k:"direction",l:"Direction",bg:true},{k:"duration",l:"Durée (min)"},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"contact",l:"Contact *",rq:true},{n:"direction",l:"Direction",t:"select",o:["Entrant","Sortant"]},{n:"duration",l:"Durée (min)",t:"number"},{n:"date",l:"Date",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{contact:"",direction:"Sortant",duration:0,date:todayISO(),notes:""},sk:["contact"]});
 
 /* 61. comms.meetings */
-RC("comms.meetings",S.meetings,{ic:"📅",em:"Aucune réunion ACCI planifiée. Organisez des réunions d'équipe ou avec les membres.",cs:[{k:"title",l:"Titre",b:true},{k:"date",l:"Date",fn:fmtDate},{k:"time",l:"Heure"},{k:"participants",l:"Participants",mx:30}],fs:[{n:"title",l:"Titre *",rq:true},{n:"date",l:"Date",t:"date"},{n:"time",l:"Heure",ph:"14:00"},{n:"participants",l:"Participants"},{n:"location",l:"Lieu"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{title:"",date:todayISO(),time:"",participants:"",location:"",notes:""},sk:["title","participants"]});
+RC("comms.meetings",S.meetings,{ic:"calendar",em:"Aucune réunion ACCI planifiée. Organisez des réunions d'équipe ou avec les membres.",cs:[{k:"title",l:"Titre",b:true},{k:"date",l:"Date",fn:fmtDate},{k:"time",l:"Heure"},{k:"participants",l:"Participants",mx:30}],fs:[{n:"title",l:"Titre *",rq:true},{n:"date",l:"Date",t:"date"},{n:"time",l:"Heure",ph:"14:00"},{n:"participants",l:"Participants"},{n:"location",l:"Lieu"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{title:"",date:todayISO(),time:"",participants:"",location:"",notes:""},sk:["title","participants"]});
 
 /* 62. comms.announcements */
-RC("comms.announcements",S.announcements,{ic:"📢",em:"Aucune annonce ACCI. Publiez des annonces pour informer les membres et le public.",cs:[{k:"title",l:"Titre",b:true},{k:"priority",l:"Priorité",bg:true},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"content",l:"Contenu *",rq:true,t:"textarea",rows:4},{n:"priority",l:"Priorité",t:"select",o:["Basse","Moyenne","Haute"]}],df:{title:"",content:"",priority:"Moyenne"},sk:["title","content"]});
+RC("comms.announcements",S.announcements,{ic:"megaphone",em:"Aucune annonce ACCI. Publiez des annonces pour informer les membres et le public.",cs:[{k:"title",l:"Titre",b:true},{k:"priority",l:"Priorité",bg:true},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"content",l:"Contenu *",rq:true,t:"textarea",rows:4},{n:"priority",l:"Priorité",t:"select",o:["Basse","Moyenne","Haute"]}],df:{title:"",content:"",priority:"Moyenne"},sk:["title","content"]});
 
 /* 63. comms.messaging */
-RC("comms.messaging",S.messages,{ic:"💬",em:"Aucun message interne ACCI.",cs:[{k:"from",l:"De",b:true},{k:"to",l:"À"},{k:"content",l:"Message",mx:50},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"from",l:"De *",rq:true},{n:"to",l:"À *",rq:true},{n:"content",l:"Message *",rq:true,t:"textarea",rows:3}],df:{from:"",to:"",content:""},sk:["from","to","content"]});
+RC("comms.messaging",S.messages,{ic:"chat",em:"Aucun message interne ACCI.",cs:[{k:"from",l:"De",b:true},{k:"to",l:"À"},{k:"content",l:"Message",mx:50},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"from",l:"De *",rq:true},{n:"to",l:"À *",rq:true},{n:"content",l:"Message *",rq:true,t:"textarea",rows:3}],df:{from:"",to:"",content:""},sk:["from","to","content"]});
 
 /* ---- TEAM (6 sections) ---- */
 /* 64. team.directory */
-RC("team.directory",S.teamMembers,{ic:"👤",em:"Aucun membre dans l'équipe ACCI. Ajoutez les agents et administrateurs de l'association.",cs:[{k:"name",l:"Nom",b:true},{k:"role",l:"Rôle"},{k:"department",l:"Département"},{k:"email",l:"E-mail"},{k:"status",l:"Statut",bg:true}],fs:[{n:"name",l:"Nom *",rq:true},{n:"role",l:"Rôle",t:"select",o:["Administrateur","Agent","Manager","Stagiaire"]},{n:"department",l:"Département",t:"select",o:["Direction","Support","Sensibilisation","Formation","Protection","Plaidoyer","Technique"]},{n:"email",l:"E-mail"},{n:"phone",l:"Téléphone"},{n:"status",l:"Statut",t:"select",o:["Actif","Inactif"]}],df:{name:"",role:"Agent",department:"Support",email:"",phone:"",status:"Actif"},sk:["name","email","role"]});
+RC("team.directory",S.teamMembers,{ic:"user",em:"Aucun membre dans l'équipe ACCI. Ajoutez les agents et administrateurs de l'association.",cs:[{k:"name",l:"Nom",b:true},{k:"role",l:"Rôle"},{k:"department",l:"Département"},{k:"email",l:"E-mail"},{k:"status",l:"Statut",bg:true}],fs:[{n:"name",l:"Nom *",rq:true},{n:"role",l:"Rôle",t:"select",o:["Administrateur","Agent","Manager","Stagiaire"]},{n:"department",l:"Département",t:"select",o:["Direction","Support","Sensibilisation","Formation","Protection","Plaidoyer","Technique"]},{n:"email",l:"E-mail"},{n:"phone",l:"Téléphone"},{n:"status",l:"Statut",t:"select",o:["Actif","Inactif"]}],df:{name:"",role:"Agent",department:"Support",email:"",phone:"",status:"Actif"},sk:["name","email","role"]});
 
 /* 65. team.performance */
-RC("team.performance",S.performance,{ic:"⭐",em:"Aucune évaluation de performance ACCI. Évaluez les contributions de l'équipe aux 4 piliers.",cs:[{k:"memberName",l:"Membre équipe",b:true},{k:"period",l:"Période"},{k:"score",l:"Score"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"memberName",l:"Membre *",rq:true},{n:"period",l:"Période",ph:"Q2 2026"},{n:"score",l:"Score (1-10)",t:"number"},{n:"strengths",l:"Points forts",t:"textarea",rows:2},{n:"improvements",l:"Axes amélioration",t:"textarea",rows:2}],df:{memberName:"",period:"",score:0,strengths:"",improvements:""},sk:["memberName"]});
+RC("team.performance",S.performance,{ic:"star",em:"Aucune évaluation de performance ACCI. Évaluez les contributions de l'équipe aux 4 piliers.",cs:[{k:"memberName",l:"Membre équipe",b:true},{k:"period",l:"Période"},{k:"score",l:"Score"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"memberName",l:"Membre *",rq:true},{n:"period",l:"Période",ph:"Q2 2026"},{n:"score",l:"Score (1-10)",t:"number"},{n:"strengths",l:"Points forts",t:"textarea",rows:2},{n:"improvements",l:"Axes amélioration",t:"textarea",rows:2}],df:{memberName:"",period:"",score:0,strengths:"",improvements:""},sk:["memberName"]});
 
 /* 66. team.attendance */
-RC("team.attendance",S.attendance,{ic:"📋",em:"Aucun enregistrement de présence ACCI.",cs:[{k:"memberName",l:"Membre équipe",b:true},{k:"date",l:"Date",fn:fmtDate},{k:"status",l:"Statut",bg:true},{k:"hours",l:"Heures"}],fs:[{n:"memberName",l:"Membre *",rq:true},{n:"date",l:"Date",t:"date"},{n:"status",l:"Statut",t:"select",o:["Présent","Absent","Retard","Télétravail"]},{n:"hours",l:"Heures",t:"number"}],df:{memberName:"",date:todayISO(),status:"Présent",hours:8},sk:["memberName"]});
+RC("team.attendance",S.attendance,{ic:"doc",em:"Aucun enregistrement de présence ACCI.",cs:[{k:"memberName",l:"Membre équipe",b:true},{k:"date",l:"Date",fn:fmtDate},{k:"status",l:"Statut",bg:true},{k:"hours",l:"Heures"}],fs:[{n:"memberName",l:"Membre *",rq:true},{n:"date",l:"Date",t:"date"},{n:"status",l:"Statut",t:"select",o:["Présent","Absent","Retard","Télétravail"]},{n:"hours",l:"Heures",t:"number"}],df:{memberName:"",date:todayISO(),status:"Présent",hours:8},sk:["memberName"]});
 
 /* 67. team.leaves */
-RC("team.leaves",S.leaves,{ic:"🏖️",em:"Aucune demande de congé dans l'équipe ACCI.",cs:[{k:"memberName",l:"Membre équipe",b:true},{k:"type",l:"Type"},{k:"startDate",l:"Début",fn:fmtDate},{k:"endDate",l:"Fin",fn:fmtDate},{k:"status",l:"Statut",bg:true}],fs:[{n:"memberName",l:"Membre *",rq:true},{n:"type",l:"Type",t:"select",o:LEAVE_TYPES},{n:"startDate",l:"Début",t:"date"},{n:"endDate",l:"Fin",t:"date"},{n:"status",l:"Statut",t:"select",o:LEAVE_STATUSES},{n:"reason",l:"Motif",t:"textarea",rows:2}],df:{memberName:"",type:"Congé payé",startDate:todayISO(),endDate:"",status:"En attente",reason:""},sk:["memberName"]});
+RC("team.leaves",S.leaves,{ic:"calendar",em:"Aucune demande de congé dans l'équipe ACCI.",cs:[{k:"memberName",l:"Membre équipe",b:true},{k:"type",l:"Type"},{k:"startDate",l:"Début",fn:fmtDate},{k:"endDate",l:"Fin",fn:fmtDate},{k:"status",l:"Statut",bg:true}],fs:[{n:"memberName",l:"Membre *",rq:true},{n:"type",l:"Type",t:"select",o:LEAVE_TYPES},{n:"startDate",l:"Début",t:"date"},{n:"endDate",l:"Fin",t:"date"},{n:"status",l:"Statut",t:"select",o:LEAVE_STATUSES},{n:"reason",l:"Motif",t:"textarea",rows:2}],df:{memberName:"",type:"Congé payé",startDate:todayISO(),endDate:"",status:"En attente",reason:""},sk:["memberName"]});
 
 /* 68. team.training */
-RC("team.training",S.trainings,{ic:"🎓",em:"Aucune formation équipe ACCI planifiée. Renforcez les compétences de l'équipe — Pilier Former.",cs:[{k:"name",l:"Formation",b:true},{k:"provider",l:"Formateur"},{k:"date",l:"Date",fn:fmtDate},{k:"status",l:"Statut",bg:true}],fs:[{n:"name",l:"Nom *",rq:true},{n:"provider",l:"Formateur"},{n:"date",l:"Date",t:"date"},{n:"duration",l:"Durée"},{n:"status",l:"Statut",t:"select",o:["Planifié","En cours","Terminé"]},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",provider:"",date:todayISO(),duration:"",status:"Planifié",description:""},sk:["name"]});
+RC("team.training",S.trainings,{ic:"graduation",em:"Aucune formation équipe ACCI planifiée. Renforcez les compétences de l'équipe — Pilier Former.",cs:[{k:"name",l:"Formation",b:true},{k:"provider",l:"Formateur"},{k:"date",l:"Date",fn:fmtDate},{k:"status",l:"Statut",bg:true}],fs:[{n:"name",l:"Nom *",rq:true},{n:"provider",l:"Formateur"},{n:"date",l:"Date",t:"date"},{n:"duration",l:"Durée"},{n:"status",l:"Statut",t:"select",o:["Planifié","En cours","Terminé"]},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",provider:"",date:todayISO(),duration:"",status:"Planifié",description:""},sk:["name"]});
 
 /* 69. team.certifications */
-RC("team.certifications",S.certifications,{ic:"🏅",em:"Aucune certification de l'équipe ACCI enregistrée.",cs:[{k:"name",l:"Certification",b:true},{k:"memberName",l:"Membre"},{k:"issueDate",l:"Obtenue le",fn:fmtDate},{k:"expiryDate",l:"Expire le",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"memberName",l:"Membre"},{n:"issuer",l:"Organisme"},{n:"issueDate",l:"Date obtention",t:"date"},{n:"expiryDate",l:"Date expiration",t:"date"}],df:{name:"",memberName:"",issuer:"",issueDate:todayISO(),expiryDate:""},sk:["name","memberName"]});
+RC("team.certifications",S.certifications,{ic:"badge",em:"Aucune certification de l'équipe ACCI enregistrée.",cs:[{k:"name",l:"Certification",b:true},{k:"memberName",l:"Membre"},{k:"issueDate",l:"Obtenue le",fn:fmtDate},{k:"expiryDate",l:"Expire le",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"memberName",l:"Membre"},{n:"issuer",l:"Organisme"},{n:"issueDate",l:"Date obtention",t:"date"},{n:"expiryDate",l:"Date expiration",t:"date"}],df:{name:"",memberName:"",issuer:"",issueDate:todayISO(),expiryDate:""},sk:["name","memberName"]});
 
 /* ---- DOCUMENTS (5 sections) ---- */
 /* 70. docs.library */
-RC("docs.library",S.docLib,{ic:"📄",em:"Bibliothèque ACCI vide. Stockez ici les documents officiels, chartes et supports de formation.",cs:[{k:"name",l:"Nom",b:true},{k:"type",l:"Type"},{k:"size",l:"Taille"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"type",l:"Type",t:"select",o:["PDF","Word","Excel","Image","Autre"]},{n:"size",l:"Taille",ph:"2.5 Mo"},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",type:"PDF",size:"",description:""},sk:["name","type"]});
+RC("docs.library",S.docLib,{ic:"invoice",em:"Bibliothèque ACCI vide. Stockez ici les documents officiels, chartes et supports de formation.",cs:[{k:"name",l:"Nom",b:true},{k:"type",l:"Type"},{k:"size",l:"Taille"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"type",l:"Type",t:"select",o:["PDF","Word","Excel","Image","Autre"]},{n:"size",l:"Taille",ph:"2.5 Mo"},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",type:"PDF",size:"",description:""},sk:["name","type"]});
 
 /* 71. docs.templates */
-RC("docs.templates",S.docTpl,{ic:"📋",em:"Aucun modèle de document ACCI. Créez des modèles de chartes, contrats et lettres.",cs:[{k:"name",l:"Nom",b:true},{k:"category",l:"Catégorie"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"category",l:"Catégorie",t:"select",o:["Charte ACCI","Contrat","Lettre","Rapport","Autre"]},{n:"content",l:"Contenu",t:"textarea",rows:4}],df:{name:"",category:"Autre",content:""},sk:["name"]});
+RC("docs.templates",S.docTpl,{ic:"doc",em:"Aucun modèle de document ACCI. Créez des modèles de chartes, contrats et lettres.",cs:[{k:"name",l:"Nom",b:true},{k:"category",l:"Catégorie"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom *",rq:true},{n:"category",l:"Catégorie",t:"select",o:["Charte ACCI","Contrat","Lettre","Rapport","Autre"]},{n:"content",l:"Contenu",t:"textarea",rows:4}],df:{name:"",category:"Autre",content:""},sk:["name"]});
 
 /* 72. docs.contracts */
-RC("docs.contracts",S.contracts,{ic:"📃",em:"Aucun contrat ACCI enregistré. Gérez les contrats de partenariat et de service.",cs:[{k:"title",l:"Titre",b:true},{k:"customerId",l:"Membre/Partenaire",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"status",l:"Statut",bg:true},{k:"startDate",l:"Début",fn:fmtDate},{k:"endDate",l:"Fin",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"customerId",l:"Membre/Partenaire",t:"customer"},{n:"status",l:"Statut",t:"select",o:CONTRACT_STATUSES},{n:"startDate",l:"Début",t:"date"},{n:"endDate",l:"Fin",t:"date"},{n:"value",l:"Valeur",t:"number"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{title:"",customerId:"",status:"Brouillon",startDate:todayISO(),endDate:"",value:0,notes:""},sk:["title"]});
+RC("docs.contracts",S.contracts,{ic:"invoice",em:"Aucun contrat ACCI enregistré. Gérez les contrats de partenariat et de service.",cs:[{k:"title",l:"Titre",b:true},{k:"customerId",l:"Membre/Partenaire",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"status",l:"Statut",bg:true},{k:"startDate",l:"Début",fn:fmtDate},{k:"endDate",l:"Fin",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"customerId",l:"Membre/Partenaire",t:"customer"},{n:"status",l:"Statut",t:"select",o:CONTRACT_STATUSES},{n:"startDate",l:"Début",t:"date"},{n:"endDate",l:"Fin",t:"date"},{n:"value",l:"Valeur",t:"number"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{title:"",customerId:"",status:"Brouillon",startDate:todayISO(),endDate:"",value:0,notes:""},sk:["title"]});
 
 /* 73. docs.signatures */
-RC("docs.signatures",S.signatures,{ic:"✍️",em:"Aucune signature en attente. Suivez les signatures de chartes et contrats ACCI.",cs:[{k:"document",l:"Document",b:true},{k:"signer",l:"Signataire"},{k:"status",l:"Statut",bg:true},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"document",l:"Document *",rq:true},{n:"signer",l:"Signataire *",rq:true},{n:"status",l:"Statut",t:"select",o:["En attente","Signé","Refusé"]},{n:"date",l:"Date",t:"date"}],df:{document:"",signer:"",status:"En attente",date:todayISO()},sk:["document","signer"]});
+RC("docs.signatures",S.signatures,{ic:"pencil",em:"Aucune signature en attente. Suivez les signatures de chartes et contrats ACCI.",cs:[{k:"document",l:"Document",b:true},{k:"signer",l:"Signataire"},{k:"status",l:"Statut",bg:true},{k:"date",l:"Date",fn:fmtDate}],fs:[{n:"document",l:"Document *",rq:true},{n:"signer",l:"Signataire *",rq:true},{n:"status",l:"Statut",t:"select",o:["En attente","Signé","Refusé"]},{n:"date",l:"Date",t:"date"}],df:{document:"",signer:"",status:"En attente",date:todayISO()},sk:["document","signer"]});
 
 /* 74. docs.sharing */
-RC("docs.sharing",S.shares,{ic:"🔗",em:"Aucun partage de document ACCI. Partagez des ressources avec les membres et partenaires.",cs:[{k:"name",l:"Fichier",b:true},{k:"sharedWith",l:"Partagé avec"},{k:"permission",l:"Permission"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom fichier *",rq:true},{n:"sharedWith",l:"Partagé avec"},{n:"permission",l:"Permission",t:"select",o:["Lecture","Écriture","Admin"]}],df:{name:"",sharedWith:"",permission:"Lecture"},sk:["name","sharedWith"]});
+RC("docs.sharing",S.shares,{ic:"network",em:"Aucun partage de document ACCI. Partagez des ressources avec les membres et partenaires.",cs:[{k:"name",l:"Fichier",b:true},{k:"sharedWith",l:"Partagé avec"},{k:"permission",l:"Permission"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"name",l:"Nom fichier *",rq:true},{n:"sharedWith",l:"Partagé avec"},{n:"permission",l:"Permission",t:"select",o:["Lecture","Écriture","Admin"]}],df:{name:"",sharedWith:"",permission:"Lecture"},sk:["name","sharedWith"]});
 
 /* ---- REPORTS (8 sections) ---- */
 /* 75. reports.predefined */
 RA("reports.predefined",function(){
-  var cards=[{id:"revenue",ic:"📈",t:"Revenu mensuel ACCI",d:"Cotisations et services encaissés par mois."},{id:"pipeline",ic:"💰",t:"Pipeline adhésions",d:"Valeur des adhésions par étape."},{id:"tickets",ic:"🎫",t:"Signalements & demandes",d:"Par statut et priorité — Protéger."},{id:"growth",ic:"👥",t:"Croissance membres",d:"Nouveaux membres ACCI par mois."},{id:"services",ic:"⚙️",t:"Revenu par service",d:"Former, Protéger, Plaider."},{id:"overdue",ic:"⚠️",t:"Cotisations en retard",d:"Factures impayées des membres."}];
+  var cards=[{id:"revenue",ic:"trend",t:"Revenu mensuel ACCI",d:"Cotisations et services encaissés par mois."},{id:"pipeline",ic:"money",t:"Pipeline adhésions",d:"Valeur des adhésions par étape."},{id:"tickets",ic:"ticket",t:"Signalements & demandes",d:"Par statut et priorité — Protéger."},{id:"growth",ic:"users",t:"Croissance membres",d:"Nouveaux membres ACCI par mois."},{id:"services",ic:"cog",t:"Revenu par service",d:"Former, Protéger, Plaider."},{id:"overdue",ic:"warning",t:"Cotisations en retard",d:"Factures impayées des membres."}];
   return'<div class="banner banner--info" style="margin-bottom:14px">Rapports prédéfinis ACCI — Piliers : Sensibiliser, Former, Protéger, Plaider.</div><div class="card-grid">'+cards.map(function(c){return'<div class="wcard" data-rpt="'+c.id+'"><div class="wcard__icon">'+c.ic+'</div><h3>'+c.t+'</h3><p>'+c.d+'</p></div>';}).join("")+'</div><div id="rpt-out"></div>';
 },function(){$$("[data-rpt]").forEach(function(c){c.addEventListener("click",function(){showReport(c.getAttribute("data-rpt"));});});});
 
 /* 76. reports.builder */
-RA("reports.builder",function(){return'<section class="panel"><div class="panel__head"><h2 class="panel__title">🔨 Constructeur de rapports ACCI</h2></div><p class="muted">Sélectionnez une source de données et les métriques pour analyser l\'activité ACCI.</p><div class="fgrid">'+ffield("Source",'<select id="rb-src"><option>Membres</option><option>Demandes</option><option>Adhésions</option><option>Cotisations</option></select>')+ffield("Regrouper par",'<select id="rb-group"><option>Statut</option><option>Mois</option><option>Ville</option></select>')+'</div><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="rb-gen">Générer</button></div><div id="rb-out" style="margin-top:14px"></div></section>';},function(){
+RA("reports.builder",function(){return'<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=cog></i> Constructeur de rapports ACCI</h2></div><p class="muted">Sélectionnez une source de données et les métriques pour analyser l\'activité ACCI.</p><div class="fgrid">'+ffield("Source",'<select id="rb-src"><option>Membres</option><option>Demandes</option><option>Adhésions</option><option>Cotisations</option></select>')+ffield("Regrouper par",'<select id="rb-group"><option>Statut</option><option>Mois</option><option>Ville</option></select>')+'</div><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="rb-gen">Générer</button></div><div id="rb-out" style="margin-top:14px"></div></section>';},function(){
   var btn=$("#rb-gen");if(btn)btn.addEventListener("click",function(){
     var src=$("#rb-src").value,grp=$("#rb-group").value;
     var data=src==="Membres"?S.customers.all():src==="Demandes"?S.tickets.all():src==="Adhésions"?S.deals.all():S.invoices.all();
@@ -1262,46 +1297,46 @@ RA("reports.export",function(){
 
 /* ---- PRODUCTIVITY (6 sections) ---- */
 /* 83. productivity.notes */
-RC("productivity.notes",S.notes,{ic:"📝",em:"Aucune note ACCI. Prenez des notes sur les réunions, idées et actions de l'association.",cs:[{k:"title",l:"Titre",b:true},{k:"content",l:"Contenu",mx:60},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"content",l:"Contenu",t:"textarea",rows:6}],df:{title:"",content:""},sk:["title","content"]});
+RC("productivity.notes",S.notes,{ic:"pencil",em:"Aucune note ACCI. Prenez des notes sur les réunions, idées et actions de l'association.",cs:[{k:"title",l:"Titre",b:true},{k:"content",l:"Contenu",mx:60},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"title",l:"Titre *",rq:true},{n:"content",l:"Contenu",t:"textarea",rows:6}],df:{title:"",content:""},sk:["title","content"]});
 
 /* 84. productivity.reminders */
-RC("productivity.reminders",S.reminders,{ic:"🔔",em:"Aucun rappel ACCI. Programmez des rappels pour les échéances et actions à mener.",cs:[{k:"title",l:"Rappel",b:true},{k:"dueDate",l:"Date",fn:fmtDate},{k:"priority",l:"Priorité",bg:true},{k:"done",l:"Fait",fn:function(v){return v?"✅":"\u2014";}}],fs:[{n:"title",l:"Titre *",rq:true},{n:"dueDate",l:"Date",t:"date"},{n:"priority",l:"Priorité",t:"select",o:["Basse","Moyenne","Haute"]},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{title:"",dueDate:todayISO(),priority:"Moyenne",notes:"",done:false},sk:["title"]});
+RC("productivity.reminders",S.reminders,{ic:"bell",em:"Aucun rappel ACCI. Programmez des rappels pour les échéances et actions à mener.",cs:[{k:"title",l:"Rappel",b:true},{k:"dueDate",l:"Date",fn:fmtDate},{k:"priority",l:"Priorité",bg:true},{k:"done",l:"Fait",fn:function(v){return v?"<i data-ic=check></i>":"\u2014";}}],fs:[{n:"title",l:"Titre *",rq:true},{n:"dueDate",l:"Date",t:"date"},{n:"priority",l:"Priorité",t:"select",o:["Basse","Moyenne","Haute"]},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{title:"",dueDate:todayISO(),priority:"Moyenne",notes:"",done:false},sk:["title"]});
 
 /* 85. productivity.actions */
 RA("productivity.actions",function(){
   var actions=[
-    {ic:"👥",label:"Nouveau membre ACCI"},
-    {ic:"🎫",label:"Nouveau signalement"},
-    {ic:"💰",label:"Nouvelle adhésion"},
-    {ic:"📄",label:"Nouvelle cotisation"},
-    {ic:"📝",label:"Nouvelle note"},
-    {ic:"📅",label:"Nouvelle réunion ACCI"}
+    {ic:"users",label:"Nouveau membre ACCI"},
+    {ic:"ticket",label:"Nouveau signalement"},
+    {ic:"money",label:"Nouvelle adhésion"},
+    {ic:"invoice",label:"Nouvelle cotisation"},
+    {ic:"pencil",label:"Nouvelle note"},
+    {ic:"calendar",label:"Nouvelle réunion ACCI"}
   ];
   return'<div class="banner banner--info" style="margin-bottom:14px">Actions rapides ACCI — accédez directement aux formulaires de création.</div><div class="card-grid">'+actions.map(function(a,i){return'<div class="wcard qa" data-idx="'+i+'"><div class="wcard__icon">'+a.ic+'</div><h3>'+a.label+'</h3></div>';}).join("")+'</div>';
 },function(){$$(".qa").forEach(function(c){c.addEventListener("click",function(){var actions=[function(){openCustomerEdit(null);},function(){openTicketEdit(null);},function(){state.sub.pipeline="kanban";go("pipeline");},function(){state.sub.invoices="list";go("invoices");},function(){state.sub.productivity="notes";go("productivity");},function(){state.sub.comms="meetings";go("comms");}];var i=parseInt(c.getAttribute("data-idx"),10);if(actions[i])actions[i]();});});});
 
 /* 86. productivity.favorites */
-RC("productivity.favorites",S.favorites,{ic:"⭐",em:"Aucun favori ACCI. Marquez vos membres, tickets ou pages fréquemment consultés.",cs:[{k:"label",l:"Nom",b:true},{k:"type",l:"Type"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"label",l:"Nom *",rq:true},{n:"type",l:"Type",t:"select",o:["Membre","Ticket","Adhésion","Cotisation","Page","Autre"]},{n:"reference",l:"Référence"}],df:{label:"",type:"Autre",reference:""},sk:["label"]});
+RC("productivity.favorites",S.favorites,{ic:"star",em:"Aucun favori ACCI. Marquez vos membres, tickets ou pages fréquemment consultés.",cs:[{k:"label",l:"Nom",b:true},{k:"type",l:"Type"},{k:"createdAt",l:"Date",fn:fmtDate}],fs:[{n:"label",l:"Nom *",rq:true},{n:"type",l:"Type",t:"select",o:["Membre","Ticket","Adhésion","Cotisation","Page","Autre"]},{n:"reference",l:"Référence"}],df:{label:"",type:"Autre",reference:""},sk:["label"]});
 
 /* 87. productivity.notifications */
 RA("productivity.notifications",function(){
   var notifs=S.notifications.all().slice(0,20);
-  if(!notifs.length)return'<div class="empty-state"><div class="empty-state__ic">🔔</div><h2>Aucune notification ACCI</h2><p class="muted">Les notifications liées aux activités de l\'association apparaîtront ici.</p></div>';
-  return'<div class="timeline">'+notifs.map(function(n){return'<div class="timeline__item"><span class="timeline__icon">🔔</span><div class="timeline__body"><b>'+esc(n.title||"Notification")+'</b><p class="muted">'+esc(n.message||"")+'</p><div class="timeline__date">'+fmtDate(n.createdAt)+'</div></div></div>';}).join("")+'</div>';
+  if(!notifs.length)return'<div class="empty-state"><div class="empty-state__ic"><i data-ic=bell></i></div><h2>Aucune notification ACCI</h2><p class="muted">Les notifications liées aux activités de l\'association apparaîtront ici.</p></div>';
+  return'<div class="timeline">'+notifs.map(function(n){return'<div class="timeline__item"><span class="timeline__icon"><i data-ic=bell></i></span><div class="timeline__body"><b>'+esc(n.title||"Notification")+'</b><p class="muted">'+esc(n.message||"")+'</p><div class="timeline__date">'+fmtDate(n.createdAt)+'</div></div></div>';}).join("")+'</div>';
 });
 
 /* 88. productivity.calendar */
-RA("productivity.calendar",function(){return calendarView(S.reminders.all().map(function(r){return{date:r.dueDate,label:"🔔 "+r.title};}).concat(S.meetings.all().map(function(m){return{date:m.date,label:"📅 "+m.title};})).concat(S.tasks.all().filter(function(t){return t.dueDate;}).map(function(t){return{date:t.dueDate,label:"✅ "+t.title};})));});
+RA("productivity.calendar",function(){return calendarView(S.reminders.all().map(function(r){return{date:r.dueDate,label:"<i data-ic=bell></i> "+r.title};}).concat(S.meetings.all().map(function(m){return{date:m.date,label:"<i data-ic=calendar></i> "+m.title};})).concat(S.tasks.all().filter(function(t){return t.dueDate;}).map(function(t){return{date:t.dueDate,label:"<i data-ic=check></i> "+t.title};})));});
 
 /* ---- SUCCESS CLIENT (5 sections) ---- */
 /* 89. success.onboarding */
-RC("success.onboarding",S.onboarding,{ic:"🚀",em:"Aucun onboarding ACCI en cours. Accompagnez les nouveaux membres dans leur intégration à l'association.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"stage",l:"Étape",bg:true},{k:"progress",l:"Progression"},{k:"startDate",l:"Début",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"stage",l:"Étape",t:"select",o:["Inscription","Charte ACCI","Formation","Certification","Actif"]},{n:"progress",l:"Progression (%)",t:"number"},{n:"startDate",l:"Début",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{customerId:"",stage:"Inscription",progress:0,startDate:todayISO(),notes:""},sk:["customerId"]});
+RC("success.onboarding",S.onboarding,{ic:"spark",em:"Aucun onboarding ACCI en cours. Accompagnez les nouveaux membres dans leur intégration à l'association.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"stage",l:"Étape",bg:true},{k:"progress",l:"Progression"},{k:"startDate",l:"Début",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"stage",l:"Étape",t:"select",o:["Inscription","Charte ACCI","Formation","Certification","Actif"]},{n:"progress",l:"Progression (%)",t:"number"},{n:"startDate",l:"Début",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{customerId:"",stage:"Inscription",progress:0,startDate:todayISO(),notes:""},sk:["customerId"]});
 
 /* 90. success.health */
-RC("success.health",S.healthScores,{ic:"💚",em:"Aucun score de santé membre ACCI. Évaluez l'engagement des membres envers les piliers de l'association.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"score",l:"Score",b:true},{k:"risk",l:"Risque",bg:true},{k:"lastCheck",l:"Dernier contrôle",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"score",l:"Score (1-100)",t:"number"},{n:"risk",l:"Risque",t:"select",o:["Faible","Moyen","Élevé","Critique"]},{n:"lastCheck",l:"Dernier contrôle",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{customerId:"",score:0,risk:"Faible",lastCheck:todayISO(),notes:""},sk:["customerId"]});
+RC("success.health",S.healthScores,{ic:"heart",em:"Aucun score de santé membre ACCI. Évaluez l'engagement des membres envers les piliers de l'association.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"score",l:"Score",b:true},{k:"risk",l:"Risque",bg:true},{k:"lastCheck",l:"Dernier contrôle",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"score",l:"Score (1-100)",t:"number"},{n:"risk",l:"Risque",t:"select",o:["Faible","Moyen","Élevé","Critique"]},{n:"lastCheck",l:"Dernier contrôle",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{customerId:"",score:0,risk:"Faible",lastCheck:todayISO(),notes:""},sk:["customerId"]});
 
 /* 91. success.renewals */
-RC("success.renewals",S.renewals,{ic:"🔄",em:"Aucun renouvellement ACCI à suivre. Gérez les renouvellements d'adhésion et de contrats.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"type",l:"Type"},{k:"renewalDate",l:"Renouvellement",fn:fmtDate},{k:"status",l:"Statut",bg:true}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"type",l:"Type",t:"select",o:["Adhésion ACCI","Contrat","Certification","Autre"]},{n:"renewalDate",l:"Date renouvellement",t:"date"},{n:"status",l:"Statut",t:"select",o:["Actif","À renouveler","Expiré","Annulé"]},{n:"value",l:"Valeur",t:"number"}],df:{customerId:"",type:"Adhésion ACCI",renewalDate:"",status:"Actif",value:0},sk:["customerId"]});
+RC("success.renewals",S.renewals,{ic:"swap",em:"Aucun renouvellement ACCI à suivre. Gérez les renouvellements d'adhésion et de contrats.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"type",l:"Type"},{k:"renewalDate",l:"Renouvellement",fn:fmtDate},{k:"status",l:"Statut",bg:true}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"type",l:"Type",t:"select",o:["Adhésion ACCI","Contrat","Certification","Autre"]},{n:"renewalDate",l:"Date renouvellement",t:"date"},{n:"status",l:"Statut",t:"select",o:["Actif","À renouveler","Expiré","Annulé"]},{n:"value",l:"Valeur",t:"number"}],df:{customerId:"",type:"Adhésion ACCI",renewalDate:"",status:"Actif",value:0},sk:["customerId"]});
 
 /* 92. success.churn */
 RA("success.churn",function(){
@@ -1313,7 +1348,7 @@ RA("success.churn",function(){
 });
 
 /* 93. success.goals */
-RC("success.goals",S.custGoals,{ic:"🎯",em:"Aucun objectif membre ACCI défini. Fixez des objectifs d'accompagnement alignés avec Sensibiliser, Former, Protéger, Plaider.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"goal",l:"Objectif",b:true},{k:"status",l:"Statut",bg:true},{k:"dueDate",l:"Échéance",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"goal",l:"Objectif *",rq:true},{n:"status",l:"Statut",t:"select",o:["En cours","Atteint","Annulé"]},{n:"dueDate",l:"Échéance",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{customerId:"",goal:"",status:"En cours",dueDate:"",notes:""},sk:["goal"]});
+RC("success.goals",S.custGoals,{ic:"compass",em:"Aucun objectif membre ACCI défini. Fixez des objectifs d'accompagnement alignés avec Sensibiliser, Former, Protéger, Plaider.",cs:[{k:"customerId",l:"Membre",fn:function(v){var c=S.customers.get(v);return c?c.name:"\u2014";}},{k:"goal",l:"Objectif",b:true},{k:"status",l:"Statut",bg:true},{k:"dueDate",l:"Échéance",fn:fmtDate}],fs:[{n:"customerId",l:"Membre ACCI",t:"customer"},{n:"goal",l:"Objectif *",rq:true},{n:"status",l:"Statut",t:"select",o:["En cours","Atteint","Annulé"]},{n:"dueDate",l:"Échéance",t:"date"},{n:"notes",l:"Notes",t:"textarea",rows:2}],df:{customerId:"",goal:"",status:"En cours",dueDate:"",notes:""},sk:["goal"]});
 
 /* ---- ADMINISTRATION (7 sections) ---- */
 /* 94. admin.admins — ogou manages all admins */
@@ -1337,20 +1372,27 @@ RA("admin.admins",function(){
     var modCount=hasAllModules(a)?"Tous ("+ALL_MODULES.length+")":((a.allowedModules||[]).length+" / "+ALL_MODULES.length);
     return'<div class="admin-card'+(isS?" admin-card--super":"")+'">'+
       avatar({name:a.name||a.username},40)+
-      '<div class="admin-card__info"><h3>'+esc(a.name||a.username)+'</h3><p>@'+esc(a.username)+' · '+(isS?'<span style="color:var(--orange);font-weight:700">👑 Super Admin</span>':'Admin')+
+      '<div class="admin-card__info"><h3>'+esc(a.name||a.username)+'</h3><p>@'+esc(a.username)+' · '+(isS?'<span style="color:var(--orange);font-weight:700"><i data-ic=badge></i> Super Admin</span>':'Admin')+
       ' · Modules : '+modCount+'</p></div>'+
       (a.approvalCode?'<span class="admin-card__code">'+esc(a.approvalCode)+'</span>':'')+
-      (!isS?'<button class="iact adm-edit" data-id="'+a.id+'" title="Modifier">✎</button><button class="iact iact--del adm-del" data-id="'+a.id+'" title="Supprimer">🗑</button>':'')+
+      '<button class="iact adm-edit" data-id="'+a.id+'" title="Modifier"><i data-ic=pencil></i></button>'+
+      (isLastSuper(a)?'':'<button class="iact iact--del adm-del" data-id="'+a.id+'" title="Supprimer"><i data-ic=trash></i></button>')+
     '</div>';
   }).join("");
-  return'<div class="banner banner--info">👑 <b>ogou</b> — Contrôle total du CRM ACCI. Seul ogou peut créer, approuver et configurer les autres administrateurs.</div>'+
+  return'<div class="banner banner--info"><i data-ic=badge></i> <b>Super Admin</b> — Contrôle total du CRM ACCI : créer des comptes, accorder ou retirer un module, suspendre un accès et promouvoir un autre Super Admin. Le dernier Super Admin en activité ne peut être ni rétrogradé, ni suspendu, ni supprimé.</div>'+
     '<div class="filterbar"><span class="filterbar__count">'+admins.length+' administrateur(s)</span><div class="filterbar__right"><button class="abtn abtn--primary abtn--sm" id="adm-add">+ Créer un admin</button></div></div>'+
     cards;
 },function(){
   if(!isSuperAdmin())return;
   var addBtn=$("#adm-add");if(addBtn)addBtn.addEventListener("click",function(){openAdminForm(null);});
   $$(".adm-edit").forEach(function(b){b.addEventListener("click",function(){openAdminForm(b.getAttribute("data-id"));});});
-  $$(".adm-del").forEach(function(b){b.addEventListener("click",function(){var id=b.getAttribute("data-id");confirmDel(function(){S.admins.remove(id);alog("admin",id,"suppression","");toast("Admin supprimé.");refresh();},"Supprimer cet administrateur ? Il ne pourra plus accéder au CRM.");});});
+  $$(".adm-del").forEach(function(b){b.addEventListener("click",function(){
+    var id=b.getAttribute("data-id");
+    /* Le bouton est déjà masqué dans ce cas, mais la carte peut dater d'avant
+       une rétrogradation faite dans un autre onglet : on revérifie au clic. */
+    if(isLastSuper(S.admins.get(id))){toast("Dernier Super Admin : promouvez d'abord un autre compte.","err");return;}
+    if(currentAdmin()&&currentAdmin().id===id){toast("Vous ne pouvez pas supprimer votre propre compte.","err");return;}
+    confirmDel(function(){S.admins.remove(id);alog("admin",id,"suppression","");toast("Admin supprimé.");refresh();},"Supprimer cet administrateur ? Il ne pourra plus accéder au CRM.");});});
 });
 
 function openAdminForm(id){
@@ -1372,10 +1414,11 @@ function openAdminForm(id){
         ffield("Nom d\'utilisateur *",'<input name="username" required value="'+esc(a.username)+'"'+(id?' readonly style="opacity:0.6"':'')+'>')+
         (isNew?ffield("Mot de passe *",'<input name="password" type="password" required placeholder="Min. 4 caractères">'):ffield("Nouveau mot de passe","<input name=\"password\" type=\"password\" placeholder=\"Laisser vide pour ne pas changer\">"))+
         ffield("Statut",'<select name="approved"><option value="true"'+(a.approved?" selected":"")+'>Approuvé</option><option value="false"'+(!a.approved?" selected":"")+'>Non approuvé</option></select>')+
+        ffield("Rôle",'<select name="role"><option value="admin"'+(a.role!=="super_admin"?" selected":"")+'>Admin</option><option value="super_admin"'+(a.role==="super_admin"?" selected":"")+'>Super Admin</option></select>')+
       '</div>'+
       '<h3 style="margin-top:8px">Modules autorisés</h3>'+
       '<p class="muted" style="margin-bottom:6px">Sélectionnez les sections du CRM auxquelles cet admin aura accès.</p>'+
-      '<label class="perm-item" style="background:var(--orange-l);font-weight:700"><input type="checkbox" id="perm-all"'+(hasAllModules(a)?" checked":"")+'> ✅ Tous les modules</label>'+
+      '<label class="perm-item" style="background:var(--orange-l);font-weight:700"><input type="checkbox" id="perm-all"'+(hasAllModules(a)?" checked":"")+'> <i data-ic=check></i> Tous les modules</label>'+
       '<div class="perm-grid" id="perm-grid">'+modChecks+'</div>'+
       '<p class="ferr" id="adm-err" hidden></p>'+
     '</form>'+
@@ -1392,10 +1435,16 @@ function openAdminForm(id){
     var username=f.username.value.trim().toLowerCase();
     var pw=f.password.value.trim();
     var approved=f.approved.value==="true";
+    var role=f.role.value==="super_admin"?"super_admin":"admin";
     var err=$("#adm-err");
 
     if(!name||!username){err.textContent="Nom et utilisateur obligatoires.";err.hidden=false;return;}
-    if(username===SUPER_USER){err.textContent="Le nom ogou est réservé.";err.hidden=false;return;}
+    /* Le nom du compte d'origine n'est réservé qu'à la création : à la
+       modification, c'est précisément le compte que l'on est en train d'éditer. */
+    if(isNew&&username===SUPER_USER){err.textContent="Le nom "+SUPER_USER+" est réservé.";err.hidden=false;return;}
+    if(!isNew&&isLastSuper(a)&&(role!=="super_admin"||!approved)){
+      err.textContent="Ce compte est le dernier Super Admin en activité : promouvez d'abord un autre compte, sinon plus personne ne pourra gérer les accès.";
+      err.hidden=false;return;}
     if(isNew&&!pw){err.textContent="Mot de passe obligatoire.";err.hidden=false;return;}
     if(pw&&pw.length<4){err.textContent="Mot de passe : minimum 4 caractères.";err.hidden=false;return;}
     /* Check username uniqueness */
@@ -1419,7 +1468,7 @@ function openAdminForm(id){
       username:username,
       name:name,
       passHash:pw?hash(pw):a.passHash,
-      role:"admin",
+      role:role,
       approved:approved,
       approvalCode:code,
       allowedModules:mods,
@@ -1433,7 +1482,7 @@ function openAdminForm(id){
     if(isNew){
       /* Show the generated code */
       openModal(
-        '<div class="modal__head"><h2>✅ Administrateur créé</h2><button class="modal__x" data-close>&times;</button></div>'+
+        '<div class="modal__head"><h2><i data-ic=check></i> Administrateur créé</h2><button class="modal__x" data-close>&times;</button></div>'+
         '<div class="modal__body" style="text-align:center">'+
           '<p>Le compte <b>'+esc(username)+'</b> a été créé avec succès.</p>'+
           '<p style="margin-top:12px">Code d\'approbation à communiquer :</p>'+
@@ -1468,9 +1517,9 @@ RA("admin.backup",function(){
   /* L'onglet est atteignable par tout admin disposant du module Administration :
      sans ce filtre, un compte ordinaire restaurait un JSON retouché à la main et
      s'y attribuait le rôle super_admin. */
-  if(!isSuperAdmin())return'<div class="banner banner--info">🔒 Sauvegarde, restauration et réinitialisation des données ACCI sont réservées à l\'administrateur <b>ogou</b>.</div>'+pwPanel;
-  return'<div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title">💾 Sauvegarder les données ACCI</h2></div><p class="muted">Téléchargez une sauvegarde complète de toutes les données du CRM ACCI.</p><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="bk-dl">⬇ Télécharger backup</button></div></section>'+
-    '<section class="panel"><div class="panel__head"><h2 class="panel__title">⬆ Restaurer</h2></div><p class="muted">Restaurez les données ACCI depuis un fichier JSON. Les comptes administrateurs ne sont pas modifiés.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm">⬆ Choisir fichier<input type="file" id="bk-up" accept=".json" hidden></label></div><p class="ferr" id="bk-msg" hidden></p></section></div>'+
+  if(!isSuperAdmin())return'<div class="banner banner--info"><i data-ic=lock></i> Sauvegarde, restauration et réinitialisation des données ACCI sont réservées à l\'administrateur <b>ogou</b>.</div>'+pwPanel;
+  return'<div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=download></i> Sauvegarder les données ACCI</h2></div><p class="muted">Téléchargez une sauvegarde complète de toutes les données du CRM ACCI.</p><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="bk-dl"><i data-ic=download></i> Télécharger backup</button></div></section>'+
+    '<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=upload></i> Restaurer</h2></div><p class="muted">Restaurez les données ACCI depuis un fichier JSON. Les comptes administrateurs ne sont pas modifiés.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm"><i data-ic=upload></i> Choisir fichier<input type="file" id="bk-up" accept=".json" hidden></label></div><p class="ferr" id="bk-msg" hidden></p></section></div>'+
     '<section class="panel panel--danger"><div class="panel__head"><h2 class="panel__title">Zone sensible</h2></div><p class="muted">Réinitialiser efface toutes les données ACCI. Les comptes administrateurs sont conservés.</p><button class="abtn abtn--danger abtn--sm" id="bk-wipe">Tout réinitialiser</button></section>'+
     '<section class="panel"><div class="panel__head"><h2 class="panel__title">Configuration ACCI</h2></div><div class="fgrid">'+ffield("Devise",'<input id="cfg-cur" value="'+esc(localStorage.getItem("acci_currency")||"FCFA")+'">')+ffield("Taux TVA (%)",'<input id="cfg-tax" type="number" value="'+(localStorage.getItem("acci_tax")||"18")+'">')+'</div><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="cfg-save">Enregistrer</button></div><p class="ferr" id="cfg-msg" hidden></p></section>'+pwPanel;
 },function(){
@@ -1487,7 +1536,7 @@ RA("admin.backup",function(){
     rec.passHash=hash(np);S.admins.update(rec);sessionStorage.setItem("acci_admin",JSON.stringify(rec));
     alog("admin",rec.id,"code d'accès",rec.username);
     $("#pw-cur").value="";$("#pw-new").value="";
-    m.className="ferr okmsg";m.textContent="✓ Code admin ACCI modifié.";m.hidden=false;toast("Code modifié.");
+    m.className="ferr okmsg";m.textContent="<i data-ic=check></i> Code admin ACCI modifié.";m.hidden=false;toast("Code modifié.");
   }catch(err){m.className="ferr";m.textContent="Échec : "+err.message;m.hidden=false;}});
   if(!isSuperAdmin())return;
   $("#bk-dl").addEventListener("click",exportFullJSON);
@@ -1502,17 +1551,17 @@ RA("admin.backup",function(){
      d'accès par-dessus le vide attendu. Devise et taux de TVA sont des réglages de
      l'association, non des données : tous les montants auraient changé d'unité. */
   $("#bk-wipe").addEventListener("click",function(){confirmDel(function(){var cur=localStorage.getItem("acci_currency"),tax=localStorage.getItem("acci_tax");Object.keys(localStorage).filter(function(k){return k.startsWith("acci")&&k!=="acci_admins";}).forEach(function(k){localStorage.removeItem(k);});localStorage.removeItem("acci_crm_members");localStorage.removeItem("acci_crm_seeded");if(cur)storageWrite("acci_currency",cur);if(tax)storageWrite("acci_tax",tax);storageWrite("acci_seeded_v5","1");location.reload();},"Effacer toutes les données ACCI — membres, contacts, demandes, adhésions, cotisations, projets et documents ? Les comptes administrateurs, la devise et le taux de TVA sont conservés, et les données de démonstration ne reviendront pas. Irréversible — téléchargez d'abord une sauvegarde.");});
-  var cs=$("#cfg-save");if(cs)cs.addEventListener("click",function(){storageWrite("acci_currency",$("#cfg-cur").value.trim()||"FCFA");storageWrite("acci_currency",devise());storageWrite("acci_tax",$("#cfg-tax").value||"18");storageWrite("acci_tax",String(tauxTVA()));var m=$("#cfg-msg");m.className="ferr okmsg";m.textContent="✓ Configuration ACCI sauvegardée.";m.hidden=false;toast("Config mise à jour.");});
+  var cs=$("#cfg-save");if(cs)cs.addEventListener("click",function(){storageWrite("acci_currency",$("#cfg-cur").value.trim()||"FCFA");storageWrite("acci_currency",devise());storageWrite("acci_tax",$("#cfg-tax").value||"18");storageWrite("acci_tax",String(tauxTVA()));var m=$("#cfg-msg");m.className="ferr okmsg";m.textContent="<i data-ic=check></i> Configuration ACCI sauvegardée.";m.hidden=false;toast("Config mise à jour.");});
 });
 
 /* 98. admin.integrations */
-RA("admin.integrations",function(){return'<section class="panel"><div class="panel__head"><h2 class="panel__title">🔌 Intégrations ACCI</h2></div><p class="muted">Connectez des services externes pour renforcer les actions de l\'ACCI — Sensibiliser, Former, Protéger, Plaider.</p><div class="card-grid"><div class="wcard"><div class="wcard__icon">📊</div><h3>Supabase</h3><p>Base de données cloud ACCI</p></div><div class="wcard"><div class="wcard__icon">📧</div><h3>Formspree</h3><p>Formulaires de signalement</p></div><div class="wcard"><div class="wcard__icon">💬</div><h3>Slack</h3><p>Notifications équipe ACCI</p></div><div class="wcard"><div class="wcard__icon">📱</div><h3>WhatsApp</h3><p>Communication membres</p></div></div></section>';});
+RA("admin.integrations",function(){return'<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=network></i> Intégrations ACCI</h2></div><p class="muted">Connectez des services externes pour renforcer les actions de l\'ACCI — Sensibiliser, Former, Protéger, Plaider.</p><div class="card-grid"><div class="wcard"><div class="wcard__icon"><i data-ic=chart></i></div><h3>Supabase</h3><p>Base de données cloud ACCI</p></div><div class="wcard"><div class="wcard__icon"><i data-ic=mail></i></div><h3>Formspree</h3><p>Formulaires de signalement</p></div><div class="wcard"><div class="wcard__icon"><i data-ic=chat></i></div><h3>Slack</h3><p>Notifications équipe ACCI</p></div><div class="wcard"><div class="wcard__icon"><i data-ic=phone></i></div><h3>WhatsApp</h3><p>Communication membres</p></div></div></section>';});
 
 /* 99. admin.fields */
-RC("admin.fields",S.customFields,{ic:"🔧",em:"Aucun champ personnalisé ACCI. Ajoutez des champs spécifiques à votre association.",cs:[{k:"name",l:"Nom",b:true},{k:"entity",l:"Entité"},{k:"type",l:"Type"},{k:"required",l:"Requis",fn:function(v){return v?"Oui":"Non";}}],fs:[{n:"name",l:"Nom *",rq:true},{n:"entity",l:"Entité",t:"select",o:["Membre","Demande","Adhésion","Cotisation","Projet"]},{n:"type",l:"Type",t:"select",o:["Texte","Nombre","Date","Liste","Booléen"]},{n:"required",l:"Requis",t:"select",o:["Non","Oui"]}],df:{name:"",entity:"Membre",type:"Texte",required:"Non"},sk:["name"]});
+RC("admin.fields",S.customFields,{ic:"cog",em:"Aucun champ personnalisé ACCI. Ajoutez des champs spécifiques à votre association.",cs:[{k:"name",l:"Nom",b:true},{k:"entity",l:"Entité"},{k:"type",l:"Type"},{k:"required",l:"Requis",fn:function(v){return v?"Oui":"Non";}}],fs:[{n:"name",l:"Nom *",rq:true},{n:"entity",l:"Entité",t:"select",o:["Membre","Demande","Adhésion","Cotisation","Projet"]},{n:"type",l:"Type",t:"select",o:["Texte","Nombre","Date","Liste","Booléen"]},{n:"required",l:"Requis",t:"select",o:["Non","Oui"]}],df:{name:"",entity:"Membre",type:"Texte",required:"Non"},sk:["name"]});
 
 /* 100. admin.automation */
-RC("admin.automation",S.workflows,{ic:"⚡",em:"Aucune automatisation ACCI. Automatisez les actions répétitives : notifications d'adhésion, rappels de cotisation, etc.",cs:[{k:"name",l:"Nom",b:true},{k:"trigger",l:"Déclencheur"},{k:"action",l:"Action"},{k:"status",l:"Statut",bg:true}],fs:[{n:"name",l:"Nom *",rq:true},{n:"trigger",l:"Déclencheur",t:"select",o:["Nouveau membre","Signalement créé","Adhésion gagnée","Cotisation en retard","Approbation portail","Autre"]},{n:"action",l:"Action",t:"select",o:["Envoyer e-mail","Créer tâche","Notification","Changer statut","Générer code membre","Autre"]},{n:"status",l:"Statut",t:"select",o:["Actif","Inactif"]},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",trigger:"Nouveau membre",action:"Envoyer e-mail",status:"Actif",description:""},sk:["name"]});
+RC("admin.automation",S.workflows,{ic:"spark",em:"Aucune automatisation ACCI. Automatisez les actions répétitives : notifications d'adhésion, rappels de cotisation, etc.",cs:[{k:"name",l:"Nom",b:true},{k:"trigger",l:"Déclencheur"},{k:"action",l:"Action"},{k:"status",l:"Statut",bg:true}],fs:[{n:"name",l:"Nom *",rq:true},{n:"trigger",l:"Déclencheur",t:"select",o:["Nouveau membre","Signalement créé","Adhésion gagnée","Cotisation en retard","Approbation portail","Autre"]},{n:"action",l:"Action",t:"select",o:["Envoyer e-mail","Créer tâche","Notification","Changer statut","Générer code membre","Autre"]},{n:"status",l:"Statut",t:"select",o:["Actif","Inactif"]},{n:"description",l:"Description",t:"textarea",rows:2}],df:{name:"",trigger:"Nouveau membre",action:"Envoyer e-mail",status:"Actif",description:""},sk:["name"]});
 
 /* =========================== COMPLEX MODULES ============================= */
 
@@ -1531,8 +1580,8 @@ SEC["customers.list"]={
     var selN=state.cVisible.filter(function(k){return state.cSel[k];}).length;
     var allVisibleSel=list.length>0&&selN===list.length;
     function srt(key,label){var ar=state.cSort===key?(state.cDir===1?" ▲":" ▼"):"";return'<th class="th-sort" data-sort="'+key+'">'+label+ar+'</th>';}
-    var rows=list.length?list.map(function(x){return'<tr data-id="'+x.id+'" class="rowlink"><td><input type="checkbox" class="rc" data-id="'+x.id+'"'+(state.cSel[x.id]?" checked":"")+'></td><td class="cell-name">'+avatar(x)+'<span><b>'+esc(x.name)+'</b>'+(x.company?'<br><span class="muted">'+esc(x.company)+'</span>':'')+'</span></td><td>'+badge(x.type||"Individuel")+'</td><td>'+esc(x.email||"\u2014")+'</td><td>'+esc(x.city||"\u2014")+'</td><td>'+badge(x.status)+'</td><td>'+(x.approved?'<span style="color:var(--green)" title="'+esc(x.approvalCode||"")+'">🔑</span>':'<span class="muted">\u2014</span>')+'</td><td>'+(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")+'</td><td class="rowact"><button class="iact ce" data-id="'+x.id+'">✎</button><button class="iact iact--del cd" data-id="'+x.id+'">🗑</button></td></tr>';}).join(""):'<tr><td colspan="9" class="empty">Aucun membre ACCI trouvé.</td></tr>';
-    return'<div class="filterbar"><select id="f-st"><option value="">Tous statuts</option>'+optH(CUSTOMER_STATUSES,state.cFSt)+'</select><select id="f-cat"><option value="">Tous domaines</option>'+optH(CATEGORIES,state.cFCat)+'</select><span class="filterbar__count">'+list.length+' membre(s) ACCI</span><div class="filterbar__right">'+(selN?'<button class="abtn abtn--danger abtn--sm" id="b-del">Suppr. ('+selN+')</button>':'')+'<button class="abtn abtn--ghost abtn--sm" id="x-csv">⬇ CSV</button></div></div><div class="dtable"><table><thead><tr><th style="width:30px"><input type="checkbox" id="ca"'+(allVisibleSel?" checked":"")+'></th>'+srt("name","Membre")+'<th>Type</th><th>E-mail</th><th>Ville</th>'+srt("status","Statut")+'<th>Portail</th><th>Domaines</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    var rows=list.length?list.map(function(x){return'<tr data-id="'+x.id+'" class="rowlink"><td><input type="checkbox" class="rc" data-id="'+x.id+'"'+(state.cSel[x.id]?" checked":"")+'></td><td class="cell-name">'+avatar(x)+'<span><b>'+esc(x.name)+'</b>'+(x.company?'<br><span class="muted">'+esc(x.company)+'</span>':'')+'</span></td><td>'+badge(x.type||"Individuel")+'</td><td>'+esc(x.email||"\u2014")+'</td><td>'+esc(x.city||"\u2014")+'</td><td>'+badge(x.status)+'</td><td>'+(x.approved?'<span style="color:var(--green)" title="'+esc(x.approvalCode||"")+'"><i data-ic=key></i></span>':'<span class="muted">\u2014</span>')+'</td><td>'+(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")+'</td><td class="rowact"><button class="iact ce" data-id="'+x.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+x.id+'"><i data-ic=trash></i></button></td></tr>';}).join(""):'<tr><td colspan="9" class="empty">Aucun membre ACCI trouvé.</td></tr>';
+    return'<div class="filterbar"><select id="f-st"><option value="">Tous statuts</option>'+optH(CUSTOMER_STATUSES,state.cFSt)+'</select><select id="f-cat"><option value="">Tous domaines</option>'+optH(CATEGORIES,state.cFCat)+'</select><span class="filterbar__count">'+list.length+' membre(s) ACCI</span><div class="filterbar__right">'+(selN?'<button class="abtn abtn--danger abtn--sm" id="b-del">Suppr. ('+selN+')</button>':'')+'<button class="abtn abtn--ghost abtn--sm" id="x-csv"><i data-ic=download></i> CSV</button></div></div><div class="dtable"><table><thead><tr><th style="width:30px"><input type="checkbox" id="ca"'+(allVisibleSel?" checked":"")+'></th>'+srt("name","Membre")+'<th>Type</th><th>E-mail</th><th>Ville</th>'+srt("status","Statut")+'<th>Portail</th><th>Domaines</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   },
   b:function(){
     var fst=$("#f-st");if(fst)fst.addEventListener("change",function(){state.cFSt=fst.value;refresh();});
@@ -1563,24 +1612,24 @@ SEC["customers.list"]={
 
 function openCustomerEdit(id){
   var x=id?S.customers.get(id):{id:"",type:"Individuel",name:"",company:"",email:"",phone:"",address:"",city:"",country:"Côte d'Ivoire",tags:[],status:"Lead",notes:"",charter:false,premium:false,social:"",approved:false,approvalCode:"",approvedAt:"",createdAt:""};if(!x)return;
-  openModal('<div class="modal__head"><h2>'+(id?"Modifier":"Nouveau membre ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="cf" class="modal__body"><div class="fgrid">'+ffield("Nom *",'<input name="name" required value="'+esc(x.name)+'">')+ffield("Entreprise",'<input name="company" value="'+esc(x.company)+'">')+ffield("Type",'<select name="type">'+optH(CUSTOMER_TYPES,x.type||"Individuel")+'</select>')+ffield("E-mail",'<input name="email" type="email" value="'+esc(x.email)+'">')+ffield("Téléphone",'<input name="phone" value="'+esc(x.phone)+'">')+ffield("Ville",'<input name="city" value="'+esc(x.city)+'">')+ffield("Pays",'<input name="country" value="'+esc(x.country)+'">')+ffield("Statut",'<select name="status">'+optH(CUSTOMER_STATUSES,x.status)+'</select>')+ffield("Domaines (virgule)",'<input name="tags" value="'+esc((x.tags||[]).join(", "))+'">') +'</div><label class="fcheck"><input type="checkbox" name="charter"'+(x.charter?" checked":"")+'> Charte ACCI signée</label><label class="fcheck"><input type="checkbox" name="premium"'+(x.premium?" checked":"")+'> 🎨 Artiste Premium</label>'+ffield("Notes",'<textarea name="notes" rows="2">'+esc(x.notes)+'</textarea>')+'<p class="ferr" id="cf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="cf-s">'+(id?"Enregistrer":"Créer")+'</button></div>');
+  openModal('<div class="modal__head"><h2>'+(id?"Modifier":"Nouveau membre ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="cf" class="modal__body"><div class="fgrid">'+ffield("Nom *",'<input name="name" required value="'+esc(x.name)+'">')+ffield("Entreprise",'<input name="company" value="'+esc(x.company)+'">')+ffield("Type",'<select name="type">'+optH(CUSTOMER_TYPES,x.type||"Individuel")+'</select>')+ffield("E-mail",'<input name="email" type="email" value="'+esc(x.email)+'">')+ffield("Téléphone",'<input name="phone" value="'+esc(x.phone)+'">')+ffield("Ville",'<input name="city" value="'+esc(x.city)+'">')+ffield("Pays",'<input name="country" value="'+esc(x.country)+'">')+ffield("Statut",'<select name="status">'+optH(CUSTOMER_STATUSES,x.status)+'</select>')+ffield("Domaines (virgule)",'<input name="tags" value="'+esc((x.tags||[]).join(", "))+'">') +'</div><label class="fcheck"><input type="checkbox" name="charter"'+(x.charter?" checked":"")+'> Charte ACCI signée</label><label class="fcheck"><input type="checkbox" name="premium"'+(x.premium?" checked":"")+'> <i data-ic=palette></i> Artiste Premium</label>'+ffield("Notes",'<textarea name="notes" rows="2">'+esc(x.notes)+'</textarea>')+'<p class="ferr" id="cf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="cf-s">'+(id?"Enregistrer":"Créer")+'</button></div>');
   $("#cf-s").addEventListener("click",function(){var f=$("#cf"),nm=f.name.value.trim();if(!nm){var e=$("#cf-e");e.textContent="Nom obligatoire.";e.hidden=false;return;}var r={id:x.id||uid(),type:f.type.value,name:nm,company:f.company.value.trim(),email:f.email.value.trim(),phone:f.phone.value.trim(),address:x.address||"",city:f.city.value.trim(),country:f.country.value.trim(),tags:f.tags.value.split(",").map(function(t){return t.trim();}).filter(Boolean),status:f.status.value,notes:f.notes.value.trim(),charter:f.charter.checked,premium:f.premium.checked,social:x.social||"",approved:x.approved||false,approvalCode:x.approvalCode||"",approvedAt:x.approvedAt||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:todayISO()};if(id){S.customers.update(r);alog("client",r.id,"modification",r.name);toast("Mis à jour.");}else{S.customers.add(r);alog("client",r.id,"création",r.name);toast("Membre ACCI créé.");}closeModal();refresh();});
 }
 
 function openCustomerDetail(id){
   var x=S.customers.get(id);if(!x)return;var cts=S.contacts.where(function(c){return c.customerId===id;});var tks=S.tickets.where(function(t){return t.customerId===id;});var dls=S.deals.where(function(d){return d.customerId===id;});var invs=S.invoices.where(function(i){return i.customerId===id;});
-  var info=[["Type",badge(x.type||"Individuel")],["E-mail",esc(x.email||"\u2014")],["Téléphone",esc(x.phone||"\u2014")],["Ville",esc(x.city||"\u2014")],["Statut",badge(x.status)],["Charte ACCI",x.charter?'<span style="color:var(--green)">✅ Signée</span>':'<span class="muted">Non signée</span>'],["Artiste Premium",x.premium?'<span style="color:var(--purple);font-weight:700">🎨 Premium</span>':'<span class="muted">Standard</span>'],["Domaines",(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"\u2014"],["Inscrit le",fmtDate(x.createdAt)]].map(function(r){return'<div class="drow"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';}).join("");
+  var info=[["Type",badge(x.type||"Individuel")],["E-mail",esc(x.email||"\u2014")],["Téléphone",esc(x.phone||"\u2014")],["Ville",esc(x.city||"\u2014")],["Statut",badge(x.status)],["Charte ACCI",x.charter?'<span style="color:var(--green)"><i data-ic=check></i> Signée</span>':'<span class="muted">Non signée</span>'],["Artiste Premium",x.premium?'<span style="color:var(--purple);font-weight:700"><i data-ic=palette></i> Premium</span>':'<span class="muted">Standard</span>'],["Domaines",(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"\u2014"],["Inscrit le",fmtDate(x.createdAt)]].map(function(r){return'<div class="drow"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';}).join("");
 
   /* Approval section */
   var approvalH='<div class="drow" style="margin-top:12px;padding:12px;background:var(--bg);border-radius:10px"><span class="dk">Portail membre</span><span class="dv">';
   if(x.approved){
-    approvalH+='<span style="color:var(--green);font-weight:700">✅ Approuvé</span> — Code : <code style="background:var(--orange-l);padding:3px 8px;border-radius:6px;font-weight:700;font-size:15px;letter-spacing:1px">'+esc(x.approvalCode)+'</code><br><span class="muted">Approuvé le '+fmtDate(x.approvedAt)+'</span><br><button class="abtn abtn--danger abtn--sm" id="cd-revoke" style="margin-top:6px">🔒 Révoquer l\'accès</button>';
+    approvalH+='<span style="color:var(--green);font-weight:700"><i data-ic=check></i> Approuvé</span> — Code : <code style="background:var(--orange-l);padding:3px 8px;border-radius:6px;font-weight:700;font-size:15px;letter-spacing:1px">'+esc(x.approvalCode)+'</code><br><span class="muted">Approuvé le '+fmtDate(x.approvedAt)+'</span><br><button class="abtn abtn--danger abtn--sm" id="cd-revoke" style="margin-top:6px"><i data-ic=lock></i> Révoquer l\'accès</button>';
   }else{
-    approvalH+='<span class="muted">Non approuvé</span><br><button class="abtn abtn--success abtn--sm" id="cd-approve" style="margin-top:6px">🔑 Approuver l\'accès membre</button>';
+    approvalH+='<span class="muted">Non approuvé</span><br><button class="abtn abtn--success abtn--sm" id="cd-approve" style="margin-top:6px"><i data-ic=key></i> Approuver l\'accès membre</button>';
   }
   approvalH+='</span></div>';
 
-  var timeline=[];tks.forEach(function(t){timeline.push({ic:"🎫",txt:'<b>Demande</b> '+esc(t.title)+' — '+badge(t.status),dt:t.createdAt});});dls.forEach(function(d){timeline.push({ic:"💰",txt:'<b>Adhésion</b> '+esc(d.title)+' — '+badge(d.stage)+' — '+fmtMoney(d.value),dt:d.createdAt});});invs.forEach(function(i){timeline.push({ic:"📄",txt:'<b>'+esc(i.type)+'</b> '+esc(i.number)+' — '+fmtMoney(i.total),dt:i.createdAt});});timeline.sort(function(a,b){return new Date(b.dt)-new Date(a.dt);});
+  var timeline=[];tks.forEach(function(t){timeline.push({ic:"ticket",txt:'<b>Demande</b> '+esc(t.title)+' — '+badge(t.status),dt:t.createdAt});});dls.forEach(function(d){timeline.push({ic:"money",txt:'<b>Adhésion</b> '+esc(d.title)+' — '+badge(d.stage)+' — '+fmtMoney(d.value),dt:d.createdAt});});invs.forEach(function(i){timeline.push({ic:"invoice",txt:'<b>'+esc(i.type)+'</b> '+esc(i.number)+' — '+fmtMoney(i.total),dt:i.createdAt});});timeline.sort(function(a,b){return new Date(b.dt)-new Date(a.dt);});
   var tlH=timeline.length?'<h3 style="margin-top:12px">Historique ACCI</h3><div class="timeline">'+timeline.map(function(t){return'<div class="timeline__item"><span class="timeline__icon">'+t.ic+'</span><div class="timeline__body">'+t.txt+'<div class="timeline__date">'+fmtDate(t.dt)+'</div></div></div>';}).join("")+'</div>':'';
   openModal('<div class="modal__head"><div class="dhead">'+avatar(x,40)+'<div><h2>'+esc(x.name)+'</h2><span class="muted">'+esc(x.company||"Membre ACCI")+'</span></div></div><button class="modal__x" data-close>&times;</button></div><div class="modal__body">'+info+approvalH+(x.notes?'<div class="dnotes"><span class="dk">Notes</span><p>'+esc(x.notes)+'</p></div>':'')+tlH+'</div><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Fermer</button><button class="abtn abtn--primary" id="cd-edit">Modifier</button></div>',true);
   $("#cd-edit").addEventListener("click",function(){openCustomerEdit(x.id);});
@@ -1625,8 +1674,8 @@ function openCustomerDetail(id){
 SEC["contacts.list"]={
   r:function(){
     var q=norm(state.query);var list=S.contacts.all().filter(function(c){if(!q)return true;return norm(c.name+" "+c.email+" "+c.phone+" "+c.role).indexOf(q)!==-1;});
-    if(!list.length)return emptyHTML("📇","Aucun contact ACCI enregistré.");
-    var rows=list.map(function(c){var cu=S.customers.get(c.customerId);return'<tr><td><b>'+esc(c.name)+'</b></td><td>'+esc(c.role||"\u2014")+'</td><td>'+esc(c.email||"\u2014")+'</td><td>'+esc(c.phone||"\u2014")+'</td><td>'+(cu?esc(cu.name):"\u2014")+'</td><td class="rowact"><button class="iact ce" data-id="'+c.id+'">✎</button><button class="iact iact--del cd" data-id="'+c.id+'">🗑</button></td></tr>';}).join("");
+    if(!list.length)return emptyHTML("<i data-ic=contacts></i>","Aucun contact ACCI enregistré.");
+    var rows=list.map(function(c){var cu=S.customers.get(c.customerId);return'<tr><td><b>'+esc(c.name)+'</b></td><td>'+esc(c.role||"\u2014")+'</td><td>'+esc(c.email||"\u2014")+'</td><td>'+esc(c.phone||"\u2014")+'</td><td>'+(cu?esc(cu.name):"\u2014")+'</td><td class="rowact"><button class="iact ce" data-id="'+c.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+c.id+'"><i data-ic=trash></i></button></td></tr>';}).join("");
     return'<div class="filterbar"><span class="filterbar__count">'+list.length+' contact(s) ACCI</span></div><div class="dtable"><table><thead><tr><th>Nom</th><th>Rôle</th><th>E-mail</th><th>Tél.</th><th>Membre/Partenaire</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   },
   b:function(){
@@ -1646,7 +1695,7 @@ function openContactEdit(id){
 SEC["tickets.list"]={
   r:function(){
     var q=norm(state.query);var list=S.tickets.all().filter(function(t){if(state.tFSt&&t.status!==state.tFSt)return false;if(state.tFPr&&t.priority!==state.tFPr)return false;if(!q)return true;var c=S.customers.get(t.customerId);return norm(t.title+" "+(c?c.name:"")).indexOf(q)!==-1;});
-    var rows=list.length?list.map(function(t){var c=S.customers.get(t.customerId);return'<tr class="rowlink" data-id="'+t.id+'"><td><b>'+esc(t.title)+'</b></td><td>'+(c?esc(c.name):"\u2014")+'</td><td>'+badge(t.priority)+'</td><td>'+badge(t.status)+'</td><td class="muted">'+(t.dueDate?fmtDate(t.dueDate):"\u2014")+'</td><td class="rowact"><button class="iact ce" data-id="'+t.id+'">✎</button><button class="iact iact--del cd" data-id="'+t.id+'">🗑</button></td></tr>';}).join(""):'<tr><td colspan="6" class="empty">🎫 Aucune demande de service ACCI en cours.</td></tr>';
+    var rows=list.length?list.map(function(t){var c=S.customers.get(t.customerId);return'<tr class="rowlink" data-id="'+t.id+'"><td><b>'+esc(t.title)+'</b></td><td>'+(c?esc(c.name):"\u2014")+'</td><td>'+badge(t.priority)+'</td><td>'+badge(t.status)+'</td><td class="muted">'+(t.dueDate?fmtDate(t.dueDate):"\u2014")+'</td><td class="rowact"><button class="iact ce" data-id="'+t.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+t.id+'"><i data-ic=trash></i></button></td></tr>';}).join(""):'<tr><td colspan="6" class="empty"><i data-ic=ticket></i> Aucune demande de service ACCI en cours.</td></tr>';
     return'<div class="filterbar"><select id="ft-st"><option value="">Tous statuts</option>'+optH(TICKET_STATUSES,state.tFSt)+'</select><select id="ft-pr"><option value="">Toutes priorités</option>'+optH(TICKET_PRIORITIES,state.tFPr)+'</select><span class="filterbar__count">'+list.length+' demande(s) ACCI</span></div><div class="dtable"><table><thead><tr><th>Titre</th><th>Membre</th><th>Priorité</th><th>Statut</th><th>Échéance</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   },
   b:function(){
@@ -1679,7 +1728,7 @@ SEC["pipeline.kanban"]={
     var deals=S.deals.all();var totalA=0,wt=0;deals.forEach(function(d){if(d.stage!=="Perdu")totalA+=d.value||0;if(d.stage!=="Perdu"&&d.stage!=="Gagné")wt+=(d.value||0)*(DEAL_PROBS[d.stage]||0)/100;});
     var cols=DEAL_STAGES.map(function(stage){
       var sd=deals.filter(function(d){return d.stage===stage;});var st=sd.reduce(function(s,d){return s+(d.value||0);},0);
-      var cards=sd.map(function(d){var c=S.customers.get(d.customerId);return'<div class="kanban__card" draggable="true" data-id="'+d.id+'"><div class="kanban__card-title">'+esc(d.title)+'</div><div class="kanban__card-sub">'+(c?esc(c.name):"\u2014")+'</div><div class="kanban__card-value">'+fmtMoney(d.value)+'</div>'+(d.expectedCloseDate?'<div class="kanban__card-date">🗓 '+fmtDate(d.expectedCloseDate)+'</div>':'')+'</div>';}).join("");
+      var cards=sd.map(function(d){var c=S.customers.get(d.customerId);return'<div class="kanban__card" draggable="true" data-id="'+d.id+'"><div class="kanban__card-title">'+esc(d.title)+'</div><div class="kanban__card-sub">'+(c?esc(c.name):"\u2014")+'</div><div class="kanban__card-value">'+fmtMoney(d.value)+'</div>'+(d.expectedCloseDate?'<div class="kanban__card-date"><i data-ic=calendar></i> '+fmtDate(d.expectedCloseDate)+'</div>':'')+'</div>';}).join("");
       return'<div class="kanban__col" data-stage="'+esc(stage)+'"><div class="kanban__col-head"><h3>'+esc(stage)+' <span class="muted">('+sd.length+')</span></h3><span class="muted">'+fmtMoney(st)+'</span></div><div class="kanban__cards" data-stage="'+esc(stage)+'">'+cards+'</div><button class="kanban__add" data-add="'+esc(stage)+'">+ Ajouter</button></div>';
     }).join("");
     return'<div class="banner banner--info" style="margin-bottom:14px">Pipeline des adhésions et partenariats ACCI — glissez-déposez pour changer l\'étape.</div><div class="filterbar"><span class="filterbar__count">'+deals.length+' adhésion(s)/partenariat(s)</span><span class="muted">Pipeline: '+fmtMoney(totalA)+' · Pondéré: '+fmtMoney(Math.round(wt))+'</span></div><div class="kanban">'+cols+'</div>';
@@ -1712,7 +1761,7 @@ function openDealEdit(id,defStage){
 SEC["invoices.list"]={
   r:function(){
     var q=norm(state.query);var list=S.invoices.all().filter(function(i){if(state.iFTy&&i.type!==state.iFTy)return false;if(state.iFSt&&i.status!==state.iFSt)return false;if(!q)return true;var c=S.customers.get(i.customerId);return norm(i.number+" "+(c?c.name:"")).indexOf(q)!==-1;});
-    var rows=list.length?list.map(function(i){var c=S.customers.get(i.customerId);return'<tr class="rowlink" data-id="'+i.id+'"><td><b>'+esc(i.number)+'</b></td><td>'+badge(i.type)+'</td><td>'+(c?esc(c.name):"\u2014")+'</td><td class="muted">'+fmtDate(i.issueDate)+'</td><td><b>'+fmtMoney(i.total)+'</b></td><td>'+badge(i.status)+'</td><td class="rowact">'+(i.type==="Devis"&&i.status!=="Annulé"?'<button class="iact conv" data-id="'+i.id+'" title="→ Facture">➡</button>':'')+'<button class="iact ce" data-id="'+i.id+'">✎</button><button class="iact iact--del cd" data-id="'+i.id+'">🗑</button></td></tr>';}).join(""):'<tr><td colspan="7" class="empty">📄 Aucune cotisation ou facture ACCI.</td></tr>';
+    var rows=list.length?list.map(function(i){var c=S.customers.get(i.customerId);return'<tr class="rowlink" data-id="'+i.id+'"><td><b>'+esc(i.number)+'</b></td><td>'+badge(i.type)+'</td><td>'+(c?esc(c.name):"\u2014")+'</td><td class="muted">'+fmtDate(i.issueDate)+'</td><td><b>'+fmtMoney(i.total)+'</b></td><td>'+badge(i.status)+'</td><td class="rowact">'+(i.type==="Devis"&&i.status!=="Annulé"?'<button class="iact conv" data-id="'+i.id+'" title="→ Facture">➡</button>':'')+'<button class="iact ce" data-id="'+i.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+i.id+'"><i data-ic=trash></i></button></td></tr>';}).join(""):'<tr><td colspan="7" class="empty"><i data-ic=invoice></i> Aucune cotisation ou facture ACCI.</td></tr>';
     return'<div class="filterbar"><select id="fi-ty"><option value="">Tous types</option>'+optH(INVOICE_TYPES,state.iFTy)+'</select><select id="fi-st"><option value="">Tous statuts</option>'+optH(INVOICE_STATUSES,state.iFSt)+'</select><span class="filterbar__count">'+list.length+' doc. ACCI</span></div><div class="dtable"><table><thead><tr><th>N°</th><th>Type</th><th>Membre</th><th>Date</th><th>Total</th><th>Statut</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   },
   b:function(){
@@ -1735,7 +1784,7 @@ function openInvoiceBuilder(id){
      encaissements affichés s'en trouvaient faussés rétroactivement. */
   var taxRate=(inv.taxRate!=null&&inv.taxRate!==""&&!isNaN(parseInt(inv.taxRate,10)))?parseInt(inv.taxRate,10):gTax;if(!inv.items||!inv.items.length)inv.items=[{description:"",serviceId:"",qty:1,unitPrice:0,lineTotal:0}];
   var svcs=S.services.where(function(s){return s.active;});var curItems=inv.items.map(function(it){return{description:it.description,serviceId:it.serviceId,qty:it.qty||1,unitPrice:it.unitPrice||0};});
-  function lineH(){return curItems.map(function(it,i){var so='<option value="">\u2014</option>'+svcs.map(function(s){return'<option value="'+s.id+'"'+(s.id===it.serviceId?" selected":"")+'>'+esc(s.name)+'</option>';}).join("");return'<tr class="il" data-i="'+i+'"><td><select class="is">'+so+'</select></td><td><input class="id" value="'+esc(it.description)+'"></td><td><input class="iq" type="number" min="1" value="'+(it.qty||1)+'" style="width:55px"></td><td><input class="ip" type="number" min="0" value="'+(it.unitPrice||0)+'" style="width:90px"></td><td class="inv-line-total">'+fmtMoney(it.qty*it.unitPrice)+'</td><td><button class="iact iact--del ix" type="button">✕</button></td></tr>';}).join("");}
+  function lineH(){return curItems.map(function(it,i){var so='<option value="">\u2014</option>'+svcs.map(function(s){return'<option value="'+s.id+'"'+(s.id===it.serviceId?" selected":"")+'>'+esc(s.name)+'</option>';}).join("");return'<tr class="il" data-i="'+i+'"><td><select class="is">'+so+'</select></td><td><input class="id" value="'+esc(it.description)+'"></td><td><input class="iq" type="number" min="1" value="'+(it.qty||1)+'" style="width:55px"></td><td><input class="ip" type="number" min="0" value="'+(it.unitPrice||0)+'" style="width:90px"></td><td class="inv-line-total">'+fmtMoney(it.qty*it.unitPrice)+'</td><td><button class="iact iact--del ix" type="button"><i data-ic=close></i></button></td></tr>';}).join("");}
   function calc(){var s=curItems.reduce(function(a,it){return a+(it.qty||0)*(it.unitPrice||0);},0);var tx=Math.round(s*taxRate/100);return{sub:s,tax:tx,tot:s+tx};}
   var t=calc();
   openModal('<div class="modal__head"><h2>'+(id?"Modifier "+esc(inv.number):"Nouvelle cotisation / facture ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="ivf" class="modal__body"><div class="fgrid">'+ffield("N°",'<input name="number" value="'+esc(inv.number)+'">')+ffield("Type",'<select name="type">'+optH(INVOICE_TYPES,inv.type)+'</select>')+ffield("Membre",'<select name="customerId">'+custOpt(inv.customerId)+'</select>')+ffield("Statut",'<select name="status">'+optH(INVOICE_STATUSES,inv.status)+'</select>')+ffield("Émission",'<input name="issueDate" type="date" value="'+inv.issueDate+'">')+ffield("Échéance",'<input name="dueDate" type="date" value="'+(inv.dueDate||"")+'">')+ffield("TVA (%)",'<input name="taxRate" id="iv-rate" type="number" min="0" max="100" value="'+taxRate+'">')+'</div><h3>Services ACCI</h3><div style="overflow-x:auto"><table class="inv-lines"><thead><tr><th>Service</th><th>Description</th><th>Qté</th><th>P.U.</th><th>Total</th><th></th></tr></thead><tbody id="iv-items">'+lineH()+'</tbody></table></div><button type="button" class="abtn abtn--ghost abtn--sm" id="iv-add">+ Ligne</button><div class="inv-totals"><div class="inv-total-row"><span>Sous-total</span><span id="iv-sub">'+fmtMoney(t.sub)+'</span></div><div class="inv-total-row"><span id="iv-taxlbl">TVA ('+taxRate+'%)</span><span id="iv-tax">'+fmtMoney(t.tax)+'</span></div><div class="inv-total-row inv-total-row--grand"><span>Total</span><span id="iv-tot">'+fmtMoney(t.tot)+'</span></div></div>'+ffield("Notes",'<textarea name="notes" rows="2">'+esc(inv.notes)+'</textarea>')+'<p class="ferr" id="ivf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="ivf-s">'+(id?"Enregistrer":"Créer")+'</button></div>',true);
@@ -1759,8 +1808,8 @@ function nextInvNum(){var y=new Date().getFullYear(),mx=0;S.invoices.all().forEa
 /* =========================== STANDALONE VIEWS ============================= */
 function renderInbox(){
   var inbox=S.inbox.all();
-  if(!inbox.length){$("#view").innerHTML='<div class="empty-state"><div class="empty-state__ic">📥</div><h2>Aucune demande ACCI</h2><p class="muted">Les demandes du site web ACCI apparaissent ici pour être converties en membres.</p></div>';return;}
-  var rows=inbox.map(function(it,i){return'<tr><td><b>'+esc(it.name||"\u2014")+'</b><br><span class="muted">'+esc(it.email||"")+'</span></td><td>'+esc(it.subject||it.phone||"\u2014")+'</td><td class="muted">'+esc((it.message||"").slice(0,60))+'</td><td class="muted">'+fmtDate(it.date)+'</td><td class="rowact"><button class="abtn abtn--primary abtn--sm ic" data-i="'+i+'">Convertir en membre</button><button class="iact iact--del id" data-i="'+i+'">🗑</button></td></tr>';}).join("");
+  if(!inbox.length){$("#view").innerHTML='<div class="empty-state"><div class="empty-state__ic"><i data-ic=inbox></i></div><h2>Aucune demande ACCI</h2><p class="muted">Les demandes du site web ACCI apparaissent ici pour être converties en membres.</p></div>';return;}
+  var rows=inbox.map(function(it,i){return'<tr><td><b>'+esc(it.name||"\u2014")+'</b><br><span class="muted">'+esc(it.email||"")+'</span></td><td>'+esc(it.subject||it.phone||"\u2014")+'</td><td class="muted">'+esc((it.message||"").slice(0,60))+'</td><td class="muted">'+fmtDate(it.date)+'</td><td class="rowact"><button class="abtn abtn--primary abtn--sm ic" data-i="'+i+'">Convertir en membre</button><button class="iact iact--del id" data-i="'+i+'"><i data-ic=trash></i></button></td></tr>';}).join("");
   $("#view").innerHTML='<div class="filterbar"><span class="filterbar__count">'+inbox.length+' demande(s) ACCI</span><div class="filterbar__right"><button class="abtn abtn--ghost abtn--sm" id="ic-clr">Vider</button></div></div><div class="dtable"><table><thead><tr><th>De</th><th>Objet</th><th>Message</th><th>Date</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   $$(".ic").forEach(function(b){b.addEventListener("click",function(){var ix=S.inbox.all(),it=ix[+b.getAttribute("data-i")];if(!it)return;S.customers.add({type:"Individuel",name:it.name||"",company:"",email:it.email||"",phone:it.phone||"",address:"",city:"",country:"Côte d'Ivoire",tags:[],status:"Lead",notes:(it.subject?"Objet: "+it.subject+"\n":"")+(it.message||""),charter:false,social:"",approved:false,approvalCode:"",approvedAt:""});ix.splice(+b.getAttribute("data-i"),1);S.inbox.save(ix);toast("Converti en membre ACCI.");refresh();});});
   $$(".id").forEach(function(b){b.addEventListener("click",function(){var ix=S.inbox.all();ix.splice(+b.getAttribute("data-i"),1);S.inbox.save(ix);refresh();});});
@@ -1768,7 +1817,7 @@ function renderInbox(){
 }
 
 function renderData(){
-  $("#view").innerHTML='<div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title">Exporter les données ACCI</h2></div><p class="muted">Téléchargez les données du CRM ACCI.</p><div class="btnrow"><button class="abtn abtn--primary abtn--sm xp" data-t="customers">Membres</button><button class="abtn abtn--ghost abtn--sm xp" data-t="tickets">Demandes</button><button class="abtn abtn--ghost abtn--sm xp" data-t="deals">Adhésions</button><button class="abtn abtn--ghost abtn--sm xp" data-t="invoices">Cotisations</button><button class="abtn abtn--ghost abtn--sm" id="xp-j">Tout (JSON)</button></div></section><section class="panel"><div class="panel__head"><h2 class="panel__title">Importer</h2></div><p class="muted">Importez des membres ACCI depuis CSV/JSON.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm">⬆ Fichier<input type="file" id="imp-f" accept=".csv,.json" hidden></label></div><p class="ferr" id="imp-m" hidden></p></section></div>';
+  $("#view").innerHTML='<div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title">Exporter les données ACCI</h2></div><p class="muted">Téléchargez les données du CRM ACCI.</p><div class="btnrow"><button class="abtn abtn--primary abtn--sm xp" data-t="customers">Membres</button><button class="abtn abtn--ghost abtn--sm xp" data-t="tickets">Demandes</button><button class="abtn abtn--ghost abtn--sm xp" data-t="deals">Adhésions</button><button class="abtn abtn--ghost abtn--sm xp" data-t="invoices">Cotisations</button><button class="abtn abtn--ghost abtn--sm" id="xp-j">Tout (JSON)</button></div></section><section class="panel"><div class="panel__head"><h2 class="panel__title">Importer</h2></div><p class="muted">Importez des membres ACCI depuis CSV/JSON.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm"><i data-ic=upload></i> Fichier<input type="file" id="imp-f" accept=".csv,.json" hidden></label></div><p class="ferr" id="imp-m" hidden></p></section></div>';
   $$(".xp").forEach(function(b){b.addEventListener("click",function(){exportCSV(b.getAttribute("data-t"));});});
   $("#xp-j").addEventListener("click",exportFullJSON);
   var imp=$("#imp-f");if(imp)imp.addEventListener("change",function(e){importFile(e);});
@@ -1898,7 +1947,7 @@ function importFile(e){
     /* Zéro ligne retenue n'est pas une réussite : annoncé en vert, un fichier au
        mauvais séparateur ou aux mauvaises colonnes passait pour importé. */
     if(!res.added&&!res.updated)return fail("Aucun membre importé — colonnes « name » ou « email » introuvables."+(cols?" Colonnes lues : "+cols:""));
-    if(msg){msg.className="ferr okmsg";msg.textContent="✓ "+res.added+" ajouté(s), "+res.updated+" mis à jour.";msg.hidden=false;}
+    if(msg){msg.className="ferr okmsg";msg.textContent="<i data-ic=check></i> "+res.added+" ajouté(s), "+res.updated+" mis à jour.";msg.hidden=false;}
     toast(res.added+" ajouté(s), "+res.updated+" mis à jour.");setTimeout(function(){go("customers");},500);
   }catch(err){fail("Fichier illisible.");}};
   r.readAsText(file,"utf-8");e.target.value="";
@@ -1919,7 +1968,7 @@ function importFullJSON(e){
       toast("Restauré.");refresh();
       /* Le compte-rendu est écrit après le réaffichage : posé avant, il partait avec
          le panneau reconstruit et le remplacement passait pour n'avoir rien fait. */
-      var nm=$("#bk-msg");if(nm){nm.className="ferr okmsg";nm.textContent="✓ "+n+" ensemble(s) de données remplacé(s).";nm.hidden=false;}
+      var nm=$("#bk-msg");if(nm){nm.className="ferr okmsg";nm.textContent="<i data-ic=check></i> "+n+" ensemble(s) de données remplacé(s).";nm.hidden=false;}
     },"Remplacer les données ACCI par le contenu de « "+esc(file.name)+" » ? Tout ce qui a été saisi depuis cette sauvegarde sera perdu. Les comptes administrateurs sont conservés.");
   };
   r.readAsText(file,"utf-8");e.target.value="";
@@ -1943,6 +1992,15 @@ function showReport(type){
 
 /* =========================== ROUTER ====================================== */
 function go(view){
+  _go(view);
+  paintIcons($("#view"));
+  paintIcons($("#snav"));
+  var _ab=$("#add-btn");if(_ab)paintIcons(_ab);
+}
+
+function _go(view){
+  /* Les icônes sont peintes en fin de rendu, après chaque écriture de #view. */
+
   /* Changer de module repart d'une liste complète : la recherche du bandeau
      survivait au passage d'une section à l'autre et y filtrait des champs qui
      n'existent pas, si bien que la suivante s'ouvrait vide. Le filtre n'est
@@ -1953,7 +2011,7 @@ function go(view){
   /* Access control */
   if(!canAccess(view)){
     $("#view-title").textContent="Accès refusé";
-    $("#view").innerHTML='<div class="empty-state"><div class="empty-state__ic">🔒</div><h2>Accès non autorisé</h2><p class="muted">Vous n\'avez pas accès à ce module. Contactez l\'administrateur <b>ogou</b> pour obtenir les permissions nécessaires.</p></div>';
+    $("#view").innerHTML='<div class="empty-state"><div class="empty-state__ic"><i data-ic=lock></i></div><h2>Accès non autorisé</h2><p class="muted">Vous n\'avez pas accès à ce module. Contactez l\'administrateur <b>ogou</b> pour obtenir les permissions nécessaires.</p></div>';
     return;
   }
   $$("#snav .snav").forEach(function(b){b.classList.toggle("is-active",b.getAttribute("data-view")===view);});
@@ -1976,7 +2034,7 @@ function go(view){
     var sub=state.sub[view]||mod.tabs[0].id;
     var tabsH=mod.tabs.map(function(t){return'<button class="tab'+(t.id===sub?" is-active":"")+'" data-tab="'+t.id+'">'+t.l+'</button>';}).join("");
     var subKey=view+"."+sub;var sec=SEC[subKey];
-    var content=sec&&sec.r?sec.r():'<div class="empty-state"><div class="empty-state__ic">🚧</div><h2>Section ACCI en construction</h2><p class="muted">Cette fonctionnalité sera bientôt disponible pour renforcer les piliers de l\'ACCI.</p></div>';
+    var content=sec&&sec.r?sec.r():'<div class="empty-state"><div class="empty-state__ic"><i data-ic=warning></i></div><h2>Section ACCI en construction</h2><p class="muted">Cette fonctionnalité sera bientôt disponible pour renforcer les piliers de l\'ACCI.</p></div>';
     $("#view").innerHTML='<div class="tabs">'+tabsH+'</div>'+content;
     $$(".tab").forEach(function(t){t.addEventListener("click",function(){state.sub[view]=t.getAttribute("data-tab");go(view);});});
     if(sec&&sec.b)sec.b();
