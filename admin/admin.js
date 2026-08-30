@@ -416,6 +416,12 @@ function buildSidebar(){
 
 /* =========================== AUTH ======================================= */
 function initAuth(){
+  /* Les gabarits statiques d'index.html (écran de connexion, barres supérieures,
+     retours au site) portent eux aussi des <i data-ic>. Les autres appels à
+     paintIcons ne visent que des sous-arbres reconstruits à l'exécution : sans
+     ce passage sur le document entier, ces icônes-là resteraient des <i> vides. */
+  paintIcons(document);
+
   var lEl=$("#login"),aEl=$("#app"),mEl=$("#member-app");
 
   var artEl=$("#artiste-app");
@@ -2319,7 +2325,7 @@ function openDealEdit(id,defStage){
 SEC["invoices.list"]={
   r:function(){
     var q=norm(state.query);var list=S.invoices.all().filter(function(i){if(state.iFTy&&i.type!==state.iFTy)return false;if(state.iFSt&&i.status!==state.iFSt)return false;if(!q)return true;var c=S.customers.get(i.customerId);return norm(i.number+" "+(c?c.name:"")).indexOf(q)!==-1;});
-    var rows=list.length?list.map(function(i){var c=S.customers.get(i.customerId);return'<tr class="rowlink" data-id="'+i.id+'"><td><b>'+esc(i.number)+'</b></td><td>'+badge(i.type)+'</td><td>'+(c?esc(c.name):"\u2014")+'</td><td class="muted">'+fmtDate(i.issueDate)+'</td><td><b>'+fmtMoney(i.total)+'</b></td><td>'+badge(i.status)+'</td><td class="rowact">'+(i.type==="Devis"&&i.status!=="Annulé"?'<button class="iact conv" data-id="'+i.id+'" title="→ Facture">➡</button>':'')+'<button class="iact ce" data-id="'+i.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+i.id+'"><i data-ic=trash></i></button></td></tr>';}).join(""):'<tr><td colspan="7" class="empty"><i data-ic=invoice></i> Aucune cotisation ou facture ACCI.</td></tr>';
+    var rows=list.length?list.map(function(i){var c=S.customers.get(i.customerId);return'<tr class="rowlink" data-id="'+i.id+'"><td><b>'+esc(i.number)+'</b></td><td>'+badge(i.type)+'</td><td>'+(c?esc(c.name):"\u2014")+'</td><td class="muted">'+fmtDate(i.issueDate)+'</td><td><b>'+fmtMoney(i.total)+'</b></td><td>'+badge(i.status)+'</td><td class="rowact">'+(i.type==="Devis"&&i.status!=="Annulé"?'<button class="iact conv" data-id="'+i.id+'" title="Convertir en facture"><i data-ic=arrow></i></button>':'')+'<button class="iact ce" data-id="'+i.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+i.id+'"><i data-ic=trash></i></button></td></tr>';}).join(""):'<tr><td colspan="7" class="empty"><i data-ic=invoice></i> Aucune cotisation ou facture ACCI.</td></tr>';
     return'<div class="filterbar"><select id="fi-ty"><option value="">Tous types</option>'+optH(INVOICE_TYPES,state.iFTy)+'</select><select id="fi-st"><option value="">Tous statuts</option>'+optH(INVOICE_STATUSES,state.iFSt)+'</select><span class="filterbar__count">'+list.length+' doc. ACCI</span></div><div class="dtable"><table><thead><tr><th>N°</th><th>Type</th><th>Membre</th><th>Date</th><th>Total</th><th>Statut</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   },
   b:function(){

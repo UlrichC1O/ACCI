@@ -22,7 +22,7 @@
   var INTENTS = [
     {
       keys: ["bonjour", "salut", "bonsoir", "coucou", "hello", "cc"],
-      reply: "Bonjour et bienvenue 👋 Je suis l’assistant de l’ACCI. Comment puis-je vous aider aujourd’hui ?",
+      reply: "Bonjour et bienvenue. Je suis l’assistant de l’ACCI. Comment puis-je vous aider aujourd’hui ?",
       links: []
     },
     {
@@ -92,7 +92,7 @@
     },
     {
       keys: ["merci", "thanks", "super", "parfait", "ok"],
-      reply: "Avec plaisir 🙂 Je reste disponible si vous avez d’autres questions !",
+      reply: "Avec plaisir. Je reste disponible si vous avez d’autres questions !",
       links: []
     }
   ];
@@ -228,7 +228,7 @@
     fab.classList.add("is-active");
     if (!started) {
       started = true;
-      addMsg("Bonjour 👋 Je suis l’assistant de l’ACCI. Posez-moi votre question, ou choisissez un sujet ci-dessous.", "bot");
+      addMsg("Bonjour. Je suis l’assistant de l’ACCI. Posez-moi votre question, ou choisissez un sujet ci-dessous.", "bot");
       renderQuick();
     }
     setTimeout(function () { input && input.focus(); }, 250);
