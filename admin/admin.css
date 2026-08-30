@@ -666,3 +666,19 @@ input.afield:focus{outline:none;border-color:var(--orange);
 /* Le montant ne doit jamais passer à la ligne : il désalignerait la rangée. */
 .kpi__val{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .kpi__label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ---------------------------------------------------------------------------
+   Photo de profil d'un membre
+   La pastille garde exactement la taille des initiales qu'elle remplace : les
+   listes et l'en-tête de l'espace membre sont dimensionnés autour d'elle, et
+   une vignette d'une autre taille décalerait toute la ligne.
+   --------------------------------------------------------------------------- */
+.avatar--photo{padding:0;overflow:hidden;background:var(--line);}
+.avatar--photo img{width:100%;height:100%;object-fit:cover;display:block;}
+.artiste-hero__id{display:flex;align-items:center;gap:16px;margin-bottom:10px;}
+.artiste-hero__id h1{margin:0;}
+.artiste-hero__id .avatar{flex:0 0 auto;border:2px solid rgba(255,255,255,.35);}
+@media (max-width:560px){
+  .artiste-hero__id{gap:12px;}
+  .artiste-hero__id .avatar{width:56px!important;height:56px!important;font-size:21px!important;}
+}

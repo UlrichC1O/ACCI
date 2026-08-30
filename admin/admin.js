@@ -821,7 +821,8 @@ function renderArtistePortal(artiste){
 
   if(v==="home"){
     /* Hero */
-    html+='<div class="artiste-hero"><h1>Bienvenue, '+esc(artiste.name)+'</h1>';
+    html+='<div class="artiste-hero">';
+    html+='<div class="artiste-hero__id">'+avatar(artiste,72)+'<h1>Bienvenue, '+esc(artiste.name)+'</h1></div>';
     html+='<p>Votre espace professionnel <strong>Artiste Premium ACCI</strong> — accès complet aux outils, analytiques et services de l\'Association des Créateurs de Contenu Ivoiriens.</p>';
     html+='<span class="artiste-hero__badge"><i data-ic=palette></i> Artiste Premium Certifié</span>';
     html+='<span class="artiste-hero__code">'+esc(maskedCode(artiste))+'</span>';
@@ -1094,7 +1095,21 @@ function seedAll(){
 }
 
 /* =========================== UI COMPONENTS ============================== */
-function avatar(x,sz){var ini=(x.name||"?").split(/\s+/).slice(0,2).map(function(w){return w[0];}).join("").toUpperCase();var s=sz||32;return'<span class="avatar" style="width:'+s+'px;height:'+s+'px;font-size:'+(s/2.6)+'px">'+esc(ini)+'</span>';}
+/* Les initiales restent le repli : une photo absente, retirée, ou dont le
+   fichier ne se charge plus laisse une pastille lisible plutôt qu'un cadre
+   vide. onerror rétablit les initiales sans passer par un nouveau rendu. */
+function avatar(x,sz){
+  var ini=(x.name||"?").split(/\s+/).slice(0,2).map(function(w){return w[0];}).join("").toUpperCase();
+  var s=sz||32;
+  var base='width:'+s+'px;height:'+s+'px;font-size:'+(s/2.6)+'px';
+  if(x&&x.photo){
+    return'<span class="avatar avatar--photo" style="'+base+'">'+
+      '<img src="'+esc(x.photo)+'" alt="" loading="lazy" decoding="async" '+
+      'onerror="this.parentNode.classList.remove(\'avatar--photo\');this.parentNode.textContent='+
+      '\''+esc(ini).replace(/'/g,"\\'")+'\';"></span>';
+  }
+  return'<span class="avatar" style="'+base+'">'+esc(ini)+'</span>';
+}
 function badge(v){return'<span class="badge badge--'+slug(v)+'">'+esc(v)+'</span>';}
 function ffield(l,c){return'<label class="afield"><span>'+l+'</span>'+c+'</label>';}
 /* Les gabarits déposent un marqueur <i data-ic="nom"> ; il est converti ici en
@@ -2110,6 +2125,15 @@ function openCustomerDetail(id){
   /* Certification « Créateur responsable ». La charte signée en est le
      préalable : certifier un membre qui ne l'a pas souscrite reviendrait à
      attester d'un engagement qu'il n'a jamais pris. */
+  /* Photo de profil : elle suit le membre jusque dans son espace personnel. */
+  var photoH='<div class="drow" style="margin-top:8px;padding:12px;background:var(--bg);border-radius:10px"><span class="dk">Photo</span><span class="dv">'+
+    '<span id="cd-photo-prev">'+avatar(x,64)+'</span>'+
+    '<br><label class="abtn abtn--ghost abtn--sm" style="cursor:pointer;margin-top:6px">'+(x.photo?"Remplacer":"Ajouter une photo")+
+      '<input type="file" id="cd-photo-file" accept="image/*" hidden></label>'+
+    (x.photo?' <button class="abtn abtn--danger abtn--sm" id="cd-photo-del" style="margin-top:6px">Retirer</button>':'')+
+    '<br><span class="muted" style="font-size:11.5px">Réduite à '+((window.ACCI_PHOTO&&window.ACCI_PHOTO.MAX)||400)+' px avant envoi. Visible par le membre dans son espace.</span>'+
+    '</span></div>';
+
   var certH='<div class="drow" style="margin-top:8px;padding:12px;background:var(--bg);border-radius:10px"><span class="dk">Certification</span><span class="dv">';
   if(x.certified){
     certH+='<span style="color:var(--green);font-weight:700"><i data-ic=badge></i> Créateur responsable</span>'+
@@ -2126,7 +2150,7 @@ function openCustomerDetail(id){
 
   var timeline=[];tks.forEach(function(t){timeline.push({ic:"ticket",txt:'<b>Demande</b> '+esc(t.title)+' — '+badge(t.status),dt:t.createdAt});});dls.forEach(function(d){timeline.push({ic:"money",txt:'<b>Adhésion</b> '+esc(d.title)+' — '+badge(d.stage)+' — '+fmtMoney(d.value),dt:d.createdAt});});invs.forEach(function(i){timeline.push({ic:"invoice",txt:'<b>'+esc(i.type)+'</b> '+esc(i.number)+' — '+fmtMoney(i.total),dt:i.createdAt});});timeline.sort(function(a,b){return new Date(b.dt)-new Date(a.dt);});
   var tlH=timeline.length?'<h3 style="margin-top:12px">Historique ACCI</h3><div class="timeline">'+timeline.map(function(t){return'<div class="timeline__item"><span class="timeline__icon">'+t.ic+'</span><div class="timeline__body">'+t.txt+'<div class="timeline__date">'+fmtDate(t.dt)+'</div></div></div>';}).join("")+'</div>':'';
-  openModal('<div class="modal__head"><div class="dhead">'+avatar(x,40)+'<div><h2>'+esc(x.name)+'</h2><span class="muted">'+esc(x.company||"Membre ACCI")+'</span></div></div><button class="modal__x" data-close>&times;</button></div><div class="modal__body">'+info+approvalH+certH+(x.notes?'<div class="dnotes"><span class="dk">Notes</span><p>'+esc(x.notes)+'</p></div>':'')+tlH+'</div><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Fermer</button><button class="abtn abtn--primary" id="cd-edit">Modifier</button></div>',true);
+  openModal('<div class="modal__head"><div class="dhead">'+avatar(x,40)+'<div><h2>'+esc(x.name)+'</h2><span class="muted">'+esc(x.company||"Membre ACCI")+'</span></div></div><button class="modal__x" data-close>&times;</button></div><div class="modal__body">'+info+approvalH+photoH+certH+(x.notes?'<div class="dnotes"><span class="dk">Notes</span><p>'+esc(x.notes)+'</p></div>':'')+tlH+'</div><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Fermer</button><button class="abtn abtn--primary" id="cd-edit">Modifier</button></div>',true);
   $("#cd-edit").addEventListener("click",function(){openCustomerEdit(x.id);});
 
   /* Approbation / renouvellement du code portail */
@@ -2182,6 +2206,31 @@ function openCustomerDetail(id){
       grantCode(x,"Nouveau code d'accès");
     });
   }
+
+  /* Photo : dépôt et retrait */
+  var pf=$("#cd-photo-file");
+  if(pf)pf.addEventListener("change",function(){
+    var file=pf.files&&pf.files[0];if(!file)return;
+    if(!window.ACCI_PHOTO){toast("Module photo indisponible.","err");return;}
+    toast("Préparation de la photo…");
+    window.ACCI_PHOTO.upload(file).then(function(url){
+      x.photo=url;x.updatedAt=todayISO();
+      S.customers.update(x);
+      alog("client",x.id,"photo",x.name);
+      toast("Photo enregistrée.");
+      openCustomerDetail(id);
+    }).catch(function(e){toast(e.message,"err");});
+  });
+  var pd=$("#cd-photo-del");
+  if(pd)pd.addEventListener("click",function(){
+    /* Le fichier reste dans le dépôt : d'autres fiches ont pu être exportées
+       avec la même adresse, et le supprimer les casserait sans prévenir. */
+    delete x.photo;x.updatedAt=todayISO();
+    S.customers.update(x);
+    alog("client",x.id,"photo retirée",x.name);
+    toast("Photo retirée.");
+    openCustomerDetail(id);
+  });
 
   /* Certification : délivrance, consultation, révocation */
   var certIssue=$("#cd-cert-issue");
