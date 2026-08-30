@@ -6,15 +6,15 @@
 
 :root {
   /* Couleurs de marque */
-  --orange: #F77F00;          /* orange de marque — aplats décoratifs, icônes, filets */
-  --orange-d: #E16500;        /* orange soutenu — surfaces uniquement */
+  --orange: #FF7105;          /* orange de marque — prélevé sur le logo (pixels dominants) */
+  --orange-d: #E06304;        /* orange soutenu — survol des aplats */
   --orange-l: #FFF4E8;
   /* Deux variantes accessibles (WCAG AA). L'orange de marque ne peut pas
      porter de texte blanc : #fff sur #F77F00 ne donne que 2,63:1.
      --orange-solid : fond des boutons et bandeaux à texte blanc → 5,20:1
      --orange-text  : orange utilisé COMME texte sur blanc/teinte → 6,07:1 */
-  --orange-solid: #B34F00;
-  --orange-solid-d: #8F3F00;
+  --orange-solid: #C25604;   /* pastilles et boutons : logo assombri de 24 %, blanc lisible à 4,54:1 */
+  --orange-solid-d: #A34803; /* survol de la pastille */
   --orange-text: #A34700;
   --green: #0B7A3B;
   --green-d: #0B3D2E;
@@ -955,4 +955,29 @@ a.partner:hover, a.partner:focus-visible {
 @media (max-width: 560px) {
   .partners { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
   .partner { min-height: 78px; padding: 12px; }
+}
+
+/* Portrait d'un membre du bureau. Il remplace les initiales quand une photo
+   existe ; le disque garde exactement les mêmes dimensions, pour que la grille
+   ne bouge pas selon que le portrait est disponible ou non. */
+.member__avatar--photo { overflow: hidden; background: var(--line-2); padding: 0; }
+.member__avatar--photo picture,
+.member__avatar--photo img { width: 100%; height: 100%; display: block; }
+.member__avatar--photo img { object-fit: cover; border-radius: 50%; }
+
+/* Partenaires groupés par catégorie. Sans catégorie renseignée, la grille
+   simple est conservée : un intertitre unique au-dessus de tous les logos
+   n'apporterait rien. */
+.partners--grouped { display: block; }
+.partners__group + .partners__group { margin-top: 30px; }
+.partners__cat {
+  font-size: .82rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 14px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.partners__grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px;
+}
+@media (max-width: 560px) {
+  .partners__grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
 }

@@ -59,6 +59,41 @@
     if (img && img.parentNode) img.parentNode.replaceChild(span, img);
   }
 
+  /* Une vignette de partenaire : le logo lui-même est le lien. */
+  function tile(r) {
+    var name = String(r.name);
+    var src = logoSrc(r.logo);
+
+    /* Un lien n'est posé que sur une adresse https : le champ est libre en
+       base, et « javascript: » y serait aussi acceptable qu'autre chose. */
+    var link = /^https:\/\//i.test(r.url || "") ? r.url : "";
+    var node = document.createElement(link ? "a" : "div");
+    node.className = "partner";
+    if (link) {
+      node.href = link;
+      node.target = "_blank";
+      node.rel = "noopener noreferrer";
+      node.title = name + " — ouvre le site du partenaire";
+    }
+
+    if (src) {
+      var img = document.createElement("img");
+      img.className = "partner__logo";
+      img.alt = name;
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.addEventListener("error", function () { fallbackToName(node, name); });
+      img.src = src;
+      node.appendChild(img);
+    } else {
+      var span = document.createElement("span");
+      span.className = "partner__name";
+      span.appendChild(document.createTextNode(name));
+      node.appendChild(span);
+    }
+    return node;
+  }
+
   function render(rows) {
     rows = rows.filter(function (r) { return r && r.active !== false && r.name; });
     rows.sort(function (a, b) {
@@ -69,39 +104,41 @@
 
     while (grid.firstChild) grid.removeChild(grid.firstChild);
 
+    /* Regroupement par catégorie, dans l'ordre où les catégories apparaissent
+       une fois les partenaires triés : le rang choisi dans l'administration
+       commande donc aussi l'ordre des groupes. Les partenaires sans catégorie
+       ferment la liste plutôt que d'ouvrir un groupe sans titre. */
+    var order = [], byCat = {};
     rows.forEach(function (r) {
-      var name = String(r.name);
-      var src = logoSrc(r.logo);
-
-      /* Un lien n'est posé que sur une adresse https : le champ est libre en
-         base, et « javascript: » y serait aussi acceptable qu'autre chose. */
-      var link = /^https:\/\//i.test(r.url || "") ? r.url : "";
-      var node = document.createElement(link ? "a" : "div");
-      node.className = "partner";
-      if (link) {
-        node.href = link;
-        node.target = "_blank";
-        node.rel = "noopener noreferrer";
-        node.title = name + " — ouvre le site du partenaire";
-      }
-
-      if (src) {
-        var img = document.createElement("img");
-        img.className = "partner__logo";
-        img.alt = name;
-        img.loading = "lazy";
-        img.decoding = "async";
-        img.addEventListener("error", function () { fallbackToName(node, name); });
-        img.src = src;
-        node.appendChild(img);
-      } else {
-        var span = document.createElement("span");
-        span.className = "partner__name";
-        span.appendChild(document.createTextNode(name));
-        node.appendChild(span);
-      }
-      grid.appendChild(node);
+      var c = (r.category || "").trim();
+      if (!byCat[c]) { byCat[c] = []; order.push(c); }
+      byCat[c].push(r);
     });
+    order.sort(function (a, b) { return (a ? 0 : 1) - (b ? 0 : 1); });
+
+    var grouped = order.filter(function (c) { return c; }).length > 0 && order.length > 1;
+
+    if (!grouped) {
+      grid.classList.remove("partners--grouped");
+      rows.forEach(function (r) { grid.appendChild(tile(r)); });
+    } else {
+      grid.classList.add("partners--grouped");
+      order.forEach(function (cat) {
+        var sec = document.createElement("div");
+        sec.className = "partners__group";
+        if (cat) {
+          var h = document.createElement("h3");
+          h.className = "partners__cat";
+          h.appendChild(document.createTextNode(cat));
+          sec.appendChild(h);
+        }
+        var g = document.createElement("div");
+        g.className = "partners__grid";
+        byCat[cat].forEach(function (r) { g.appendChild(tile(r)); });
+        sec.appendChild(g);
+        grid.appendChild(sec);
+      });
+    }
 
     host.hidden = false;
   }

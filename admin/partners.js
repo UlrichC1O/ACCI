@@ -24,6 +24,11 @@
   var openModal = A.ui.openModal, closeModal = A.ui.closeModal;
 
   var TABLE = "partners";
+  /* Reprises de la page « Nos partenaires » : proposées, non imposées, pour
+     que deux orthographes de la même catégorie ne créent pas deux groupes. */
+  var CATEGORIES = ["Institutions publiques", "Écoles & universités", "Médias",
+                    "Plateformes numériques", "Société civile", "Secteur privé"];
+
   var state = { rows: null, error: null, inv: null, busy: false };
 
   /* ------------------------------ Données -------------------------------- */
@@ -160,7 +165,10 @@
       '<form id="pt-form" class="modal__body"><div class="fgrid">' +
         '<label class="afield"><span>Nom *</span><input name="name" value="' + esc(p.name) + '" required></label>' +
         '<label class="afield"><span>Site web</span><input name="url" type="url" placeholder="https://…" value="' + esc(p.url) + '"></label>' +
-        '<label class="afield"><span>Catégorie</span><input name="category" placeholder="Institution, école, média…" value="' + esc(p.category) + '"></label>' +
+        '<label class="afield"><span>Catégorie</span><input name="category" list="pt-cats" ' +
+          'placeholder="Regroupe les logos sur la page" value="' + esc(p.category) + '">' +
+          '<datalist id="pt-cats">' + CATEGORIES.map(function (c) {
+            return '<option value="' + esc(c) + '">'; }).join("") + '</datalist></label>' +
         '<label class="afield"><span>Rang d\'affichage</span><input name="position" type="number" value="' + (p.position || 0) + '"></label>' +
         '<label class="afield"><span>Visibilité</span><select name="active">' +
           '<option value="true"' + (p.active ? " selected" : "") + '>Visible sur le site</option>' +
