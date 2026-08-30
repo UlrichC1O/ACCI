@@ -596,10 +596,15 @@ def r_definitions(b, page):
 def r_contact(b, page):
     info = ""
     for it in b.get("info", []):
+        # « field » rattache la ligne à un réglage d'identité (email, phone,
+        # address…). Le repère permet à site-settings.js de corriger la valeur
+        # chez le visiteur sans recompiler ; sans lui la coordonnée resterait
+        # figée à ce qui a été écrit dans content/.
+        marker = f' data-site="{e(it["field"])}"' if it.get("field") else ""
         info += (
             f'<div class="cinfo"><span class="cinfo__icon">{icon(it.get("icon","map"),22)}</span>'
             f'<div><span class="cinfo__label">{e(it["label"])}</span>'
-            f'<span class="cinfo__value">{para(it["value"])}</span></div></div>'
+            f'<span class="cinfo__value"{marker}>{para(it["value"])}</span></div></div>'
         )
     form = """
       <form class="cform" id="contact-form" novalidate>
@@ -798,7 +803,7 @@ def render_header(page):
     for u in UTILITY:
         util += f'<a href="{url(u["href"])}" class="util__link">{icon(u.get("icon","arrow"),15)}{e(u["label"])}</a>'
     socials = "".join(
-        f'<a href="{s["href"]}" class="util__social"{social_attrs(s["href"])} aria-label="{e(s["label"])}" title="{e(s["label"])}">{brand_icon(s["icon"],15)}</a>'
+        f'<a href="{s["href"]}" class="util__social" data-site-social="{e(s["icon"])}"{social_attrs(s["href"])} aria-label="{e(s["label"])}" title="{e(s["label"])}">{brand_icon(s["icon"],15)}</a>'
         for s in SOCIAL
     )
     return f"""
@@ -815,7 +820,7 @@ def render_header(page):
   <header class="header" id="header">
     <div class="container header__inner">
       <a class="brand" href="index.html" aria-label="Accueil — {e(SITE['long_name'])}">
-        <img class="brand__logo" src="assets/img/logo-wordmark-240.webp" alt="ACCI" width="118" height="72" fetchpriority="high">
+        <img class="brand__logo" data-site-logo="header" src="assets/img/logo-wordmark-240.webp" alt="ACCI" width="118" height="72" fetchpriority="high">
         <span class="brand__full">{e(SITE['long_name'])}</span>
       </a>
       <nav class="nav" aria-label="Navigation principale">
@@ -879,7 +884,7 @@ def render_footer(page):
         links = "".join(f'<li><a href="{url(l["slug"])}">{e(l["label"])}</a></li>' for l in col["links"])
         cols += f'<div class="footer__col"><h3 class="footer__title">{e(col["title"])}</h3><ul>{links}</ul></div>'
     socials = "".join(
-        f'<a href="{s["href"]}" class="footer__social"{social_attrs(s["href"])} aria-label="{e(s["label"])}" title="{e(s["label"])}">{brand_icon(s["icon"],18)}</a>'
+        f'<a href="{s["href"]}" class="footer__social" data-site-social="{e(s["icon"])}"{social_attrs(s["href"])} aria-label="{e(s["label"])}" title="{e(s["label"])}">{brand_icon(s["icon"],18)}</a>'
         for s in SOCIAL
     )
     legal = "".join(f'<a href="{url(l["slug"])}">{e(l["label"])}</a>' for l in FOOTER["legal"])
@@ -900,9 +905,9 @@ def render_footer(page):
       <div class="footer__top">
         <div class="footer__brand">
           <a class="brand brand--footer" href="index.html" aria-label="Accueil — {e(SITE['long_name'])}">
-            <img class="brand__logo brand__logo--footer" src="assets/img/logo-wordmark-light-240.webp" alt="ACCI" width="118" height="72" loading="lazy" decoding="async">
+            <img class="brand__logo brand__logo--footer" data-site-logo="footer" src="assets/img/logo-wordmark-light-240.webp" alt="ACCI" width="118" height="72" loading="lazy" decoding="async">
           </a>
-          <p class="footer__about">{e(SITE['long_name'])}. {e(FOOTER['about'])}</p>
+          <p class="footer__about"><span data-site="long_name">{e(SITE['long_name'])}</span>. {e(FOOTER['about'])}</p>
           <div class="footer__socials">{socials}</div>
         </div>
         <div class="footer__cols">{cols}</div>
@@ -926,7 +931,7 @@ def render_chat():
     </button>
     <section class="chat__panel" id="chat-panel" aria-label="Assistant ACCI" hidden>
       <header class="chat__header">
-        <img class="chat__logo" src="assets/img/logo-wordmark-light-240.webp" alt="ACCI" width="88" height="54" loading="lazy" decoding="async">
+        <img class="chat__logo" data-site-logo="chat" src="assets/img/logo-wordmark-light-240.webp" alt="ACCI" width="88" height="54" loading="lazy" decoding="async">
         <div class="chat__id">
           <span class="chat__name">Assistant ACCI {icon("sparkle",15,"chat__spark")}</span>
           <span class="chat__status"><span class="chat__dot"></span>En ligne · réponse immédiate</span>
@@ -985,9 +990,9 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <meta name="twitter:title" content="{title} — ACCI">
   <meta name="twitter:description" content="{description}">
   <meta name="twitter:image" content="{og_image}">
-  <link rel="icon" type="image/png" href="assets/img/favicon.png">
-  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
-  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png" data-site-icon="png">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" data-site-icon="svg">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" data-site-icon="apple">
   <link rel="preconnect" href="https://durwoqjfjhdersuwxxwg.supabase.co" crossorigin>
   <link rel="preload" href="assets/fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/sora-700-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -1007,6 +1012,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <script src="{js_main}" defer></script>
   <script src="{js_chat}" defer></script>
   <script src="{js_images}" defer></script>
+  <script src="{js_settings}" defer></script>
 </body>
 </html>
 """
@@ -1108,6 +1114,7 @@ ASSET_URLS = {
     "js_main":   "assets/js/main.js",
     "js_chat":   "assets/js/chat.js",
     "js_images": "assets/js/site-images.js",
+    "js_settings": "assets/js/site-settings.js",
 }
 
 

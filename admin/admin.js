@@ -33,7 +33,23 @@ function uid(){return"x"+Date.now().toString(36)+"_"+Math.floor(Math.random()*1e
 function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
 function todayISO(){return new Date().toISOString().slice(0,10);}
 function fmtDate(d){if(!d)return"\u2014";var x=new Date(d);/* Une date illisible était renvoyée brute puis insérée via innerHTML : un createdAt importé du type "<img onerror=…>" exécutait du script. */if(isNaN(x))return esc(String(d)).slice(0,40);return x.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"});}
-function fmtMoney(a){return(Number(a)||0).toLocaleString("fr-FR")+" "+(localStorage.getItem("acci_currency")||"FCFA");}
+/* Devise et taux de TVA sont saisis par un administrateur puis réinjectés dans
+   du HTML un peu partout dans le CRM. Ils passent donc par ces deux accesseurs,
+   qui bornent la valeur à ce qu'elle est censée être : sans cela, une devise
+   contenant du balisage s'exécutait à chaque affichage d'un montant, sur toutes
+   les vues et pour tous les administrateurs, y compris après rechargement. */
+function devise(){
+  var v=String(localStorage.getItem("acci_currency")||"FCFA");
+  /* Un sigle monétaire : lettres, chiffres et quelques signes. Rien d'autre. */
+  v=v.replace(/[^0-9A-Za-zÀ-ÿ$€£¥.\s-]/g,"").trim().slice(0,12);
+  return v||"FCFA";
+}
+function tauxTVA(){
+  var n=parseFloat(String(localStorage.getItem("acci_tax")||"18").replace(",","."));
+  if(!isFinite(n)||n<0||n>100)n=18;
+  return n;
+}
+function fmtMoney(a){return(Number(a)||0).toLocaleString("fr-FR")+" "+devise();}
 function hash(s){var h=5381,i=s.length;while(i)h=(h*33)^s.charCodeAt(--i);return(h>>>0).toString(16);}
 function slug(s){return norm(s).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");}
 /* Une valeur enregistrée qui ne figure pas dans la liste (donnée héritée, fiche
@@ -1087,7 +1103,7 @@ RA("invoices.tax",function(){
   var inv=S.invoices.where(function(i){return i.status==="Payé";});
   var totalTax=inv.reduce(function(s,i){return s+(i.tax||0);},0);
   var totalHT=inv.reduce(function(s,i){return s+(i.subtotal||0);},0);
-  return'<div class="stat-row"><div class="stat-box"><div class="stat-box__val">'+fmtMoney(totalHT)+'</div><div class="stat-box__label">Total HT ACCI</div></div><div class="stat-box"><div class="stat-box__val">'+fmtMoney(totalTax)+'</div><div class="stat-box__label">TVA collectée</div></div><div class="stat-box"><div class="stat-box__val">'+(localStorage.getItem("acci_tax")||"18")+'%</div><div class="stat-box__label">Taux TVA</div></div></div>';
+  return'<div class="stat-row"><div class="stat-box"><div class="stat-box__val">'+fmtMoney(totalHT)+'</div><div class="stat-box__label">Total HT ACCI</div></div><div class="stat-box"><div class="stat-box__val">'+fmtMoney(totalTax)+'</div><div class="stat-box__label">TVA collectée</div></div><div class="stat-box"><div class="stat-box__val">'+tauxTVA()+'%</div><div class="stat-box__label">Taux TVA</div></div></div>';
 });
 
 /* 41. invoices.credits */
@@ -1486,7 +1502,7 @@ RA("admin.backup",function(){
      d'accès par-dessus le vide attendu. Devise et taux de TVA sont des réglages de
      l'association, non des données : tous les montants auraient changé d'unité. */
   $("#bk-wipe").addEventListener("click",function(){confirmDel(function(){var cur=localStorage.getItem("acci_currency"),tax=localStorage.getItem("acci_tax");Object.keys(localStorage).filter(function(k){return k.startsWith("acci")&&k!=="acci_admins";}).forEach(function(k){localStorage.removeItem(k);});localStorage.removeItem("acci_crm_members");localStorage.removeItem("acci_crm_seeded");if(cur)storageWrite("acci_currency",cur);if(tax)storageWrite("acci_tax",tax);storageWrite("acci_seeded_v5","1");location.reload();},"Effacer toutes les données ACCI — membres, contacts, demandes, adhésions, cotisations, projets et documents ? Les comptes administrateurs, la devise et le taux de TVA sont conservés, et les données de démonstration ne reviendront pas. Irréversible — téléchargez d'abord une sauvegarde.");});
-  var cs=$("#cfg-save");if(cs)cs.addEventListener("click",function(){storageWrite("acci_currency",$("#cfg-cur").value.trim()||"FCFA");storageWrite("acci_tax",$("#cfg-tax").value||"18");var m=$("#cfg-msg");m.className="ferr okmsg";m.textContent="✓ Configuration ACCI sauvegardée.";m.hidden=false;toast("Config mise à jour.");});
+  var cs=$("#cfg-save");if(cs)cs.addEventListener("click",function(){storageWrite("acci_currency",$("#cfg-cur").value.trim()||"FCFA");storageWrite("acci_currency",devise());storageWrite("acci_tax",$("#cfg-tax").value||"18");storageWrite("acci_tax",String(tauxTVA()));var m=$("#cfg-msg");m.className="ferr okmsg";m.textContent="✓ Configuration ACCI sauvegardée.";m.hidden=false;toast("Config mise à jour.");});
 });
 
 /* 98. admin.integrations */
@@ -1899,7 +1915,7 @@ function importFullJSON(e){
     confirmDel(function(){
       var n=restoreStores(d);
       var st=d._settings;
-      if(st&&typeof st==="object"){if(st.currency)storageWrite("acci_currency",String(st.currency));if(st.tax)storageWrite("acci_tax",String(st.tax));}
+      if(st&&typeof st==="object"){/* Une sauvegarde est un fichier fourni par l'utilisateur : ses réglages sont bornés avant stockage, au même titre qu'une saisie manuelle. */if(st.currency){storageWrite("acci_currency",String(st.currency));storageWrite("acci_currency",devise());}if(st.tax){storageWrite("acci_tax",String(st.tax));storageWrite("acci_tax",String(tauxTVA()));}}
       toast("Restauré.");refresh();
       /* Le compte-rendu est écrit après le réaffichage : posé avant, il partait avec
          le panneau reconstruit et le remplacement passait pour n'avoir rien fait. */
@@ -1941,6 +1957,16 @@ function go(view){
     return;
   }
   $$("#snav .snav").forEach(function(b){b.classList.toggle("is-active",b.getAttribute("data-view")===view);});
+  /* Le bouton « Ajouter » n'est montré que si la rubrique courante sait
+     réellement créer quelque chose ; sinon il promettait une action qu'il ne
+     rendait pas. */
+  (function(){
+    var ab=$("#add-btn");if(!ab)return;
+    var m=MODS[view],peut=false;
+    if(m){var sb=state.sub[view]||m.tabs[0].id;var sc=SEC[view+"."+sb];peut=!!(sc&&sc.a);}
+    if(!peut&&view==="customers"&&canAccess("customers"))peut=true;
+    ab.hidden=!peut;
+  })();
   updateBadge();
   if(view==="inbox"){$("#view-title").textContent="Réception ACCI";renderInbox();return;}
   if(view==="data"){$("#view-title").textContent="Import / Export ACCI";renderData();return;}
@@ -1984,8 +2010,14 @@ function boot(){
   });
   $("#logout").addEventListener("click",function(){sessionStorage.removeItem("acci_admin");location.reload();});
   $("#add-btn").addEventListener("click",function(){
-    var mod=MODS[state.view];if(mod){var sub=state.sub[state.view]||mod.tabs[0].id;var sec=SEC[state.view+"."+sub];if(sec&&sec.a){sec.a();return;}}
-    openCustomerEdit(null);
+    var mod=MODS[state.view];
+    if(mod){var sub=state.sub[state.view]||mod.tabs[0].id;var sec=SEC[state.view+"."+sub];if(sec&&sec.a){sec.a();return;}}
+    /* Seul l'onglet Membres crée un membre. Le repli précédent ouvrait ce
+       formulaire depuis n'importe quelle rubrique — Administration, Import /
+       Export, Réception — où il n'avait aucun sens, et jusque sur l'écran
+       « Accès refusé » d'un administrateur non autorisé. */
+    if(state.view==="customers"&&canAccess("customers")){openCustomerEdit(null);return;}
+    toast("Rien à ajouter dans cette rubrique.","err");
   });
   $("#search").addEventListener("input",function(){state.query=this.value;refresh();});
   $("#atop-burger").addEventListener("click",function(){$(".sidebar").classList.toggle("is-open");});

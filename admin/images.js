@@ -603,6 +603,21 @@
     }
   );
 
+  /* Surface partagée avec les autres modules d'administration qui écrivent dans
+     Supabase (site-identity.js). Le renouvellement du jeton, le repli sur l'écran
+     de connexion et le refus d'écrire en anonyme sont subtils et tiennent la
+     sécurité du site : les redéclarer ailleurs, c'est les voir diverger. Un seul
+     jeton, une seule session, un seul endroit où elle se renouvelle. */
+  window.ACCI_SB = {
+    url: SB_URL, key: SB_KEY, bucket: BUCKET,
+    session: session, setSession: setSession, ensureSession: ensureSession,
+    authHeaders: authHeaders, signIn: signIn, upload: upload,
+    publicUrl: function (path) {
+      return SB_URL + "/storage/v1/object/public/" + BUCKET + "/" + path;
+    },
+    signOut: function () { setSession(null); }
+  };
+
   // Un échec de chargement au démarrage doit se voir : sans ce traitement,
   // la rubrique restait figée sur son message d'attente.
   if (session()) loadAll().then(function () { A.refresh(); },

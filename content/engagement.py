@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Pages 45 à 50 — Engagement, contact & mentions légales."""
 
+from content.site import SITE
+
 SEC_E = "Engagement"
 SEC_L = "Informations légales"
 
@@ -143,9 +145,9 @@ PAGES = [
     {"type": "contact", "title": "Écrivez-nous",
      "lead": "Le formulaire ci-dessous et nos coordonnées sont à votre disposition. Nous vous répondrons dans les meilleurs délais.",
      "info": [
-       {"icon": "map", "label": "Adresse", "value": "Cocody, Riviera Golf — Abidjan, Côte d’Ivoire"},
-       {"icon": "mail", "label": "E-mail", "value": "contact@acci.ci"},
-       {"icon": "phone", "label": "Téléphone", "value": "+225 27 22 00 00 00"},
+       {"icon": "map", "label": "Adresse", "value": SITE["address"], "field": "address"},
+       {"icon": "mail", "label": "E-mail", "value": SITE["email"], "field": "email"},
+       {"icon": "phone", "label": "Téléphone", "value": SITE["phone"], "field": "phone"},
        {"icon": "clock", "label": "Horaires", "value": "Du lundi au vendredi, 9h – 17h"},
      ]},
 
