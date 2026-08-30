@@ -24,7 +24,7 @@ import datetime
 import http.server
 import socketserver
 
-from content.site import SITE, NAV, FOOTER, UTILITY, SOCIAL
+from content.site import SITE, NAV, FOOTER, UTILITY, SOCIAL, CREDITS
 from content import pages as PAGES_MODULE
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -143,6 +143,65 @@ def render_socials(family, size):
     # Le conteneur est masqué lui aussi : vide, il laisserait un espace mort
     # dans la barre supérieure et sous le logo du pied de page.
     return f'<div class="{family}__socials" data-site-socials hidden>{links}</div>'
+
+
+def render_credits():
+    """Crédits du pied de page : réalisation du site, puis partenaires.
+
+    Même principe que les réseaux sociaux, et pour la même raison : une
+    attribution engage l'association vis-à-vis d'un tiers, donc rien n'est
+    affiché tant que rien n'est renseigné. Les deux blocs sont compilés
+    masqués et sans href, et assets/js/site-settings.js les révèle si — et
+    seulement si — l'administration a renseigné un nom.
+
+    Compiler l'emplacement plutôt que de le faire créer par le script garde
+    au pied de page une structure stable : le crédit n'apparaît pas d'un coup
+    au milieu d'une page déjà lue, et le site reste lisible sans JavaScript
+    dès que les valeurs sont figées dans content/site.py.
+
+    L'ancre n'est posée que si un lien existe : un partenaire peut être
+    crédité sans site web, et un <a> sans href n'est ni cliquable ni
+    atteignable au clavier — il ne doit donc pas rester en place.
+    """
+    dev = CREDITS.get("developer") or {}
+    dev_label, dev_href = (dev.get("label") or "").strip(), (dev.get("href") or "").strip()
+    prefix = CREDITS.get("developer_prefix") or "Conception & développement"
+
+    # Le nom vit dans un <span> à l'intérieur de l'ancre : le script doit
+    # pouvoir corriger le nom sans lien, et poser le lien sans toucher au nom.
+    # L'ancre est toujours émise — sans href elle n'est qu'un texte en ligne,
+    # ni cliquable ni tabulable — pour que l'ajout d'un lien depuis
+    # l'administration n'ait pas à reconstruire le balisage.
+    href_attr = f' href="{e(dev_href)}"' if dev_href else ""
+    developer = (
+        f'<span class="footer__credit" data-site-credit="dev"{"" if dev_label else " hidden"}>'
+        f'<span data-site-credit="dev-prefix">{e(prefix)}</span>&nbsp;: '
+        f'<a data-site-credit="dev-link" target="_blank" rel="noopener noreferrer"{href_attr}>'
+        f'<span data-site-credit="dev-name">{e(dev_label)}</span></a>'
+        f'</span>'
+    )
+
+    partners = CREDITS.get("partners") or []
+    items = "".join(
+        f'<li>'
+        + (f'<a href="{e((p.get("href") or "").strip())}" target="_blank" rel="noopener noreferrer">'
+           f'{e(p.get("label") or "")}</a>'
+           if (p.get("href") or "").strip() else f'<span>{e(p.get("label") or "")}</span>')
+        + f'</li>'
+        for p in partners if (p.get("label") or "").strip()
+    )
+    ptitle = CREDITS.get("partners_title") or "Avec le soutien de"
+    partners_html = (
+        f'<div class="footer__partners" data-site-partners{"" if items else " hidden"}>'
+        f'<span class="footer__partners-title" data-site-partners-title>{e(ptitle)}</span>'
+        f'<ul data-site-partners-list>{items}</ul></div>'
+    )
+
+    # Le conteneur est masqué lui aussi tant qu'il n'a rien à montrer : vide,
+    # il ne laisserait pas un espace mort mais un filet horizontal (border-top)
+    # juste au-dessus du copyright, qui se lit comme une erreur de mise en page.
+    shown = " " if (dev_label or items) else " hidden "
+    return f'<div class="footer__credits"{shown.rstrip()}>{partners_html}{developer}</div>'
 
 
 def ci_flag(h=14):
@@ -1013,6 +1072,7 @@ def render_footer(page):
         </div>
         <nav class="footer__cols" aria-label="Plan du site">{cols}</nav>
       </div>
+      {render_credits()}
       <div class="footer__bottom">
         <p>© {YEAR} ACCI — {e(SITE['long_name'])}. Tous droits réservés.</p>
         <nav class="footer__legal" aria-label="Liens légaux">{legal}</nav>

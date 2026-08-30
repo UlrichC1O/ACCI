@@ -187,3 +187,27 @@ FOOTER = {
         {"label": "Espace administration", "slug": "admin/index"},
     ],
 }
+
+# Crédits du pied de page : la personne ou le studio qui a réalisé le site, et
+# les partenaires que l’association souhaite créditer avec un lien.
+#
+# Comme pour les réseaux sociaux, rien n’est écrit ici par défaut, et pour la
+# même raison : une attribution est un engagement public. Un nom inventé sur
+# cinquante pages engage l’association vis-à-vis d’un tiers, et un lien
+# approximatif envoie ses visiteurs chez quelqu’un d’autre. Tant que rien n’est
+# renseigné, la ligne n’apparaît tout simplement pas.
+#
+# Ces valeurs se renseignent dans l’administration (« Identité du site » →
+# « Crédits & partenaires ») et sont appliquées chez le visiteur par
+# assets/js/site-settings.js, sans recompilation. Les remplir ici les fige dans
+# le HTML compilé : à faire seulement quand elles sont définitivement arrêtées.
+CREDITS = {
+    # {"label": "Studio Untel", "href": "https://…"} — le lien est facultatif.
+    "developer": {"label": "", "href": ""},
+    # Le mot qui introduit la ligne. « Conception & développement » décrit le
+    # travail réellement fourni ; « Réalisé par » conviendrait aussi.
+    "developer_prefix": "Conception & développement",
+    # [{"label": "Nom du partenaire", "href": "https://…"}, …]
+    "partners": [],
+    "partners_title": "Avec le soutien de",
+}

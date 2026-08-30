@@ -105,8 +105,10 @@
   var COMPILED_FONT = { "theme.font.head": '"Sora", system-ui, sans-serif',
                         "theme.font.body": '"Inter", system-ui, sans-serif' };
 
+  /* partners : brouillon de la liste des partenaires crédités. null tant que
+     rien n'a été retouché — la liste est alors relue depuis les réglages. */
   var state = { map: {}, loaded: false, error: null, busy: false,
-               index: null, page: "", q: "" };
+               index: null, page: "", q: "", partners: null };
 
   /* ------------------------------ Données -------------------------------- */
 
@@ -182,6 +184,14 @@
       if (!/^https:\/\/\S+$/.test(v))
         return "L'adresse doit commencer par https:// — un lien en http est bloqué par la politique de sécurité du site.";
     }
+    /* Un crédit est un lien posé au bas des cinquante pages du site, à
+       l'endroit où le visiteur accorde le plus de confiance à ce qu'il lit.
+       Le site public n'y affichera que du https ; le refuser ici évite
+       d'enregistrer une adresse qui resterait silencieusement inerte. */
+    if (key === "credits.dev.url") {
+      if (!/^https:\/\/\S+$/.test(v))
+        return "L'adresse du réalisateur doit être complète et commencer par https:// — par exemple https://studio.example.ci.";
+    }
     return null;
   }
 
@@ -219,13 +229,21 @@
   function fieldRow(f) {
     var v = state.map[f.k] || "";
     var social = f.k.indexOf("social.") === 0;
-    var ph = social ? (f.ph || "") : (COMPILED[f.k] || "");
+    /* Le repère montre ce à quoi le champ revient s'il est vidé. Pour un
+       réglage sans valeur compilée — un réseau social, un crédit — il n'y a
+       rien à montrer : f.ph donne alors le format attendu, et non un exemple
+       qu'on pourrait prendre pour une valeur en place. */
+    var ph = social ? (f.ph || "") : (COMPILED[f.k] || f.ph || "");
     var input = f.t === "textarea"
       ? '<textarea class="si-in" data-k="' + esc(f.k) + '" rows="2" placeholder="' + esc(ph) + '">' + esc(v) + '</textarea>'
       : '<input class="si-in" data-k="' + esc(f.k) + '" type="' + (f.t || "text") + '" value="' + esc(v) + '" placeholder="' + esc(ph) + '">';
+    /* Les intitulés de pastille sont réglables : « valeur d'origine » n'aurait
+       aucun sens pour un champ dont rien n'est compilé. */
+    var on = f.on || (social ? "affiché" : "modifié");
+    var off = f.off || (social ? "icône masquée" : "valeur d'origine");
     var badge = v
-      ? '<span class="tag" style="background:#dcfce7;color:#166534">' + (social ? 'affiché' : 'modifié') + '</span>'
-      : '<span class="tag muted">' + (social ? 'icône masquée' : 'valeur d\'origine') + '</span>';
+      ? '<span class="tag" style="background:#dcfce7;color:#166534">' + esc(on) + '</span>'
+      : '<span class="tag muted">' + esc(off) + '</span>';
     return '<div class="afield">' +
       '<label>' + esc(f.l) + ' ' + badge + '</label>' + input +
       (f.note ? '<span class="muted" style="font-size:11.5px">' + esc(f.note) + '</span>' : '') +
@@ -264,6 +282,194 @@
       "Un champ vidé retire l'icône du site.");
   });
 
+  /* -------------------- Crédits & partenaires ---------------------------- */
+
+  /* Le pied de page crédite deux choses de nature différente : qui a réalisé
+     le site, et qui soutient l'association. Le premier est unique et se prête
+     à des champs fixes ; les seconds forment une liste dont la longueur n'a
+     pas à être décidée à la compilation — d'où un seul réglage en JSON plutôt
+     que des emplacements numérotés.
+
+     Rien n'apparaît sur le site tant qu'un nom n'est pas renseigné : une
+     attribution engage l'association vis-à-vis d'un tiers, et un pied de page
+     créditant un prestataire qui n'a pas travaillé pour elle est plus
+     dommageable qu'un pied de page sans crédit. */
+  var CREDIT_FIELDS = [
+    { k: "credits.dev.prefix", l: "Intitulé", t: "text",
+      ph: "Conception & développement", on: "personnalisé", off: "intitulé par défaut",
+      note: "Le texte qui introduit le nom. Par défaut : « Conception & développement »." },
+    { k: "credits.dev.name", l: "Réalisation du site", t: "text",
+      ph: "Nom de la personne ou du studio", on: "affiché", off: "aucun crédit affiché",
+      note: "Tant que ce champ est vide, aucune ligne de crédit n'apparaît sur le site." },
+    { k: "credits.dev.url", l: "Lien du réalisateur", t: "url",
+      ph: "https://…", on: "lien actif", off: "nom sans lien",
+      note: "Facultatif. Le nom reste affiché sans lien si l'adresse est absente." },
+    { k: "credits.partners.title", l: "Intitulé des partenaires", t: "text",
+      ph: "Avec le soutien de", on: "personnalisé", off: "intitulé par défaut" }
+  ];
+
+  function partnersDraft() {
+    if (state.partners) return state.partners;
+    var raw = state.map["credits.partners"] || "", list = [];
+    if (raw) {
+      try {
+        var p = JSON.parse(raw);
+        if (Array.isArray(p)) {
+          list = p.filter(function (o) { return o && typeof o === "object"; })
+                  .map(function (o) {
+                    return { label: String(o.label == null ? "" : o.label),
+                             url: String(o.url == null ? (o.href == null ? "" : o.href) : o.url) };
+                  });
+        }
+      } catch (e) { /* réglage illisible : on repart d'une liste vide plutôt
+                       que de bloquer l'écran sur une donnée corrompue */ }
+    }
+    state.partners = list;
+    return list;
+  }
+
+  /* Le formulaire est reconstruit à chaque ajout ou retrait de ligne : sans
+     cette relecture, la saisie en cours des autres lignes serait perdue à
+     chaque clic sur « Ajouter ». */
+  function syncPartners() {
+    var rows = $$(".si-prow");
+    if (!rows.length && !$("#si-plist")) return partnersDraft();
+    state.partners = rows.map(function (r) {
+      return { label: r.querySelector(".si-plabel").value.trim(),
+               url: r.querySelector(".si-purl").value.trim() };
+    });
+    return state.partners;
+  }
+
+  /* La ligne porte la classe afield pour que ses champs héritent du style des
+     formulaires de l'administration, et repasse en disposition horizontale :
+     rien n'est ajouté à admin.css pour trois lignes de mise en page.
+     min-width:0 est indispensable — sans lui, un champ flex refuse de
+     descendre sous la largeur de son contenu et la ligne déborde du panneau. */
+  function partnerRow(p, i) {
+    return '<div class="afield si-prow" data-i="' + i + '" ' +
+        'style="flex-direction:row;align-items:center;gap:8px;margin-bottom:8px">' +
+      '<input class="si-plabel" type="text" placeholder="Nom du partenaire" ' +
+        'style="flex:1 1 38%;min-width:0" value="' + esc(p.label || "") + '">' +
+      '<input class="si-purl" type="url" placeholder="https://… (facultatif)" ' +
+        'style="flex:1 1 62%;min-width:0" value="' + esc(p.url || "") + '">' +
+      '<button class="abtn abtn--danger abtn--sm si-pdel" data-i="' + i + '" ' +
+        'title="Retirer ce partenaire" aria-label="Retirer ce partenaire">&times;</button>' +
+      '</div>';
+  }
+
+  var creditsHTML = guard(function () {
+    var list = partnersDraft();
+    return '<section class="panel">' +
+      '<div class="panel__head"><h2 class="panel__title">Réalisation du site</h2></div>' +
+      '<p class="muted">Cette mention apparaît au bas de chaque page, au-dessus de la ligne de copyright. ' +
+      'Elle n\'est écrite nulle part dans les pages compilées : ce réglage en est la seule source.</p>' +
+      '<div class="fgrid">' + CREDIT_FIELDS.slice(0, 3).map(fieldRow).join("") + '</div>' +
+      '<div class="btnrow"><button class="abtn abtn--primary si-csave">Enregistrer</button>' +
+      '<button class="abtn abtn--ghost si-reload">Recharger</button></div>' +
+      '<p class="ferr" id="si-err" hidden></p>' +
+      delay('Un champ vidé retire la mention du site.') +
+      '</section>' +
+
+      '<section class="panel">' +
+      '<div class="panel__head"><h2 class="panel__title">Partenaires crédités</h2></div>' +
+      '<p class="muted">Les organisations que l\'association souhaite créditer avec un lien, au bas de chaque page. ' +
+      'Cette liste est distincte de la page « Nos partenaires », qui décrit les types de partenariats : ' +
+      'ici, on nomme et on lie. Un partenaire sans adresse est affiché sans lien.</p>' +
+      '<div class="fgrid" style="margin-bottom:14px">' + fieldRow(CREDIT_FIELDS[3]) + '</div>' +
+      '<div id="si-plist" class="si-plist">' +
+        (list.length ? list.map(partnerRow).join("")
+                     : '<p class="muted" id="si-pempty">Aucun partenaire crédité. Le bloc n\'apparaît pas sur le site.</p>') +
+      '</div>' +
+      '<div class="btnrow"><button class="abtn abtn--ghost abtn--sm" id="si-padd">+ Ajouter un partenaire</button></div>' +
+      '<div class="btnrow"><button class="abtn abtn--primary si-csave">Enregistrer</button>' +
+      '<button class="abtn abtn--ghost si-reload">Recharger</button></div>' +
+      '<p class="ferr" id="si-perr" hidden></p>' +
+      delay('Retirer toutes les lignes fait disparaître le bloc du site.') +
+      '</section>';
+  });
+
+  function bindCredits() {
+    if ($("#si-login")) return bindLogin();
+    bindCommon();
+
+    var add = $("#si-padd");
+    if (add) add.addEventListener("click", function () {
+      syncPartners().push({ label: "", url: "" });
+      A.refresh();
+    });
+
+    $$(".si-pdel").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var i = parseInt(b.getAttribute("data-i"), 10);
+        var l = syncPartners();
+        if (i >= 0 && i < l.length) l.splice(i, 1);
+        A.refresh();
+      });
+    });
+
+    /* Les deux panneaux enregistrent ensemble : les champs de crédit et la
+       liste de partenaires forment un seul bloc de pied de page, et un
+       opérateur qui remplit les deux puis clique sur l'un des boutons ne doit
+       pas découvrir que la moitié de sa saisie a été ignorée. */
+    $$(".si-csave").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (state.busy) return;
+        var err = $("#si-err") || $("#si-perr");
+        var perr = $("#si-perr");
+        var jobs = [], bad = null;
+
+        $$(".si-in").forEach(function (el) {
+          var k = el.getAttribute("data-k"), v = el.value.trim();
+          var msg = invalid(k, v);
+          if (msg) { if (!bad) bad = msg; return; }
+          if (v === (state.map[k] || "")) return;
+          jobs.push(v ? save(k, v) : clear(k));
+        });
+
+        /* Un partenaire nommé sans adresse est légitime ; une adresse sans nom
+           ne l'est pas — il n'y aurait rien à cliquer. La ligne entièrement
+           vide, elle, est simplement ignorée : c'est celle qu'on vient
+           d'ajouter et qu'on n'a pas remplie. */
+        var list = syncPartners().filter(function (p) { return p.label || p.url; });
+        for (var i = 0; i < list.length; i++) {
+          if (!list[i].label) { bad = bad || "Ligne " + (i + 1) + " : un partenaire doit avoir un nom."; break; }
+          if (list[i].url && !/^https:\/\/\S+$/.test(list[i].url))
+            { bad = bad || "« " + list[i].label + " » : l'adresse doit commencer par https://."; break; }
+        }
+
+        if (bad) {
+          var box = perr && /partenaire|adresse doit/.test(bad) ? perr : err;
+          box.className = "ferr"; box.textContent = bad; box.hidden = false;
+          return;
+        }
+
+        var json = list.length ? JSON.stringify(list) : "";
+        if (json !== (state.map["credits.partners"] || "")) {
+          jobs.push(json ? save("credits.partners", json) : clear("credits.partners"));
+        }
+
+        if (!jobs.length) { toast("Aucune modification."); return; }
+
+        state.busy = true; btn.disabled = true;
+        Promise.all(jobs).then(function () {
+          toast(jobs.length + " réglage(s) enregistré(s).");
+          /* Le brouillon est relâché : la liste doit se reconstruire depuis ce
+             qui a réellement été enregistré, sinon un échec partiel resterait
+             affiché comme s'il avait abouti. */
+          state.partners = null;
+          return load();
+        }).then(function () {
+          state.busy = false; A.refresh();
+        }).catch(function (e) {
+          state.busy = false; btn.disabled = false;
+          var b2 = $("#si-err") || $("#si-perr");
+          b2.className = "ferr"; b2.textContent = e.message; b2.hidden = false;
+        });
+      });
+    });
+  }
+
   /* ------------------------------ Marque --------------------------------- */
 
   function brandRow(f) {
@@ -292,6 +498,11 @@
   /* ------------------------------ Liaisons -------------------------------- */
 
   function reload() {
+    /* Le brouillon des partenaires est abandonné : « Recharger » doit remettre
+       l'écran sur ce qui est enregistré, sinon une liste retouchée puis
+       rechargée réapparaîtrait telle quelle et passerait pour la version
+       en ligne. */
+    state.partners = null;
     state.loaded = false; A.refresh();
     load().catch(function (e) { state.error = e.message; })
           .then(function () { A.refresh(); });
@@ -549,14 +760,16 @@
       { id: "social",  l: "Réseaux sociaux" },
       { id: "brand",   l: "Logo & favicon" },
       { id: "content", l: "Textes du site" },
-      { id: "theme",   l: "Couleurs & polices" }
+      { id: "theme",   l: "Couleurs & polices" },
+      { id: "credits", l: "Crédits & partenaires" }
     ] },
     {
       "identity.general": { r: generalHTML, b: bindForm },
       "identity.social":  { r: socialHTML,  b: bindForm },
       "identity.brand":   { r: brandHTML,   b: bindBrand },
       "identity.content": { r: contentHTML, b: bindContent },
-      "identity.theme":   { r: themeHTML,   b: bindTheme }
+      "identity.theme":   { r: themeHTML,   b: bindTheme },
+      "identity.credits": { r: creditsHTML, b: bindCredits }
     }
   );
 

@@ -248,6 +248,109 @@
       var ik = ICON_KEYS[icons[c].getAttribute("data-site-icon")];
       if (ik && map[ik]) icons[c].href = map[ik];
     }
+
+    applyCredits(map);
+  }
+
+  /* ---- Crédits : réalisation du site et partenaires ---- */
+
+  /* Même règle que pour les réseaux sociaux, et pour la même raison : seul
+     https:// est accepté. Un réglage détourné en « javascript: » deviendrait
+     un lien piégé présent au bas des cinquante pages du site, à l'endroit
+     précis où un visiteur accorde le plus de confiance à ce qu'il lit.
+     L'administration applique déjà cette règle ; le site ne s'y fie pas. */
+  var HTTPS_RE = /^https:\/\/[^\s]+$/;
+
+  function setLink(a, href) {
+    if (!a) return;
+    if (HTTPS_RE.test(href)) a.setAttribute("href", href);
+    /* Une adresse retirée doit retirer l'attribut, sinon l'ancre resterait
+       cliquable et tabulable vers l'ancienne destination. */
+    else a.removeAttribute("href");
+  }
+
+  function applyCredits(map) {
+    var wrap = document.querySelector(".footer__credits");
+
+    /* Réalisation du site. Le nom commande tout : sans nom, il n'y a personne
+       à créditer, et un lien seul n'aurait rien à porter. */
+    var dev = document.querySelector('[data-site-credit="dev"]');
+    var nameEl = dev && dev.querySelector('[data-site-credit="dev-name"]');
+    if (dev && nameEl) {
+      /* Un réglage vide n'écrase rien — c'est la règle de toute cette page :
+         effacer un champ dans l'administration doit rendre la main à la valeur
+         compilée, et non laisser un pied de page amputé sans qu'on sache si la
+         valeur a été retirée ou perdue. */
+      var name = map["credits.dev.name"];
+      if (typeof name === "string" && name !== "") nameEl.textContent = name;
+
+      var prefix = map["credits.dev.prefix"];
+      var pEl = dev.querySelector('[data-site-credit="dev-prefix"]');
+      if (pEl && typeof prefix === "string" && prefix !== "") pEl.textContent = prefix;
+
+      /* L'adresse, elle, est appliquée dès que le réglage existe, même vide :
+         un lien retiré doit disparaître, sinon le nom corrigé continuerait de
+         pointer vers le site du prestataire précédent. */
+      var durl = map["credits.dev.url"];
+      if (typeof durl === "string") setLink(dev.querySelector('[data-site-credit="dev-link"]'), durl);
+
+      /* Le nom commande l'affichage : sans nom, il n'y a personne à créditer. */
+      dev.hidden = !nameEl.textContent.trim();
+    }
+
+    /* Partenaires. La liste est libre : elle est transportée en JSON dans un
+       seul réglage plutôt qu'en emplacements numérotés, sinon le site imposerait
+       à l'association un nombre maximal de partenaires décidé à la compilation.
+       Un JSON illisible ne vide pas la liste compilée — il ne fait rien. */
+    var pWrap = document.querySelector("[data-site-partners]");
+    if (pWrap) {
+      var raw = map["credits.partners"], list = null;
+      if (typeof raw === "string" && raw !== "") {
+        try { list = JSON.parse(raw); } catch (e) { list = null; }
+      }
+      if (Array.isArray(list)) {
+        var ul = pWrap.querySelector("[data-site-partners-list]");
+        var title = map["credits.partners.title"];
+        var tEl = pWrap.querySelector("[data-site-partners-title]");
+        if (tEl && typeof title === "string" && title !== "") tEl.textContent = title;
+        if (ul) {
+          while (ul.firstChild) ul.removeChild(ul.firstChild);
+          var shown = 0;
+          for (var i = 0; i < list.length; i++) {
+            var p = list[i];
+            if (!p || typeof p !== "object") continue;
+            var label = typeof p.label === "string" ? p.label.trim() : "";
+            if (!label) continue;                 /* un lien sans nom n'est pas un crédit */
+            var li = document.createElement("li");
+            /* Le nom est posé par createTextNode : rien de ce qui vient des
+               réglages n'est interprété comme du balisage. */
+            var node;
+            if (HTTPS_RE.test(p.url || p.href || "")) {
+              node = document.createElement("a");
+              node.setAttribute("href", p.url || p.href);
+              node.setAttribute("target", "_blank");
+              node.setAttribute("rel", "noopener noreferrer");
+            } else {
+              node = document.createElement("span");
+            }
+            node.appendChild(document.createTextNode(label));
+            li.appendChild(node);
+            ul.appendChild(li);
+            shown++;
+          }
+          pWrap.hidden = shown === 0;
+        }
+      }
+    }
+
+    /* Le conteneur porte une bordure supérieure : laissé visible alors que ses
+       deux blocs sont masqués, il tracerait un filet inexpliqué au-dessus du
+       copyright. */
+    if (wrap) {
+      var devOn = dev && !dev.hidden;
+      var parOn = pWrap && !pWrap.hidden;
+      wrap.hidden = !devOn && !parOn;
+    }
   }
 
   /* ---- Chargement ---- */
