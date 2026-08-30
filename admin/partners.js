@@ -350,13 +350,23 @@
     });
   }
 
+  /* La session Supabase s'ouvre depuis la rubrique « Images du site », donc
+     presque toujours APRÈS le chargement de ce module. Ne tenter le chargement
+     qu'à l'amorçage laissait la rubrique figée sur son message d'attente, et le
+     choix d'un logo hors d'atteinte. */
+  var loading = false;
+  function ensureLoaded() {
+    if (state.loaded || loading || state.error || !SB.session()) return;
+    loading = true;
+    load().catch(function (e) { state.error = e.message; })
+          .then(function () { loading = false; A.refresh(); });
+  }
+
   A.register(
     { view: "partners", icon: "handshake", label: "Partenaires" },
     { title: "Partenaires ACCI", tabs: [{ id: "list", l: "Liste" }] },
-    { "partners.list": { r: listHTML, b: bind } }
+    { "partners.list": { r: listHTML, b: function () { ensureLoaded(); bind(); } } }
   );
 
-  if (SB.session()) {
-    load().catch(function (e) { state.error = e.message; }).then(function () { A.refresh(); });
-  }
+  ensureLoaded();
 })();

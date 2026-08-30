@@ -897,6 +897,29 @@
 
   /* --------------------------- Enregistrement ----------------------------- */
 
+  /* La session Supabase s'ouvre depuis la rubrique « Images du site », donc
+     presque toujours APRÈS le chargement de ce module. Ne tenter le chargement
+     qu'à l'amorçage laissait la rubrique figée sur « Chargement des réglages… » :
+     les champs — et notamment le choix d'un fichier pour le logo — ne
+     s'affichaient jamais. */
+  var loading = false;
+  function ensureLoaded() {
+    if (state.loaded || loading || state.error || !SB.session()) return;
+    loading = true;
+    load().catch(function (e) { state.error = e.message; })
+          .then(function () { loading = false; A.refresh(); });
+  }
+
+  /* Chaque onglet passe par ici : ouvrir la rubrique suffit à déclencher le
+     chargement, sans avoir à recharger la page. */
+  function lazy(map) {
+    Object.keys(map).forEach(function (k) {
+      var b = map[k].b;
+      map[k].b = function () { ensureLoaded(); if (b) b(); };
+    });
+    return map;
+  }
+
   A.register(
     { view: "identity", icon: "palette", label: "Identité du site" },
     { title: "Identité du site", tabs: [
@@ -907,18 +930,15 @@
       { id: "theme",   l: "Couleurs & polices" },
       { id: "credits", l: "Crédits & partenaires" }
     ] },
-    {
+    lazy({
       "identity.general": { r: generalHTML, b: bindForm },
       "identity.social":  { r: socialHTML,  b: bindForm },
       "identity.brand":   { r: brandHTML,   b: bindBrand },
       "identity.content": { r: contentHTML, b: bindContent },
       "identity.theme":   { r: themeHTML,   b: bindTheme },
       "identity.credits": { r: creditsHTML, b: bindCredits }
-    }
+    })
   );
 
-  if (SB.session()) {
-    load().catch(function (e) { state.error = e.message; })
-          .then(function () { A.refresh(); });
-  }
+  ensureLoaded();
 })();
