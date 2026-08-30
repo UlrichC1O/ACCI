@@ -360,6 +360,20 @@ function currentAdmin(){
   return a;
 }
 function isSuperAdmin(){var a=currentAdmin();return a&&a.role==="super_admin";}
+/* OUVRIR UN ACCÈS — compte d'administration, portail membre, espace Artiste
+   Premium — appartient au seul Super Admin.
+
+   Une règle, une fonction : les trois accès s'ouvrent depuis quatre endroits
+   très différents du CRM (la fiche membre, la case « Artiste Premium », la
+   rubrique Administrateurs et l'import de fichier), et une règle recopiée
+   quatre fois se serait défaite au premier oubli. Le nom dit l'intention,
+   pour que le prochain qui ajoute un accès sache quoi appeler.
+
+   Elle couvre aussi le RENOUVELLEMENT d'un code : un code renouvelé est un
+   identifiant neuf et fonctionnel. Qui peut le renouveler peut entrer dans
+   l'espace de n'importe quel membre — c'est le même pouvoir que celui de
+   créer le compte, et il se gouverne donc de la même façon. */
+function canGrantAccess(){return isSuperAdmin();}
 /* Le CRM doit toujours conserver un compte capable de gérer les accès :
    rétrograder ou suspendre le dernier Super Admin fermerait la gestion des
    comptes à tout le monde, sans moyen de revenir en arrière — les comptes ne
@@ -1785,7 +1799,7 @@ RA("admin.admins",function(){
       '<div class="drow"><span class="dk">Rôle</span><span class="dv">'+badge(me.role==="super_admin"?"Super Admin":"Admin")+'</span></div>'+
       (me.codeId?'<div class="drow"><span class="dk">Code d\'approbation</span><span class="dv"><code style="font-size:15px;letter-spacing:2px;font-weight:700;background:var(--green-l);padding:3px 10px;border-radius:6px">'+esc(maskedCode(me))+'</code></span></div>':'')+
       '<div class="drow"><span class="dk">Modules autorisés</span><span class="dv">'+(hasAllModules(me)?"Tous":esc((me.allowedModules||[]).join(", ")))+'</span></div>'+
-      '</section><p class="muted">Seul l\'administrateur <b>ogou</b> peut modifier les comptes administrateurs.</p>';
+      '</section><p class="muted">Seuls les comptes Super Admin peuvent créer ou modifier un compte d\'administration.</p>';
   }
   /* Super admin — full admin management */
   var cards=admins.map(function(a){
@@ -1957,7 +1971,7 @@ RA("admin.backup",function(){
   /* L'onglet est atteignable par tout admin disposant du module Administration :
      sans ce filtre, un compte ordinaire restaurait un JSON retouché à la main et
      s'y attribuait le rôle super_admin. */
-  if(!isSuperAdmin())return'<div class="banner banner--info"><i data-ic=lock></i> Sauvegarde, restauration et réinitialisation des données ACCI sont réservées à l\'administrateur <b>ogou</b>.</div>'+pwPanel;
+  if(!isSuperAdmin())return'<div class="banner banner--info"><i data-ic=lock></i> Sauvegarde, restauration et réinitialisation des données ACCI sont réservées au Super Admin.</div>'+pwPanel;
   return'<div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=download></i> Sauvegarder les données ACCI</h2></div><p class="muted">Téléchargez une sauvegarde complète de toutes les données du CRM ACCI.</p><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="bk-dl"><i data-ic=download></i> Télécharger backup</button></div></section>'+
     '<section class="panel"><div class="panel__head"><h2 class="panel__title"><i data-ic=upload></i> Restaurer</h2></div><p class="muted">Restaurez les données ACCI depuis un fichier JSON. Les comptes administrateurs ne sont pas modifiés.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm"><i data-ic=upload></i> Choisir fichier<input type="file" id="bk-up" accept=".json" hidden></label></div><p class="ferr" id="bk-msg" hidden></p></section></div>'+
     '<section class="panel panel--danger"><div class="panel__head"><h2 class="panel__title">Zone sensible</h2></div><p class="muted">Réinitialiser efface toutes les données ACCI. Les comptes administrateurs sont conservés.</p><button class="abtn abtn--danger abtn--sm" id="bk-wipe">Tout réinitialiser</button></section>'+
@@ -2062,8 +2076,8 @@ SEC["customers.list"]={
 
 function openCustomerEdit(id){
   var x=id?S.customers.get(id):{id:"",type:"Individuel",name:"",company:"",email:"",phone:"",address:"",city:"",country:"Côte d'Ivoire",tags:[],status:"Lead",notes:"",charter:false,premium:false,social:"",approved:false,approvalCode:"",approvedAt:"",createdAt:""};if(!x)return;
-  openModal('<div class="modal__head"><h2>'+(id?"Modifier":"Nouveau membre ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="cf" class="modal__body"><div class="fgrid">'+ffield("Nom *",'<input name="name" required value="'+esc(x.name)+'">')+ffield("Entreprise",'<input name="company" value="'+esc(x.company)+'">')+ffield("Type",'<select name="type">'+optH(CUSTOMER_TYPES,x.type||"Individuel")+'</select>')+ffield("E-mail",'<input name="email" type="email" value="'+esc(x.email)+'">')+ffield("Téléphone",'<input name="phone" value="'+esc(x.phone)+'">')+ffield("Ville",'<input name="city" value="'+esc(x.city)+'">')+ffield("Pays",'<input name="country" value="'+esc(x.country)+'">')+ffield("Statut",'<select name="status">'+optH(CUSTOMER_STATUSES,x.status)+'</select>')+ffield("Domaines (virgule)",'<input name="tags" value="'+esc((x.tags||[]).join(", "))+'">') +'</div><label class="fcheck"><input type="checkbox" name="charter"'+(x.charter?" checked":"")+'> Charte ACCI signée</label><label class="fcheck"><input type="checkbox" name="premium"'+(x.premium?" checked":"")+'> <i data-ic=palette></i> Artiste Premium</label>'+ffield("Notes",'<textarea name="notes" rows="2">'+esc(x.notes)+'</textarea>')+'<p class="ferr" id="cf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="cf-s">'+(id?"Enregistrer":"Créer")+'</button></div>');
-  $("#cf-s").addEventListener("click",function(){var f=$("#cf"),nm=f.name.value.trim();if(!nm){var e=$("#cf-e");e.textContent="Nom obligatoire.";e.hidden=false;return;}var r={id:x.id||uid(),type:f.type.value,name:nm,company:f.company.value.trim(),email:f.email.value.trim(),phone:f.phone.value.trim(),address:x.address||"",city:f.city.value.trim(),country:f.country.value.trim(),tags:f.tags.value.split(",").map(function(t){return t.trim();}).filter(Boolean),status:f.status.value,notes:f.notes.value.trim(),charter:f.charter.checked,premium:f.premium.checked,social:x.social||"",approved:x.approved||false,approvalCode:x.approvalCode||"",approvedAt:x.approvedAt||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:todayISO()};if(id){S.customers.update(r);alog("client",r.id,"modification",r.name);toast("Mis à jour.");}else{S.customers.add(r);alog("client",r.id,"création",r.name);toast("Membre ACCI créé.");}closeModal();refresh();});
+  openModal('<div class="modal__head"><h2>'+(id?"Modifier":"Nouveau membre ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="cf" class="modal__body"><div class="fgrid">'+ffield("Nom *",'<input name="name" required value="'+esc(x.name)+'">')+ffield("Entreprise",'<input name="company" value="'+esc(x.company)+'">')+ffield("Type",'<select name="type">'+optH(CUSTOMER_TYPES,x.type||"Individuel")+'</select>')+ffield("E-mail",'<input name="email" type="email" value="'+esc(x.email)+'">')+ffield("Téléphone",'<input name="phone" value="'+esc(x.phone)+'">')+ffield("Ville",'<input name="city" value="'+esc(x.city)+'">')+ffield("Pays",'<input name="country" value="'+esc(x.country)+'">')+ffield("Statut",'<select name="status">'+optH(CUSTOMER_STATUSES,x.status)+'</select>')+ffield("Domaines (virgule)",'<input name="tags" value="'+esc((x.tags||[]).join(", "))+'">') +'</div><label class="fcheck"><input type="checkbox" name="charter"'+(x.charter?" checked":"")+'> Charte ACCI signée</label><label class="fcheck"><input type="checkbox" name="premium"'+(x.premium?" checked":"")+(canGrantAccess()?'':' disabled')+'> <i data-ic=palette></i> Artiste Premium</label>'+(canGrantAccess()?'':'<p class="muted" style="font-size:11.5px;margin:-4px 0 8px"><i data-ic=lock></i> L\'accès Artiste Premium est ouvert par le Super Admin.</p>')+ffield("Notes",'<textarea name="notes" rows="2">'+esc(x.notes)+'</textarea>')+'<p class="ferr" id="cf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="cf-s">'+(id?"Enregistrer":"Créer")+'</button></div>');
+  $("#cf-s").addEventListener("click",function(){var f=$("#cf"),nm=f.name.value.trim();if(!nm){var e=$("#cf-e");e.textContent="Nom obligatoire.";e.hidden=false;return;}var r={id:x.id||uid(),type:f.type.value,name:nm,company:f.company.value.trim(),email:f.email.value.trim(),phone:f.phone.value.trim(),address:x.address||"",city:f.city.value.trim(),country:f.country.value.trim(),tags:f.tags.value.split(",").map(function(t){return t.trim();}).filter(Boolean),status:f.status.value,notes:f.notes.value.trim(),charter:f.charter.checked,premium:canGrantAccess()?f.premium.checked:(x.premium||false),social:x.social||"",approved:x.approved||false,approvalCode:x.approvalCode||"",approvedAt:x.approvedAt||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:todayISO()};if(id){S.customers.update(r);alog("client",r.id,"modification",r.name);toast("Mis à jour.");}else{S.customers.add(r);alog("client",r.id,"création",r.name);toast("Membre ACCI créé.");}closeModal();refresh();});
 }
 
 /* Référence d'attestation : ACCI-<année>-<5 caractères>. Vérifiée unique parmi
@@ -2115,10 +2129,19 @@ function openCustomerDetail(id){
          export ou une sauvegarde avant cette mise à jour. Le renouveler est le
          seul moyen de refermer cette exposition. */
       ((x.codeLegacy||x.approvalCode)?'<br><span style="color:var(--danger);font-weight:600"><i data-ic=alert></i> Code hérité — émis avant le renforcement, à renouveler.</span>':'')+
-      '<br><button class="abtn abtn--ghost abtn--sm" id="cd-renew" style="margin-top:6px"><i data-ic=key></i> Renouveler le code</button>'+
-      ' <button class="abtn abtn--danger abtn--sm" id="cd-revoke" style="margin-top:6px"><i data-ic=lock></i> Révoquer l\'accès</button>';
-  }else{
+      /* Renouveler émet un identifiant neuf et fonctionnel : réservé, comme
+         l'approbation. Révoquer, en revanche, ne fait que RETIRER un accès —
+         c'est un geste d'urgence, qui doit rester à portée de l'administrateur
+         présent quand un code circule. */
+      (canGrantAccess()?'<br><button class="abtn abtn--ghost abtn--sm" id="cd-renew" style="margin-top:6px"><i data-ic=key></i> Renouveler le code</button>':'')+
+      ' <button class="abtn abtn--danger abtn--sm" id="cd-revoke" style="margin-top:6px"><i data-ic=lock></i> Révoquer l\'accès</button>'+
+      (canGrantAccess()?'':'<br><span class="muted" style="font-size:11.5px"><i data-ic=lock></i> Le renouvellement du code est réservé au Super Admin.</span>');
+  }else if(canGrantAccess()){
     approvalH+='<span class="muted">Non approuvé</span><br><button class="abtn abtn--success abtn--sm" id="cd-approve" style="margin-top:6px"><i data-ic=key></i> Approuver l\'accès membre</button>';
+  }else{
+    /* Un bouton qui refuse au clic apprend la règle trop tard. La raison est
+       donnée à la place, avec la marche à suivre. */
+    approvalH+='<span class="muted">Non approuvé</span><br><span class="muted" style="font-size:11.5px"><i data-ic=lock></i> Seul le Super Admin ouvre un accès au portail membre. Demandez-lui d\'approuver cette fiche.</span>';
   }
   approvalH+='</span></div>';
 
@@ -2156,6 +2179,11 @@ function openCustomerDetail(id){
 
   /* Approbation / renouvellement du code portail */
   function grantCode(rec,titre){
+    /* Contrôle au moment de l'action, et non au seul rendu : une fiche ouverte
+       survit à la perte des droits, et le bouton hérité du rendu précédent
+       resterait cliquable. C'est le point de passage unique des deux boutons
+       — approuver et renouveler — donc celui qu'il faut tenir. */
+    if(!canGrantAccess()){toast("Seul le Super Admin peut ouvrir un accès.","err");return;}
     issueCode(rec).then(function(full){
       rec.approved=true;
       rec.approvedAt=rec.approvedAt||new Date().toISOString();
@@ -2529,13 +2557,34 @@ function memberFromImport(x){
   if(cd!=null&&String(cd).trim()!==""){o.approvalCode=String(cd).trim();o.codeLegacy=true;}
   var ad=x.approvedAt!=null?x.approvedAt:x.approvedat;
   if(ad!=null&&String(ad).trim()!=="")o.approvedAt=String(ad).trim();
+  /* UN FICHIER NE DOIT PAS OUVRIR D'ACCÈS.
+     Sans ce filtre, tout le contrôle posé sur la fiche membre se contournait
+     par l'import : une colonne « approved » à vrai, un « premium » à vrai et
+     un « approvalCode » recopié suffisaient à ouvrir autant de portails
+     membres et d'espaces Artiste Premium qu'il y avait de lignes — depuis la
+     rubrique Import / Export, sans jamais passer devant un bouton gardé.
+
+     Le filtre est posé ici, en fin de fonction, parce que c'est le seul point
+     où TOUS les champs de la ligne ont été lus : placé plus haut, il laissait
+     passer approvalCode et approvedAt, écrits juste après.
+
+     Le reste de la ligne est importé normalement : c'est l'ACCÈS qui est
+     refusé, pas la fiche. Les valeurs écartées sont comptées — un import
+     silencieusement amputé se lit comme un import réussi. */
+  if(!canGrantAccess()){
+    ["approvalCode","approvedAt","codeLegacy","premium","approved"].forEach(function(k){
+      if(o[k]!==undefined){if(o[k]!==false&&o[k]!=="")IMPORT_BLOCKED++;delete o[k];}
+    });
+  }
   return o;
 }
 /* Un membre déjà connu est mis à jour, pas recréé : rapproché d'abord par
    identifiant puis par e-mail, faute de quoi réimporter un fichier retouché
    dupliquait tout l'annuaire, l'ancienne fiche gardant seule le code d'accès. */
+var IMPORT_BLOCKED=0;
 function importMembers(list){
   var added=0,updated=0;
+  IMPORT_BLOCKED=0;
   list.forEach(function(x){
     if(!x||typeof x!=="object")return;
     var row=memberFromImport(x);
@@ -2549,7 +2598,7 @@ function importMembers(list){
       added++;
     }
   });
-  return{added:added,updated:updated};
+  return{added:added,updated:updated,blocked:IMPORT_BLOCKED};
 }
 function importFile(e){
   var file=e.target.files[0];if(!file)return;var msg=$("#imp-m");if(msg)msg.hidden=true;
@@ -2572,8 +2621,13 @@ function importFile(e){
     /* Zéro ligne retenue n'est pas une réussite : annoncé en vert, un fichier au
        mauvais séparateur ou aux mauvaises colonnes passait pour importé. */
     if(!res.added&&!res.updated)return fail("Aucun membre importé — colonnes « name » ou « email » introuvables."+(cols?" Colonnes lues : "+cols:""));
-    if(msg){msg.className="ferr okmsg";msg.textContent="<i data-ic=check></i> "+res.added+" ajouté(s), "+res.updated+" mis à jour.";msg.hidden=false;}
-    toast(res.added+" ajouté(s), "+res.updated+" mis à jour.");setTimeout(function(){go("customers");},500);
+    /* Les accès écartés sont annoncés. Sans cette phrase, un fichier porteur
+       de « approved » revenait « 12 ajoutés » et l'opérateur croyait avoir
+       ouvert douze portails : il aurait découvert le contraire au premier
+       membre qui n'arrive pas à se connecter. */
+    var refus=res.blocked?" "+res.blocked+" accès ignoré(s) : seul le Super Admin ouvre un portail membre ou Artiste Premium.":"";
+    if(msg){msg.className="ferr okmsg";msg.textContent="<i data-ic=check></i> "+res.added+" ajouté(s), "+res.updated+" mis à jour."+refus;msg.hidden=false;}
+    toast(res.added+" ajouté(s), "+res.updated+" mis à jour."+(res.blocked?" Accès ignorés.":""));setTimeout(function(){go("customers");},500);
   }catch(err){fail("Fichier illisible.");}};
   r.readAsText(file,"utf-8");e.target.value="";
 }
@@ -2636,7 +2690,7 @@ function _go(view){
   /* Access control */
   if(!canAccess(view)){
     $("#view-title").textContent="Accès refusé";
-    $("#view").innerHTML='<div class="empty-state"><div class="empty-state__ic"><i data-ic=lock></i></div><h2>Accès non autorisé</h2><p class="muted">Vous n\'avez pas accès à ce module. Contactez l\'administrateur <b>ogou</b> pour obtenir les permissions nécessaires.</p></div>';
+    $("#view").innerHTML='<div class="empty-state"><div class="empty-state__ic"><i data-ic=lock></i></div><h2>Accès non autorisé</h2><p class="muted">Vous n\'avez pas accès à ce module. Demandez les droits au Super Admin.</p></div>';
     return;
   }
   $$("#snav .snav").forEach(function(b){b.classList.toggle("is-active",b.getAttribute("data-view")===view);});
