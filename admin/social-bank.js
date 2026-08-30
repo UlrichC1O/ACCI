@@ -264,6 +264,253 @@
      t:function(t){return "Dans les coulisses : comment l’ACCI traite " + t.n;}}
   ];
 
+  /* Légende à publier et conseil de production, pour chacune des 120
+     publications rédigées. Séparés de IDEAS pour que la table de contenu
+     reste lisible, et fusionnés au moment de construire la banque.
+     l = légende (le texte à publier) · x = conseil (ce qu'il faut éviter). */
+  var COPY = {
+    1:{l:"Pourquoi rejoindre l’ACCI ? On a posé la question à trois de nos membres. Leurs réponses en 45 secondes. Et vous, qu’est-ce qui vous retient encore ?",
+       x:"Filmez à la lumière du jour, micro-cravate obligatoire : le son porte plus que l’image sur un Reel."},
+    2:{l:"Le badge « Créateur responsable », ce n’est pas qu’un logo sur votre profil. Voici les six choses concrètes qu’il vous ouvre. Glissez →",
+       x:"Mettez l’avantage le plus fort en diapositive 2, pas en dernière : peu de gens vont jusqu’au bout."},
+    3:{l:"Non, le badge ACCI n’est pas une certification d’État. C’est l’engagement public d’un créateur à respecter une charte. Voici ce qu’il signifie exactement.",
+       x:"Répondez à la confusion de front : une publication qui lève un doute vaut mieux que dix qui vantent."},
+    4:{l:"Vous créez du contenu en Côte d’Ivoire. Faites-vous partie d’une association ? Répondez ci-dessous 👇",
+       x:"Publiez le résultat le lendemain : un sondage sans retour ne donne aucune raison de répondre au suivant."},
+    5:{l:"Adhérent, actif ou bienfaiteur : trois façons de rejoindre l’ACCI, trois niveaux d’engagement. Laquelle vous ressemble ?",
+       x:"Un tableau se lit mal sur téléphone : une colonne par image plutôt qu’un tableau entier."},
+    6:{l:"Un mois dans la vie de @[membre] : réunions de pôle, ateliers, tournages. Être membre de l’ACCI, c’est d’abord du travail collectif.",
+       x:"Demandez l’accord écrit du membre avant de publier, même pour un portrait flatteur."},
+    7:{l:"Créer seul, c’est aller vite. Créer en réseau, c’est aller loin. Ce que change concrètement une association pour un créateur ivoirien 🧵",
+       x:"Un fil se lit en entier ou pas du tout : mettez la promesse dans le premier message."},
+    8:{l:"On répond en direct à toutes vos questions sur l’adhésion : conditions, coût, avantages. Rendez-vous [jour] à [heure].",
+       x:"Annoncez trois jours avant et collectez les questions en story : un direct sans questions préparées tourne court."},
+    9:{l:"Pourquoi la Côte d’Ivoire avait besoin d’une association de créateurs de contenu — le constat qui nous a réunis, et ce que nous avons fait la première année.",
+       x:"Format long réservé à LinkedIn : le même texte sur Instagram ne sera pas lu."},
+    10:{l:"Adhérer à l’ACCI prend trente secondes. On vous montre, sans coupure.",
+       x:"Filmez l’écran réel, pas une maquette : une démonstration truquée se voit et coûte la confiance."},
+    11:{l:"Où va votre cotisation ? Poste par poste, sans arrondi. La transparence fait partie de la charte que nous demandons aux autres.",
+       x:"Publiez les chiffres exacts ou ne publiez pas : un chiffre vague nourrit le doute qu’il devait lever."},
+    12:{l:"Nous venons de franchir les [N] membres. Merci à celles et ceux qui nous ont rejoints cette semaine 🧡",
+       x:"Citez nommément seulement les membres qui l’ont accepté par écrit."},
+    13:{l:"Réunion du bureau ce matin. Ordre du jour, débats, décisions : voilà comment se pilote l’association.",
+       x:"Ne montrez aucun document nominatif à l’écran, même flouté."},
+    14:{l:"Formations, appui juridique, réseau, visibilité : qu’est-ce qui vous ferait adhérer aujourd’hui ?",
+       x:"Le résultat oriente vos publications du mois suivant : notez-le quelque part."},
+    15:{l:"Une journée avec @[membre], créateur ACCI : tournage le matin, atelier l’après-midi, montage le soir.",
+       x:"Ajoutez des chapitres horodatés : sans eux, une vidéo de huit minutes perd la moitié de son audience."},
+    16:{l:"Trois réglages à changer avant votre prochain tournage. Extrait de notre atelier « Créer avec un téléphone ».",
+       x:"Donnez la valeur avant de vendre : une astuce vraiment utile vend l’atelier mieux qu’une affiche."},
+    17:{l:"Le programme complet de nos ateliers, module par module : durée, niveau, ce que vous saurez faire à la fin.",
+       x:"Indiquez le niveau requis : une inscription mal orientée est une place perdue et un participant déçu."},
+    18:{l:"Prochaine session à Bouaké le [date]. [N] places. Les inscriptions sont ouvertes.",
+       x:"Répétez la ville et la date sur le visuel : une légende ne survit pas au partage en capture d’écran."},
+    19:{l:"« Avant l’atelier, je publiais sans stratégie. » Six mois après, @[membre] raconte ce qui a changé.",
+       x:"Chiffrez le résultat avec l’accord de l’intéressé : un témoignage sans chiffre reste une opinion."},
+    20:{l:"L’atelier commence dans une heure. On installe la salle 👇",
+       x:"Publiez en direct, pas après : une story d’événement passé n’appelle aucune action."},
+    21:{l:"Du débutant au professionnel : les quatre paliers du parcours de formation ACCI, et ce qu’on acquiert à chacun.",
+       x:"Une infographie doit se comprendre sans la légende : testez-la en la montrant à quelqu’un sans rien dire."},
+    22:{l:"Dix erreurs de débutant qu’on corrige à chaque atelier. La n°4 coûte le plus cher 🧵",
+       x:"Numérotez les messages du fil : les lecteurs reviennent chercher un point précis."},
+    23:{l:"Atelier ouvert et gratuit : monter une vidéo courte sans logiciel payant. En direct [jour] à [heure].",
+       x:"Gardez la rediffusion épinglée : un direct vit surtout après sa diffusion."},
+    24:{l:"Deux jours d’atelier à Bouaké, du premier au dernier plan. Merci aux [N] participants.",
+       x:"Montrez les productions des participants, pas seulement la salle : c’est la preuve du résultat."},
+    25:{l:"Ce que les participants ont produit en deux jours d’atelier. Tout a été tourné au téléphone.",
+       x:"Créditez chaque auteur par son prénom : un travail montré sans nom décourage les suivants."},
+    26:{l:"Faut-il du matériel cher pour commencer ? Non. Voici ce qu’on peut faire avec un téléphone, et ce qui mérite vraiment un investissement.",
+       x:"Soyez honnête sur les limites du téléphone : un conseil trop optimiste se retourne contre vous."},
+    27:{l:"Quel module vous manque le plus ? Votre réponse oriente notre programmation du trimestre.",
+       x:"Ne proposez que des modules que vous pouvez réellement ouvrir."},
+    28:{l:"Se professionnaliser quand on crée depuis sa chambre : on en parle avec deux formateurs de l’ACCI.",
+       x:"Découpez en cinq extraits verticaux : le podcast entier ne circulera pas seul."},
+    29:{l:"Former les créateurs, c’est structurer une filière. Notre argumentaire pour les partenaires et les bailleurs.",
+       x:"Chiffrez avec des sources publiques : un bailleur vérifie."},
+    30:{l:"L’astuce de la semaine, tirée de nos ateliers. Cette semaine : [sujet].",
+       x:"Gardez le même format et le même jour chaque semaine : la régularité construit l’audience, pas le talent."},
+    31:{l:"Diffamation, injure, dénigrement : ce ne sont pas la même chose, et les recours diffèrent. On clarifie.",
+       x:"Faites relire par le pôle juridique avant publication : une erreur de droit engage l’association."},
+    32:{l:"On a utilisé votre vidéo sans votre accord ? Vous avez des droits, et ils sont plus larges que vous ne le pensez.",
+       x:"Rappelez que citer l’auteur ne dispense pas de demander l’autorisation : c’est l’erreur la plus répandue."},
+    33:{l:"Atteinte à votre e-réputation : ce qu’il faut faire dans les 48 heures. Capturer, dater, signaler — et surtout ne pas répondre publiquement 🧵",
+       x:"Insistez sur « ne pas répondre » : la riposte publique est le premier réflexe et la première erreur."},
+    34:{l:"Le cadre juridique du contenu en ligne en Côte d’Ivoire : ce que dit la loi, et ce qu’elle ne dit pas encore.",
+       x:"Datez l’article et prévoyez de le mettre à jour : un texte de droit périmé est pire qu’aucun texte."},
+    35:{l:"« Est-ce que j’ai le droit de filmer ça ? » Trois situations du quotidien, trois réponses.",
+       x:"Terminez toujours par un renvoi vers un conseil personnalisé : trois cas ne couvrent pas une situation réelle."},
+    36:{l:"Vous nous sollicitez pour un litige : voici ce qui se passe ensuite, étape par étape.",
+       x:"Annoncez des délais que vous pouvez tenir : un accompagnement promis et non rendu coûte plus qu’un refus."},
+    37:{l:"Contrat de partenariat : cinq clauses à ne jamais signer les yeux fermés. La troisième vous engage bien au-delà de la campagne.",
+       x:"Donnez la conséquence concrète de chaque clause, pas sa formulation juridique."},
+    38:{l:"Une capture d’écran ne suffit pas comme preuve. Voici ce qui constitue une trace exploitable.",
+       x:"Expliquez comment conserver l’adresse du contenu et la date : sans elles, la capture ne vaut rien."},
+    39:{l:"Une heure avec un juriste, vos questions sans filtre. En direct [jour] à [heure].",
+       x:"Rappelez en ouverture que l’échange informe et oriente, sans remplacer un avocat."},
+    40:{l:"Trois créateurs diffamés racontent ce qui s’est passé après. Et surtout, comment ils s’en sont sortis.",
+       x:"Insistez sur la sortie de crise : un récit qui s’arrête à l’agression décourage de signaler."},
+    41:{l:"Vrai ou faux : « en ligne, tout est permis ». Répondez, on corrige juste après.",
+       x:"Publiez la correction sourcée dans les 24 heures : un sondage sans réponse laisse le faux s’installer."},
+    42:{l:"Vous percevez des revenus de vos contenus ? Voici ce que la loi et le fisc attendent de vous.",
+       x:"Sujet sensible : restez factuel et renvoyez vers un conseil individuel."},
+    43:{l:"Créer sans se mettre en danger juridiquement : trente minutes avec notre pôle juridique.",
+       x:"Découpez en extraits par question : les gens cherchent une réponse précise, pas un épisode."},
+    44:{l:"Ces mots engagent votre responsabilité sans que vous le sachiez. À connaître avant votre prochain direct 🧵",
+       x:"Prenez des formulations réellement entendues en ligne, pas des exemples théoriques."},
+    45:{l:"Un litige, une menace, un contenu volé ? Ne restez pas seul. L’ACCI accompagne ses membres.",
+       x:"Republiez ce visuel chaque mois : personne ne cherche cette information avant d’en avoir besoin."},
+    46:{l:"Quelqu’un vous écoute, et cela reste entre nous. La cellule d’écoute de l’ACCI est joignable au [numéro], du lundi au vendredi.",
+       x:"N’illustrez jamais avec une photo de personne en détresse : l’image dissuade autant qu’elle attire."},
+    47:{l:"Écrire à la cellule d’écoute, ça se passe comment ? Qui répond, en combien de temps, ce qui est noté — et ce qui ne l’est jamais.",
+       x:"Lever les freins vaut mieux que rassurer : dites précisément ce qui est consigné."},
+    48:{l:"Trois signes qu’un proche subit du harcèlement en ligne. Ce message s’adresse à l’entourage.",
+       x:"Adressez-vous à l’entourage : la victime, elle, ne se reconnaît souvent pas dans le mot « harcèlement »."},
+    49:{l:"Ce que vous vivez a un nom : cyberharcèlement, sextorsion, exposition de la vie privée. Le nommer, c’est déjà pouvoir en parler.",
+       x:"Nommer sans dramatiser : la personne concernée doit se reconnaître, pas se sentir jugée."},
+    50:{l:"Confidentialité : ce que la cellule d’écoute fait, et ce qu’elle ne fait jamais. Sans ambiguïté.",
+       x:"Aucune formulation vague ici : c’est la condition pour que quelqu’un ose écrire."},
+    51:{l:"« J’ai attendu six mois avant d’en parler. » Un témoignage, recueilli et diffusé avec l’accord de son autrice.",
+       x:"Anonymisez systématiquement : voix modifiée ou comédien lisant le récit. Jamais de victime identifiable."},
+    52:{l:"Vous n’êtes pas responsable de ce qui vous arrive. Et vous n’avez pas à le gérer seul.",
+       x:"Message de déculpabilisation : pas de conseil, pas d’injonction, seulement le rappel et le contact."},
+    53:{l:"Parents : cinq façons d’ouvrir la conversation avec votre adolescent, et trois phrases à éviter absolument.",
+       x:"Donnez les phrases exactes : « parlez-lui » n’aide personne."},
+    54:{l:"Qui répond quand vous écrivez à la cellule d’écoute ? Rencontre avec l’équipe, en direct.",
+       x:"Aucun témoignage de victime dans ce direct : présentez les personnes et la méthode, rien d’autre."},
+    55:{l:"Ce qu’il ne faut jamais dire à quelqu’un qui subit du harcèlement. Six phrases bien intentionnées qui aggravent tout 🧵",
+       x:"Proposez l’alternative à chaque fois : signaler l’erreur sans donner le bon geste ne sert à rien."},
+    56:{l:"Chantage à la vidéo intime : trois réflexes immédiats. Ne pas payer. Ne pas supprimer. Conserver les preuves.",
+       x:"Aucune image suggestive, aucun détail de méthode : le ton reste factuel et opérationnel."},
+    57:{l:"La cellule d’écoute en chiffres cette année : [N] sollicitations, [N] jours de délai moyen de réponse.",
+       x:"Ne publiez que des données vérifiées : un chiffre d’écoute inventé est un mensonge sur des personnes réelles."},
+    58:{l:"Écouter sans juger : le métier de celles et ceux qui répondent. Un entretien avec un écoutant de l’ACCI.",
+       x:"Sert aussi au recrutement de bénévoles : terminez par un appel à candidature."},
+    59:{l:"Ce soir encore, quelqu’un est joignable. Cellule d’écoute ACCI : [numéro].",
+       x:"Publiez le vendredi soir : c’est le moment de plus forte exposition, et de plus grande solitude."},
+    60:{l:"Le harcèlement en ligne ne s’arrête pas à l’écran : sommeil, scolarité, travail. Ce que disent les études.",
+       x:"Sourcez chaque conséquence citée : sans source, c’est de la dramatisation."},
+    61:{l:"Signaler un abus prend trente secondes. On vous montre le formulaire, sans coupure.",
+       x:"Filmez le parcours réel jusqu’à l’écran de confirmation : c’est la confirmation qui rassure."},
+    62:{l:"Vous avez signalé. Et après ? Les cinq étapes du traitement, du dépôt à l’orientation.",
+       x:"La transparence sur le traitement augmente les signalements plus sûrement qu’un appel à signaler."},
+    63:{l:"Vous n’avez pas besoin d’être la victime pour signaler. Un témoin peut agir, et son signalement compte autant.",
+       x:"C’est le frein n°1 : traitez-le seul, dans une publication dédiée."},
+    64:{l:"Ce qu’on peut signaler à l’ACCI, et ce qui relève des autorités. Deux colonnes, sans zone grise.",
+       x:"Orientez honnêtement vers les autorités quand ce n’est pas de votre ressort : la crédibilité se joue là."},
+    65:{l:"Documentez avant que ça disparaisse : capture datée, adresse du contenu, contexte, témoins. Sans preuve, pas de suite possible 🧵",
+       x:"Donnez l’ordre des gestes : les gens capturent d’abord et perdent l’adresse."},
+    66:{l:"Avez-vous déjà signalé un contenu en ligne ? Répondez, on vous dit ensuite pourquoi si peu de gens le font.",
+       x:"Enchaînez sur l’explication : un sondage sans suite ne change aucun comportement."},
+    67:{l:"Ce commentaire est-il une opinion ou un délit ? Trois exemples limites, analysés.",
+       x:"Prenez de vrais cas limites : les exemples caricaturaux n’apprennent rien."},
+    68:{l:"Signaler sur Facebook, Instagram, TikTok, X, YouTube et LinkedIn : le chemin exact sur chaque plateforme.",
+       x:"À mettre à jour deux fois par an : les plateformes déplacent ces menus sans prévenir."},
+    69:{l:"Le silence protège celui qui nuit.",
+       x:"Une seule phrase, un seul visuel, le logo en bas à droite. Déclinez en affichage physique."},
+    70:{l:"Comment une rumeur circule en Côte d’Ivoire : nous avons retracé la propagation d’une fausse information, heure par heure.",
+       x:"Ne travaillez que sur une information déjà démentie publiquement : sinon vous la rediffusez."},
+    71:{l:"Vous signalez et rien ne se passe ? On explique les limites de la modération des plateformes, et ce que l’ACCI peut faire à côté.",
+       x:"Reconnaissez la limite avant de proposer l’alternative : nier la frustration la renforce."},
+    72:{l:"Qu’est-ce qui vous empêche de signaler ? Peur, méconnaissance, découragement, indifférence — dites-le franchement.",
+       x:"Traitez le frein gagnant dans une publication dédiée la semaine suivante."},
+    73:{l:"Six signaux qui doivent vous alerter avant d’envoyer de l’argent à un inconnu en ligne.",
+       x:"Tirez les signaux de cas réellement signalés à l’association, pas d’une liste générique."},
+    74:{l:"Bilan du trimestre : [N] signalements reçus, [N] orientés, [tendance]. Ce que ça dit de l’espace numérique ivoirien.",
+       x:"Publiez à date fixe chaque trimestre : un bilan irrégulier ne fait pas référence."},
+    75:{l:"Défis en ligne : comment reconnaître ceux qui mettent réellement en danger.",
+       x:"Ne nommez jamais le défi et ne montrez aucun geste : décrivez le mécanisme, pas le mode d’emploi."},
+    76:{l:"La Charte du créateur responsable est en téléchargement libre. La lire prend dix minutes. La signer engage.",
+       x:"Mettez en avant une seule phrase d’engagement : un document entier ne se partage pas, une phrase si."},
+    77:{l:"Cinq guides ACCI, cinq publics. Lequel est fait pour vous ?",
+       x:"Indiquez le temps de lecture : c’est ce qui décide du téléchargement."},
+    78:{l:"Le guide du débutant, feuilleté en vingt secondes. Gratuit, sans inscription.",
+       x:"Précisez « sans inscription » : la crainte du formulaire bloque plus que le prix."},
+    79:{l:"Sécuriser vos comptes en huit points. Cochez-les ce soir, ça prend un quart d’heure.",
+       x:"L’infographie doit être utile sans clic : le guide complet vient après, pas à la place."},
+    80:{l:"Nouveau guide disponible : [titre]. À télécharger librement.",
+       x:"Trois écrans suffisent : couverture, extrait, lien. Au-delà, on décroche."},
+    81:{l:"Vérifier une information en quatre gestes : recouper la source, dater l’image, chercher l’original, attendre avant de partager.",
+       x:"« Attendre avant de partager » est le geste le plus efficace et le moins appliqué : mettez-le en dernier, il reste en mémoire."},
+    82:{l:"Algorithme, portée, désinformation, deepfake : le glossaire ACCI explique le vocabulaire du numérique en français simple.",
+       x:"Publiez trois termes seulement : le glossaire complet reste sur le site."},
+    83:{l:"Le code de déontologie de l’ACCI, article par article, en langage courant 🧵",
+       x:"Donnez un exemple d’application par article : un principe sans exemple ne change aucune pratique."},
+    84:{l:"Trois réglages de confidentialité à changer maintenant. Démonstration à l’écran.",
+       x:"Choisissez le réseau le plus utilisé par l’audience visée : un tuto générique ne s’applique nulle part."},
+    85:{l:"Les visuels de campagne sont libres de droits. Membres, relayez avec les fichiers officiels.",
+       x:"Fournissez le lien de téléchargement dans la publication même : renvoyer vers une page d’accueil perd la moitié des relais."},
+    86:{l:"Dix règles de bonne pratique, tenables au quotidien. Applicables dès aujourd’hui.",
+       x:"Formulez à l’impératif : une règle à l’infinitif ne s’applique pas."},
+    87:{l:"Le guide du débutant, chapitre par chapitre, commenté par un formateur.",
+       x:"Ajoutez des chapitres horodatés : c’est ce qui rend une vidéo longue consultable."},
+    88:{l:"Quel guide vous manque encore ? Votre réponse alimente notre production de l’année prochaine.",
+       x:"Ne proposez que des sujets que vous pouvez réellement traiter."},
+    89:{l:"Le mot du jour : [terme]. Définition en une phrase.",
+       x:"Série quotidienne peu coûteuse : elle entretient la présence entre deux campagnes."},
+    90:{l:"Monétiser sans trahir son audience : on en parle avec deux créateurs ivoiriens.",
+       x:"Faites parler des créateurs qui vivent réellement de leur activité : le sujet ne supporte pas la théorie."},
+    91:{l:"Une rumeur partagée mille fois reste une rumeur.",
+       x:"Une phrase, un visuel, rien d’autre. Déclinez en plusieurs formats pour l’affichage."},
+    92:{l:"Cent messages de haine, c’est quoi au juste ? Les notifications défilent. Le son monte. Puis plus rien.",
+       x:"Mise en scène sobre, jamais de victime réelle. Prévoyez une carte de fin avec les ressources d’aide."},
+    93:{l:"Les douze dérives que l’ACCI combat, en une phrase chacune. Glissez pour les découvrir →",
+       x:"Une diapositive par champ d’action, avec le lien vers la page dédiée : c’est un sommaire, pas un cours."},
+    94:{l:"« Derrière chaque écran » — notre film de campagne 2026. Trois minutes, tournées à Abidjan.",
+       x:"Pièce maîtresse de l’année : prévoyez les déclinaisons courtes avant le tournage, pas après."},
+    95:{l:"Partagez-vous avant de vérifier ? Soyez honnête, personne ne vous regarde.",
+       x:"Aucun jugement dans la formulation : une question culpabilisante n’obtient que des réponses fausses."},
+    96:{l:"Comment une fausse information se propage en 24 heures. Six paliers, un cas réel.",
+       x:"Appuyez-vous sur un cas déjà démenti publiquement, et dites-le explicitement."},
+    97:{l:"Où s’arrête la liberté d’expression et où commence le discours de haine ? Ce que dit le droit ivoirien 🧵",
+       x:"Faites relire par le pôle juridique : c’est le sujet où une approximation se paie le plus cher."},
+    98:{l:"Protéger les mineurs, ce n’est pas les surveiller. C’est leur donner de quoi se défendre.",
+       x:"Ton non culpabilisant : les parents visés se sentent déjà dépassés."},
+    99:{l:"Un défi en ligne, un adolescent à l’hôpital. On explique le mécanisme — sans nommer le défi.",
+       x:"Ne nommez pas le défi, ne montrez aucun geste : la publicité involontaire est le risque principal."},
+    100:{l:"Six signes d’une arnaque amoureuse en ligne. Le premier apparaît souvent dès la deuxième semaine.",
+       x:"Tirez les signaux de cas signalés à l’association : la précision fait la crédibilité."},
+    101:{l:"Jeunes, écrans et santé mentale : table ronde en direct avec un psychologue, un enseignant et un créateur.",
+       x:"Préparez trois questions de relance : un direct à trois invités s’enlise sans animation ferme."},
+    102:{l:"« J’ai partagé une fausse information, et je m’en excuse. » Un créateur revient sur son erreur.",
+       x:"Témoignage rare et précieux : valorisez l’honnêteté, jamais la faute."},
+    103:{l:"La campagne démarre lundi. J-3.",
+       x:"Trois visuels sur trois jours : l’attente se construit, elle ne s’improvise pas la veille."},
+    104:{l:"Ce que la campagne a changé : [N] personnes touchées, [N] signalements, [N] adhésions.",
+       x:"Ne publiez que des données vérifiées, et publiez-les même si elles déçoivent."},
+    105:{l:"Sensibiliser sans faire peur : notre méthode, et pourquoi la peur ne marche pas.",
+       x:"Intéresse aussi les partenaires institutionnels : soignez la rigueur, c’est une carte de visite."},
+    106:{l:"Un an d’action : ce que l’ACCI a fait, avec qui, et ce qui reste à faire.",
+       x:"Publiez à date anniversaire fixe : un bilan annuel devient une référence attendue."},
+    107:{l:"Nouveau partenariat signé avec [structure]. Objet : [objet].",
+       x:"Faites valider le visuel et la formulation par le partenaire avant publication."},
+    108:{l:"Ce que l’ACCI peut apporter à votre institution : sensibilisation, formation, expertise, relais.",
+       x:"Argumentaire destiné aux décideurs : cinq points, pas quinze."},
+    109:{l:"Journalistes : dossier de presse, visuels et contacts sont disponibles dans notre espace presse.",
+       x:"Vérifiez que les contacts cités répondent réellement : un espace presse sans réponse nuit plus qu’il ne sert."},
+    110:{l:"Qui sommes-nous ? L’ACCI en trois minutes.",
+       x:"Pièce de référence : épinglez-la sur tous les réseaux et gardez-la à jour."},
+    111:{l:"Les créateurs de contenu sont un secteur économique. Il est temps de le structurer — notre tribune.",
+       x:"Chiffres sourcés obligatoires : un décideur vérifie avant de citer."},
+    112:{l:"L’ACCI dans la presse cette semaine : [titres].",
+       x:"Publiez seulement les semaines où il y a matière : une revue de presse vide affaiblit."},
+    113:{l:"Le bureau exécutif de l’ACCI, visage par visage. Qui fait quoi, et pourquoi.",
+       x:"Une diapositive par personne, avec le domaine de responsabilité : un trombinoscope sans rôles n’informe pas."},
+    114:{l:"Assemblée générale : les décisions prises, expliquées à celles et ceux qui n’ont pas pu venir.",
+       x:"Restituez aussi les points rejetés : une restitution qui ne montre que les succès n’est pas une restitution."},
+    115:{l:"Comment l’ACCI est née, et pourquoi maintenant. Notre récit fondateur 🧵",
+       x:"À republier chaque année à la date anniversaire : le récit fondateur se transmet par répétition."},
+    116:{l:"Communiqué — [objet]. La position de l’ACCI.",
+       x:"Gabarit réutilisable : toujours daté, toujours signé, jamais publié dans l’urgence."},
+    117:{l:"L’ACCI en un coup d’œil : mission, champs d’action, services, implantation.",
+       x:"Pensée pour un journaliste pressé : tout doit tenir sur une image."},
+    118:{l:"Pourquoi [structure] travaille avec l’ACCI ? Son représentant répond.",
+       x:"Crédibilise auprès des futurs partenaires bien mieux qu’un argumentaire de votre main."},
+    119:{l:"En route pour [événement]. On vous emmène.",
+       x:"Stories de déplacement : arrivée, intervention, rencontres. Le direct prime sur le montage."},
+    120:{l:"Construire une association crédible en partant de zéro : ce qu’on a appris, y compris nos erreurs.",
+       x:"Destiné aux autres associations et aux bailleurs : l’aveu d’erreur est ce qui rend le reste crédible."}
+  };
+
   /* --------------------------------------------------------------------- */
   /* Construction des 1 500                                                 */
   /* --------------------------------------------------------------------- */
@@ -294,6 +541,32 @@
 
   var TOTAL = 1500, STRIDE = 7, SPACE = 3000;
 
+  /* Pour une piste, la légende et le conseil se déduisent de l'angle : c'est
+     l'angle qui décide de ce qu'on écrit, le format seulement de la façon de
+     le montrer. « {t} » est remplacé par le thème au moment du rendu. */
+  var ANGLE_COPY = [
+    {l:"« {claim} » — c’est faux, et voici pourquoi. Sources en commentaire.",
+     x:"Citez la source à l’écran, pas seulement en légende : la capture d’écran circulera sans elle."},
+    {l:"Un témoignage sur {t}. Recueilli et publié avec l’accord de son auteur.",
+     x:"Accord écrit obligatoire, et anonymisation dès qu’une victime est concernée."},
+    {l:"Le chiffre à retenir sur {t} : [chiffre]. Ce qu’il veut dire concrètement.",
+     x:"Un seul chiffre par publication, avec sa source et sa date. Deux chiffres, personne n’en retient aucun."},
+    {l:"{T} : la marche à suivre, en quatre étapes réalisables aujourd’hui.",
+     x:"Numérotez et limitez à quatre : au-delà, l’étape 5 n’est jamais appliquée."},
+    {l:"L’erreur la plus fréquente sur {t}, et comment la corriger en une minute.",
+     x:"Nommez l’erreur sans viser personne : un exemple réel identifiable se retourne contre vous."},
+    {l:"Et vous, comment gérez-vous {t} ? On lit toutes les réponses.",
+     x:"Répondez réellement en commentaire dans l’heure, sinon la question ne rapporte rien."},
+    {l:"Avant / après : ce que change une bonne pratique face {aT}.",
+     x:"Même personne, même décor, même cadrage : sans cela la comparaison ne prouve rien."},
+    {l:"Ce que dit la loi ivoirienne sur {t}. À connaître avant de publier.",
+     x:"Faire relire par le pôle juridique avant diffusion, sans exception."},
+    {l:"La checklist ACCI sur {t}. À garder sous la main.",
+     x:"Cinq à huit points cochables : une checklist qu’on ne peut pas finir n’est pas utilisée."},
+    {l:"Dans les coulisses : comment l’ACCI traite {t}.",
+     x:"Montrez les personnes et la méthode. Aucun document nominatif à l’écran, même flouté."}
+  ];
+
   /* Les 1 380 pistes. Un quota par thème plutôt qu'un pas unique sur les
      3 000 : le pas unique laissait certains thèmes à 51 pistes et d'autres à
      69, ce qui se voyait dans le document. 1 380 = 25 × 55 + 5, donc cinq
@@ -310,13 +583,20 @@
       for (var k = 0; k < n; k++) {
         var rem = (k * 7) % 120;
         var fi = Math.floor(rem / 10), ai = rem % 10;
-        var f = FORMATS[fi], g = ANGLES[ai];
+        var f = FORMATS[fi], g = ANGLES[ai], c = ANGLE_COPY[ai];
         out.push({
           ref: "G-" + String(ti * 120 + rem + 1).padStart(4, "0"),
           kind: "piste",
           theme: cap(t.n), themeIdx: ti,
           format: f.n, angle: g.n, audience: t.a,
-          title: g.t(t), note: g.w + " " + f.p, cta: t.s
+          title: g.t(t),
+          visual: g.w + " " + f.p,
+          caption: c.l.replace("{claim}", t.claim)
+                      .replace("{T}", cap(t.n))
+                      .replace("{aT}", aA(t.n))
+                      .replace(/\{t\}/g, t.n),
+          tip: c.x,
+          cta: t.s
         });
       }
     });
@@ -325,12 +605,17 @@
 
   function written() {
     return IDEAS.map(function (it) {
+      var c = COPY[it.i] || { l: "", x: "" };
       return {
         ref: "#" + String(it.i).padStart(3, "0"),
         kind: "rédigée",
         theme: PILLAR_OF[it.p] || it.p, pillar: it.p,
         format: it.f, angle: "", audience: "",
-        title: it.t, note: it.d, cta: it.c, tags: it.h
+        title: it.t,
+        visual: it.d,        /* idée visuelle : ce qu'il faut montrer */
+        caption: c.l,        /* légende : le texte à publier tel quel */
+        tip: c.x,            /* conseil : l'erreur à ne pas commettre */
+        cta: it.c, tags: it.h
       };
     });
   }
@@ -339,8 +624,12 @@
   function bank() { if (!BANK) BANK = written().concat(generated()); return BANK; }
 
   /* Texte déposé dans le champ « Contenu » de Marketing → Réseaux. */
+  /* Ce qui part dans le champ « Contenu » de Marketing → Réseaux : la légende
+     d'abord — c'est elle qu'on publie — puis l'idée visuelle et le conseil. */
   function contentOf(r) {
-    var s = r.title + "\n\n" + r.note + "\n\nRenvoyer vers : " + r.cta;
+    var s = r.caption + "\n\n— Idée visuelle : " + r.visual +
+            "\n— Conseil : " + r.tip +
+            "\n— Renvoyer vers : " + r.cta;
     if (r.tags) s += "\n" + r.tags;
     return s + "\n[" + r.ref + "]";
   }
@@ -356,8 +645,9 @@
     if (flt.pillar && r.pillar !== flt.pillar) return false;
     if (flt.format && r.format !== flt.format) return false;
     if (flt.q) {
-      var hay = (r.ref + " " + r.title + " " + r.note + " " + r.theme + " " +
-                 r.format + " " + r.cta + " " + (r.tags || "")).toLowerCase();
+      var hay = (r.ref + " " + r.title + " " + r.visual + " " + r.caption + " " +
+                 r.tip + " " + r.theme + " " + r.format + " " + r.cta + " " +
+                 (r.tags || "")).toLowerCase();
       if (hay.indexOf(flt.q) < 0) return false;
     }
     return true;
@@ -527,11 +817,12 @@
   }
 
   function csv() {
-    var head = ["reference", "type", "theme", "format", "reseau", "accroche", "intention", "renvoi", "motsdiese"];
+    var head = ["reference", "type", "theme", "format", "reseau", "accroche",
+                "idee_visuelle", "legende", "conseil", "renvoi", "motsdiese"];
     var lines = [head.join(";")];
     bank().forEach(function (r) {
       lines.push([r.ref, r.kind, r.theme, r.format, platformOf(r.format),
-                  r.title, r.note, r.cta, r.tags || ""]
+                  r.title, r.visual, r.caption, r.tip, r.cta, r.tags || ""]
         .map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(";"));
     });
     var blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
@@ -624,7 +915,20 @@
     '.w__fmt{font-size:7.5pt;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0B7A3B}' +
     '.w__t{font-family:"Sora",Georgia,serif;font-weight:700;font-size:10.5pt;color:#14201b;margin:.8mm 0 1.2mm}' +
     '.w__d{font-size:9.5pt;color:#3d4a44;margin:0}' +
-    '.w__c{font-size:8.5pt;color:#5b6b63;margin:1.2mm 0 0}' +
+    '.w__c{font-size:8.5pt;color:#5b6b63;margin:1.8mm 0 0}' +
+    /* Les trois champs de production. L'étiquette est en petites capitales
+       à gauche du texte : elle se saute d'un coup d'oeil quand on ne cherche
+       que la légende, et se retrouve quand on la cherche. */
+    /* Retrait négatif : sans lui, la deuxième ligne repassait sous l'étiquette
+       au lieu de s'aligner sur le texte, et les trois champs se confondaient. */
+    '.f{font-size:9pt;color:#3d4a44;margin:1.4mm 0 0;line-height:1.45;' +
+      'padding-left:21mm;text-indent:-21mm}' +
+    '.f__l{display:inline-block;width:21mm;text-indent:0;font-family:"Sora",Georgia,serif;' +
+      'font-size:6.8pt;font-weight:700;letter-spacing:.09em;text-transform:uppercase;' +
+      'color:#0B7A3B;vertical-align:1.1mm}' +
+    '.f--cap{background:#f4f8f5;border-left:.8mm solid #B34F00;' +
+      'padding:1.6mm 2.4mm 1.6mm 23.4mm;margin-top:1.6mm}' +
+    '.f--cap .f__l{color:#B34F00}' +
     '.w__c b{color:#B34F00}' +
     /* pistes générées */
     '.pistes{column-count:2;column-gap:8mm}' +
@@ -632,7 +936,10 @@
     '.g p{margin:0}' +
     '.g__t{font-family:"Sora",Georgia,serif;font-weight:700;font-size:9.5pt;color:#14201b;line-height:1.3}' +
     '.g__a{font-size:8pt;color:#0B7A3B;margin-top:.6mm}' +
-    '.g__f{font-size:7.8pt;color:#6b776f;line-height:1.5;margin-top:.6mm}' +
+    '.g__f{font-size:7.8pt;color:#6b776f;line-height:1.5;margin-top:1.4mm}' +
+    '.g .f{font-size:8.2pt;margin-top:1mm;padding-left:0;text-indent:0}' +
+    '.g .f__l{width:auto;margin-right:1.6mm}' +
+    '.g .f--cap{padding:1.4mm 2mm;margin-top:1.2mm}' +
     '.g__ref{font-family:"Sora",Georgia,serif;font-weight:700;color:#B34F00;font-variant-numeric:tabular-nums}' +
     '.foot{margin-top:8mm;border-top:.4mm solid #d8e2dc;padding-top:3mm;font-size:8pt;color:#6b776f}';
   }
@@ -699,9 +1006,10 @@
   function writtenPartHTML() {
     var h = '<section class="part"><p class="part__num">Partie 1</p>' +
       '<h2>' + nb(IDEAS.length) + ' publications rédigées</h2>' +
-      '<p class="part__lede">Quinze par service. L’accroche est le texte à afficher dès la première ' +
-        'seconde ; l’intention dit quoi montrer. Chaque publication renvoie à une page du site : ' +
-        'sans lien, elle ne vend aucun service.</p>';
+      '<p class="part__lede">Quinze par service. Chaque publication donne l’accroche, l’idée ' +
+        'visuelle à produire, la légende à publier telle quelle et le conseil qui évite l’erreur ' +
+        'la plus courante sur ce sujet. Le renvoi vers une page du site est obligatoire : ' +
+        'sans lien, une publication ne vend aucun service.</p>';
     PILLARS.forEach(function (p) {
       var rows = bank().filter(function (r) { return r.pillar === p.k; });
       if (!rows.length) return;
@@ -711,7 +1019,9 @@
           '<span class="w__ref">' + esc(r.ref) + '</span>' +
           '<span class="w__fmt">' + esc(r.format) + ' · ' + esc(platformOf(r.format)) + '</span>' +
           '<p class="w__t">' + esc(r.title) + '</p>' +
-          '<p class="w__d">' + esc(r.note) + '</p>' +
+          '<p class="f"><span class="f__l">Idée visuelle</span>' + esc(r.visual) + '</p>' +
+          '<p class="f f--cap"><span class="f__l">Légende</span>' + esc(r.caption) + '</p>' +
+          '<p class="f"><span class="f__l">Conseil</span>' + esc(r.tip) + '</p>' +
           '<p class="w__c">Appel à l’action · <b>' + esc(r.cta) + '</b>' +
             (r.tags ? ' — ' + esc(r.tags) : '') + '</p>' +
         '</div>';
@@ -731,9 +1041,9 @@
     var h = '<section class="part"><p class="part__num">Partie 2</p>' +
       '<h2>' + nb(rows.length) + ' pistes à retravailler</h2>' +
       '<p class="part__lede">Issues du croisement 25 thèmes × 12 formats × 10 angles. Ce sont des ' +
-        'points de départ, pas des textes prêts à publier : vérifiez le fond, ajoutez la source, ' +
-        'puis écrivez la légende. Chaque accroche est suivie des formats qui la déclinent ; ' +
-        'la référence sert à la retrouver depuis le CRM.</p>';
+        'points de départ : la légende est un gabarit à compléter — les crochets [ ] marquent ' +
+        'ce qui reste à renseigner — et le conseil vaut pour tout l’angle. Chaque accroche est ' +
+        'suivie des formats qui la déclinent ; la référence sert à la retrouver depuis le CRM.</p>';
 
     THEMES.forEach(function (t, ti) {
       var sub = rows.filter(function (r) { return r.themeIdx === ti; });
@@ -755,6 +1065,8 @@
           '<p class="g__t">' + esc(title) + '</p>' +
           '<p class="g__a">' + esc(list[0].angle) + ' · public : ' + esc(list[0].audience) +
             ' · → ' + esc(list[0].cta) + '</p>' +
+          '<p class="f f--cap"><span class="f__l">Légende</span>' + esc(list[0].caption) + '</p>' +
+          '<p class="f"><span class="f__l">Conseil</span>' + esc(list[0].tip) + '</p>' +
           '<p class="g__f">' +
             list.map(function (r) {
               return '<span class="g__ref">' + esc(r.ref) + '</span>\u202f' + esc(r.format);

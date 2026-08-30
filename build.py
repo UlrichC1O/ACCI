@@ -584,7 +584,7 @@ def r_cta(b, page):
     btns = ""
     for ci, c in enumerate(b.get("buttons", [])):
         btns += (f'<a class="btn {c.get("style","btn--light")}" href="{url(c["href"])}"'
-                 f'{ck(b,f"buttons.{ci}.label",c["label"])}>{e(c["label"])}'
+                 f'><span{ck(b,f"buttons.{ci}.label",c["label"])}>{e(c["label"])}</span>'
                  f'{icon("arrow",18,"btn__icon") if c.get("arrow") else ""}</a>')
     text = f'<p class="ctaband__text"{ck(b,"text",b["text"])}>{para(b["text"])}</p>' if b.get("text") else ""
     return f"""<section class="ctaband reveal"><div class="ctaband__pattern" aria-hidden="true"></div>
@@ -690,7 +690,7 @@ def r_definitions(b, page):
 
 def r_contact(b, page):
     info = ""
-    for it in b.get("info", []):
+    for ii, it in enumerate(b.get("info", [])):
         # « field » rattache la ligne à un réglage d'identité (email, phone,
         # address…). Le repère permet à site-settings.js de corriger la valeur
         # chez le visiteur sans recompiler ; sans lui la coordonnée resterait
@@ -698,7 +698,7 @@ def r_contact(b, page):
         marker = f' data-site="{e(it["field"])}"' if it.get("field") else ""
         info += (
             f'<div class="cinfo"><span class="cinfo__icon">{icon(it.get("icon","map"),22)}</span>'
-            f'<div><span class="cinfo__label"{ck(b,f"info.{len(info)}.label",it["label"])}>{e(it["label"])}</span>'
+            f'<div><span class="cinfo__label"{ck(b,f"info.{ii}.label",it["label"])}>{e(it["label"])}</span>'
             f'<span class="cinfo__value"{marker}>{para(it["value"])}</span></div></div>'
         )
     form = """
@@ -744,10 +744,15 @@ def r_contact(b, page):
 
 
 def r_richtext(b, page):
-    # Le contenu est du HTML rédigé : il est modifiable d'un bloc, pas champ à
-    # champ, sans quoi la structure des mentions légales serait à recomposer.
+    # Le contenu est du HTML rédigé (titres, paragraphes, listes). Il n'est PAS
+    # marqué data-ck : l'application d'une surcharge passe par setRich(), qui
+    # vide le noeud et n'y réinsère que du texte et des <strong>. Marquer ce
+    # conteneur revenait donc à promettre une modification qui, le jour où elle
+    # est enregistrée, remplace les mentions légales entières par une ligne de
+    # texte brut — sans erreur, et seulement chez le visiteur.
+    # Ces blocs se modifient dans content/, à la recompilation.
     return (f'<section class="section"><div class="container container--narrow">'
-            f'<div class="prose reveal"{ck(b,"html",b["html"])}>{b["html"]}</div></div></section>')
+            f'<div class="prose reveal">{b["html"]}</div></div></section>')
 
 
 def r_image(b, page):
@@ -779,13 +784,47 @@ def r_gallery(b, page):
     return f'<section class="section"><div class="container">{head}<div class="gallery grid--{cols}">{items}</div></div></section>'
 
 
+# Palette et géométrie des graphiques. Elles sont posées ici, puis recopiées
+# dans les attributs data-chart-* du bloc : le script qui redessine un graphique
+# modifié depuis l'administration les y relit, au lieu d'en garder une copie qui
+# divergerait au premier changement de charte graphique.
+CHART_PALETTE = ["#F77F00", "#0B7A3B", "#0B3D2E", "#E16500", "#1b6ec2", "#c87f0a", "#7a8c83"]
+DONUT_R = 70.0
+DONUT_STROKE = 26
+
+# Graphiques modifiables, listés à la compilation et exportés pour
+# l'administration : elle y lit les séries telles qu'elles sont publiées.
+CHART_INDEX = []
+
+
 def _chart_palette(i):
-    colors = ["#F77F00", "#0B7A3B", "#0B3D2E", "#E16500", "#1b6ec2", "#c87f0a", "#7a8c83"]
-    return colors[i % len(colors)]
+    return CHART_PALETTE[i % len(CHART_PALETTE)]
 
 
 def r_chart(b, page):
     kind = b.get("kind", "bar")
+
+    # Le graphique porte la même adresse que ses propres titres (slug#index),
+    # posée par render_blocks : une seule numérotation à tenir.
+    ckey = b.get("_ck") or ""
+    if ckey:
+        CHART_INDEX.append({
+            "k": ckey,
+            "kind": kind,
+            "slug": page.get("slug", ""),
+            "page": page.get("title", ""),
+            "title": b.get("title", ""),
+            "center": b.get("center", ""),
+            "center_label": b.get("center_label", ""),
+            "items": [{"label": it.get("label", ""), "value": it.get("value", 0),
+                       "suffix": it.get("suffix", ""), "color": it.get("color") or ""}
+                      for it in b.get("items", [])],
+        })
+    marks = (f' data-chart="{e(ckey)}" data-chart-kind="{e(kind)}"'
+             f' data-chart-palette="{",".join(CHART_PALETTE)}"')
+    if kind == "donut":
+        marks += f' data-chart-r="{DONUT_R}" data-chart-stroke="{DONUT_STROKE}"'
+
     head = ""
     if b.get("title") or b.get("lead"):
         kicker = f'<span class="section__kicker"{ck(b,"kicker",b["kicker"])}>{e(b["kicker"])}</span>' if b.get("kicker") else ""
@@ -802,15 +841,15 @@ def r_chart(b, page):
             color = it.get("color") or _chart_palette(i)
             val = f'{it["value"]}{e(it.get("suffix",""))}'
             rows += (
-                f'<div class="cbar reveal"><span class="cbar__label">{para(it["label"])}</span>'
+                f'<div class="cbar reveal" data-chart-row><span class="cbar__label">{para(it["label"])}</span>'
                 f'<span class="cbar__track"><span class="cbar__fill" style="--w:{pct}%;--c:{color}">'
                 f'<span class="cbar__val">{val}</span></span></span></div>'
             )
-        body = f'<div class="chart chart--bar">{rows}</div>'
+        body = f'<div class="chart chart--bar" data-chart-rows>{rows}</div>'
 
     elif kind == "donut":
         total = sum(it["value"] for it in b["items"]) or 1
-        r = 70.0
+        r = DONUT_R
         C = 2 * math.pi * r
         acc = 0.0
         segs = ""
@@ -820,8 +859,8 @@ def r_chart(b, page):
             seg_len = frac * C
             color = it.get("color") or _chart_palette(i)
             segs += (
-                f'<circle class="donut__seg" cx="100" cy="100" r="{r}" fill="none" '
-                f'stroke="{color}" stroke-width="26" '
+                f'<circle class="donut__seg" data-chart-arc cx="100" cy="100" r="{r}" fill="none" '
+                f'stroke="{color}" stroke-width="{DONUT_STROKE}" '
                 f'stroke-dasharray="{seg_len:.2f} {C - seg_len:.2f}" '
                 f'stroke-dashoffset="{-acc:.2f}" transform="rotate(-90 100 100)" '
                 f'stroke-linecap="butt"></circle>'
@@ -829,7 +868,7 @@ def r_chart(b, page):
             acc += seg_len
             pct = round(frac * 100)
             legend += (
-                f'<li class="donut__legitem"><span class="donut__swatch" style="background:{color}"></span>'
+                f'<li class="donut__legitem" data-chart-legitem><span class="donut__swatch" style="background:{color}"></span>'
                 f'<span class="donut__legtext">{para(it["label"])}</span>'
                 f'<span class="donut__legval">{pct} %</span></li>'
             )
@@ -837,15 +876,15 @@ def r_chart(b, page):
         centre_html = (f'<div class="donut__center"><span class="donut__big">{e(center)}</span>'
                        f'<span class="donut__small">{e(b.get("center_label",""))}</span></div>') if center else ""
         body = f"""<div class="chart chart--donut reveal">
-          <div class="donut"><svg viewBox="0 0 200 200" role="img" aria-label="{e(b.get('title',''))}">
-            <circle cx="100" cy="100" r="{r}" fill="none" stroke="#eef2f0" stroke-width="26"></circle>
+          <div class="donut"><svg viewBox="0 0 200 200" role="img" data-chart-arcs aria-label="{e(b.get('title',''))}">
+            <circle cx="100" cy="100" r="{r}" fill="none" stroke="#eef2f0" stroke-width="{DONUT_STROKE}"></circle>
             {segs}</svg>{centre_html}</div>
-          <ul class="donut__legend">{legend}</ul></div>"""
+          <ul class="donut__legend" data-chart-legend>{legend}</ul></div>"""
     else:
         body = ""
 
     narrow = " container--narrow" if b.get("narrow") else ""
-    return f'<section class="section"><div class="container{narrow}">{head}<div class="chart-card reveal">{body}{source}</div></div></section>'
+    return f'<section class="section"><div class="container{narrow}">{head}<div class="chart-card reveal"{marks}>{body}{source}</div></div></section>'
 
 
 def r_partners(b, page):
@@ -1467,9 +1506,39 @@ def build():
     # Inventaire des textes éditables, consommé par l'administration.
     with open(os.path.join(DIST, "assets", "content-index.json"), "w", encoding="utf-8") as f:
         json.dump(CONTENT_INDEX, f, ensure_ascii=False, separators=(",", ":"))
+    # Inventaire des graphiques : séries telles qu'elles sont publiées. Il donne
+    # à l'administration le point de départ d'une modification, et la valeur à
+    # laquelle un graphique revient si sa surcharge est effacée.
+    with open(os.path.join(DIST, "assets", "charts.json"), "w", encoding="utf-8") as f:
+        json.dump(CHART_INDEX, f, ensure_ascii=False, separators=(",", ":"))
     with open(os.path.join(DIST, "assets", "icons.json"), "w", encoding="utf-8") as f:
         json.dump(ICONS, f, ensure_ascii=False, separators=(",", ":"))
     print(f"✓ Inventaire de contenu : {len(CONTENT_INDEX)} textes éditables")
+    print(f"✓ Inventaire des graphiques : {len(CHART_INDEX)} graphique(s)")
+
+    # Garde-fou : une surcharge de texte est appliquée par setRich(), qui vide le
+    # noeud et n'y réinsère que du texte et des <strong>. Marquer data-ck sur un
+    # noeud qui contient d'autres éléments (une icône, un lien, un paragraphe)
+    # revient donc à promettre une modification qui détruit la structure — et
+    # seulement chez le visiteur, une fois la valeur enregistrée. Rien à la
+    # compilation ni à la relecture ne le montrerait, d'où ce contrôle.
+    offenders = []
+    ck_node = re.compile(r'<(\w+)([^>]*\sdata-ck="([^"]+)"[^>]*)>(.*?)</\1>', re.S)
+    for name in sorted(os.listdir(DIST)):
+        if not name.endswith(".html"):
+            continue
+        with open(os.path.join(DIST, name), encoding="utf-8") as f:
+            html = f.read()
+        for m in ck_node.finditer(html):
+            inner_tags = set(re.findall(r"<(\w+)", m.group(4))) - {"strong"}
+            if inner_tags:
+                offenders.append((name, m.group(3), ",".join(sorted(inner_tags))))
+    if offenders:
+        print(f"  ⚠ {len(offenders)} champ(s) data-ck contiennent des éléments : "
+              "une surcharge enregistrée les effacerait.")
+        for name, key, tags in offenders[:6]:
+            print(f"      {name} · {key} (contient {tags})")
+        raise SystemExit("Compilation interrompue : marquage data-ck destructeur.")
     print(f"✓ Index de recherche, sitemap.xml et robots.txt créés")
     return pages
 

@@ -149,6 +149,12 @@
   }
 
   /* ---- Affichage ---- */
+  /* el() garde innerHTML pour le balisage écrit ici même (l'indicateur de
+     saisie). txt() est la seule voie pour un texte qui vient de la base de
+     connaissances : celle-ci devient modifiable depuis l'administration, et une
+     réponse insérée en innerHTML ferait de chaque page du site le lieu
+     d'exécution de ce qu'on y aurait écrit. Aucune réponse d'origine ne contient
+     de balise — le rendu ne change donc pour personne. */
   function el(tag, cls, html) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -156,17 +162,37 @@
     return n;
   }
 
+  function txt(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = String(text);
+    return n;
+  }
+
+  /* Une adresse de lien n'est retenue que si elle mène à une page du site, à une
+     boîte aux lettres ou à un numéro. Une base de connaissances modifiable
+     pourrait sinon transformer l'assistant anti-arnaque de l'association en
+     redirection vers la page de paiement de quelqu'un d'autre. */
+  var SAFE_HREF = /^(?!\/\/)[A-Za-z0-9._~\/-]+\.html(?:#[\w-]*)?$|^mailto:[^\s:]+$|^tel:\+?[0-9 ]+$/;
+
+  function safeHref(h) {
+    h = String(h == null ? "" : h).trim();
+    return SAFE_HREF.test(h) ? h : "";
+  }
+
   function scrollDown() { body.scrollTop = body.scrollHeight; }
 
   function addMsg(text, who, links) {
     var row = el("div", "cmsg cmsg--" + who);
-    var bub = el("div", "cmsg__bubble", text);
+    var bub = txt("div", "cmsg__bubble", text);
     row.appendChild(bub);
     if (links && links.length) {
       var lk = el("div", "cmsg__links");
       links.forEach(function (l) {
-        var a = el("a", "cmsg__link", l[0]);
-        a.href = l[1];
+        var href = safeHref(l[1]);
+        if (!href) return;                 // adresse refusée : pas de lien du tout
+        var a = txt("a", "cmsg__link", l[0]);
+        a.href = href;
         lk.appendChild(a);
       });
       bub.appendChild(lk);
@@ -202,10 +228,67 @@
     }, 650);
   }
 
+  /* ---- Base de connaissances modifiable depuis l'administration ---------
+     Les intentions et les suggestions ci-dessus restent la version de secours :
+     elles sont compilées avec le site et servent tant qu'aucune version
+     enregistrée n'est lisible. Le service injoignable, une réponse mal formée ou
+     un réglage vide laissent donc l'assistant fonctionner tel quel, plutôt que
+     muet.
+
+     La lecture ne refait pas d'appel réseau : site-settings.js a déjà chargé et
+     mis en cache les réglages, et publie sa table ici. */
+  function readIntents(raw) {
+    var doc;
+    try { doc = JSON.parse(raw); } catch (e) { return null; }
+    if (!Array.isArray(doc)) return null;
+    var out = [];
+    doc.forEach(function (it) {
+      if (!it || typeof it.reply !== "string" || !it.reply.trim()) return;
+      if (!Array.isArray(it.keys)) return;
+      var keys = it.keys.filter(function (k) { return typeof k === "string" && k.trim(); });
+      if (!keys.length) return;
+      var links = [];
+      if (Array.isArray(it.links)) {
+        it.links.forEach(function (l) {
+          if (Array.isArray(l) && typeof l[0] === "string" && l[0].trim() && safeHref(l[1])) {
+            links.push([l[0], safeHref(l[1])]);
+          }
+        });
+      }
+      out.push({ keys: keys, reply: it.reply, links: links });
+    });
+    return out.length ? out : null;
+  }
+
+  function readQuick(raw) {
+    var doc;
+    try { doc = JSON.parse(raw); } catch (e) { return null; }
+    if (!Array.isArray(doc)) return null;
+    var out = doc.filter(function (q) {
+      return Array.isArray(q) && typeof q[0] === "string" && q[0].trim()
+        && typeof q[1] === "string" && q[1].trim();
+    }).slice(0, 8);
+    return out.length ? out : null;
+  }
+
+  function applySettings(map) {
+    if (!map) return;
+    var ints = typeof map["chat.intents"] === "string" ? readIntents(map["chat.intents"]) : null;
+    var qk = typeof map["chat.quick"] === "string" ? readQuick(map["chat.quick"]) : null;
+    if (ints) INTENTS = ints;
+    if (qk) { QUICK = qk; if (quick) renderQuick(); }
+  }
+
+  /* Les réglages peuvent arriver avant ou après ce fichier : les deux cas sont
+     couverts, sans quoi l'ordre de chargement déciderait si la base modifiée
+     s'applique ou non. */
+  if (window.ACCI_SETTINGS) applySettings(window.ACCI_SETTINGS);
+  document.addEventListener("acci:settings", function (ev) { applySettings(ev.detail); });
+
   function renderQuick() {
     quick.innerHTML = "";
     QUICK.forEach(function (q) {
-      var b = el("button", "chat__chip", q[0]);
+      var b = txt("button", "chat__chip", q[0]);
       b.type = "button";
       b.addEventListener("click", function () { handleUser(q[1]); });
       quick.appendChild(b);

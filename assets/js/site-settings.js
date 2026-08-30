@@ -177,11 +177,178 @@
     }
   }
 
+  /* ---- Graphiques ----------------------------------------------------- */
+  /* Un graphique ne se corrige pas comme un texte : la largeur d'une barre est
+     calculée à la compilation (--w), et un secteur d'anneau est un arc dont la
+     longueur dépend du total de la série. Remplacer un nombre affiché sans
+     refaire ce calcul donnerait une barre dont la longueur dément son étiquette.
+     Les séries sont donc relues, puis le graphique est redessiné.
+
+     La série est enregistrée en un seul réglage JSON par graphique
+     (chart.<slug>#<bloc>), comme credits.partners l'est déjà pour une liste de
+     longueur variable — ce qui permet d'ajouter, de retirer et de réordonner. */
+  var MAX_SERIES = 12;
+
+  function readSeries(raw, kind) {
+    var doc;
+    try { doc = JSON.parse(raw); } catch (e) { return null; }
+    if (!doc || doc.kind !== kind || !Array.isArray(doc.items)) return null;
+    var out = [];
+    for (var i = 0; i < doc.items.length && out.length < MAX_SERIES; i++) {
+      var it = doc.items[i];
+      if (!it || typeof it.label !== "string" || !it.label.trim()) continue;
+      var v = Number(it.value);
+      if (!isFinite(v) || v < 0) continue;
+      out.push({
+        label: it.label,
+        value: v,
+        suffix: it.suffix == null ? "" : String(it.suffix),
+        /* Une couleur qui n'est pas une couleur est ignorée : la valeur part
+           dans un attribut style, où « red;background:url(…) » serait autre
+           chose qu'une couleur. */
+        color: (typeof it.color === "string" && COLOR_RE.test(it.color)) ? it.color : ""
+      });
+    }
+    /* Une série vide n'efface pas le graphique compilé : mieux vaut la version
+       d'origine qu'un cadre vide sans explication. */
+    return out.length ? out : null;
+  }
+
+  function paletteOf(card) {
+    var raw = (card.getAttribute("data-chart-palette") || "").split(",");
+    var pal = [];
+    for (var i = 0; i < raw.length; i++) {
+      if (COLOR_RE.test(raw[i])) pal.push(raw[i]);
+    }
+    return pal.length ? pal : ["#F77F00"];
+  }
+
+  /* Ajuste une liste de noeuds à la longueur voulue : les premiers sont
+     réutilisés, les manquants clonés sur le premier, le surplus retiré. Sans
+     cela, ajouter ou retirer une série depuis l'administration n'aurait aucun
+     effet visible. */
+  function fitNodes(host, nodes, n, mk) {
+    var list = [].slice.call(nodes);
+    for (var i = list.length; i < n; i++) {
+      var clone = list.length ? list[0].cloneNode(true) : mk();
+      host.appendChild(clone);
+      list.push(clone);
+      /* Un noeud créé après coup n'a jamais été vu par l'observateur qui pose
+         « is-in » : sans cette classe, la règle de révélation le maintient à
+         une largeur nulle, définitivement. */
+      if (clone.classList) clone.classList.add("is-in");
+    }
+    for (var j = list.length - 1; j >= n; j--) {
+      if (list[j].parentNode) list[j].parentNode.removeChild(list[j]);
+      list.pop();
+    }
+    return list;
+  }
+
+  function drawBar(card, series) {
+    var host = card.querySelector("[data-chart-rows]");
+    if (!host) return;
+    var max = 0;
+    series.forEach(function (s) { if (s.value > max) max = s.value; });
+    if (!max) return;
+    var pal = paletteOf(card);
+    var rows = fitNodes(host, host.querySelectorAll("[data-chart-row]"), series.length);
+    rows.forEach(function (row, i) {
+      var s = series[i];
+      var label = row.querySelector(".cbar__label");
+      var fill = row.querySelector(".cbar__fill");
+      var val = row.querySelector(".cbar__val");
+      if (label) setRich(label, s.label);
+      if (fill) {
+        /* setProperty sur --w, jamais style.width : une largeur en ligne
+           l'emporterait sur la règle qui anime la barre, et la barre
+           apparaîtrait déjà remplie. */
+        fill.style.setProperty("--w", Math.round(s.value / max * 100) + "%");
+        fill.style.setProperty("--c", s.color || pal[i % pal.length]);
+      }
+      if (val) val.textContent = String(s.value) + s.suffix;
+    });
+  }
+
+  function drawDonut(card, series) {
+    var svg = card.querySelector("[data-chart-arcs]");
+    var leg = card.querySelector("[data-chart-legend]");
+    if (!svg || !leg) return;
+    var r = parseFloat(card.getAttribute("data-chart-r")) || 70;
+    var stroke = card.getAttribute("data-chart-stroke") || "26";
+    var C = 2 * Math.PI * r;
+    var total = 0;
+    series.forEach(function (s) { total += s.value; });
+    if (!total) return;
+    var pal = paletteOf(card);
+
+    var arcs = fitNodes(svg, svg.querySelectorAll("[data-chart-arc]"), series.length, function () {
+      return document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    });
+    var acc = 0;
+    arcs.forEach(function (arc, i) {
+      var s = series[i], len = s.value / total * C;
+      arc.setAttribute("class", "donut__seg");
+      arc.setAttribute("data-chart-arc", "");
+      arc.setAttribute("cx", "100"); arc.setAttribute("cy", "100");
+      arc.setAttribute("r", String(r)); arc.setAttribute("fill", "none");
+      arc.setAttribute("stroke", s.color || pal[i % pal.length]);
+      arc.setAttribute("stroke-width", stroke);
+      arc.setAttribute("stroke-dasharray", len.toFixed(2) + " " + (C - len).toFixed(2));
+      arc.setAttribute("stroke-dashoffset", (-acc).toFixed(2));
+      arc.setAttribute("transform", "rotate(-90 100 100)");
+      arc.setAttribute("stroke-linecap", "butt");
+      acc += len;
+    });
+
+    var items = fitNodes(leg, leg.querySelectorAll("[data-chart-legitem]"), series.length);
+    items.forEach(function (li, i) {
+      var s = series[i];
+      var sw = li.querySelector(".donut__swatch");
+      var tx = li.querySelector(".donut__legtext");
+      var vl = li.querySelector(".donut__legval");
+      if (sw) sw.style.background = s.color || pal[i % pal.length];
+      if (tx) setRich(tx, s.label);
+      if (vl) vl.textContent = Math.round(s.value / total * 100) + " %";
+    });
+  }
+
+  function applyCharts(map) {
+    var cards = document.querySelectorAll("[data-chart]");
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      var raw = map["chart." + card.getAttribute("data-chart")];
+      if (typeof raw !== "string" || !raw) continue;
+      var kind = card.getAttribute("data-chart-kind");
+      var series = readSeries(raw, kind);
+      if (!series) continue;
+      try {
+        if (kind === "bar") drawBar(card, series);
+        else if (kind === "donut") drawDonut(card, series);
+      } catch (e) { /* graphique laissé tel qu'il a été compilé */ }
+    }
+  }
+
+  /* La table est publiée ici pour les modules qui en dépendent sans vouloir la
+     recharger — l'assistant de conversation y prend sa base de connaissances.
+     Elle est posée avant l'événement : un module chargé après ce fichier la
+     trouve déjà là, un module chargé avant reçoit l'événement. */
+  function publish(map) {
+    window.ACCI_SETTINGS = map;
+    try {
+      document.dispatchEvent(new CustomEvent("acci:settings", { detail: map }));
+    } catch (e) {
+      /* CustomEvent manquant : les modules déjà chargés liront ACCI_SETTINGS. */
+    }
+  }
+
   function apply(map) {
     if (!map) return;
+    publish(map);
     applyTheme(map);
     applyContent(map);
     applyIcons(map);
+    applyCharts(map);
 
     /* Texte : nom, slogan, coordonnées. */
     TEXT_KEYS.forEach(function (k) {
