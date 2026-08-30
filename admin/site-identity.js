@@ -106,9 +106,11 @@
                         "theme.font.body": '"Inter", system-ui, sans-serif' };
 
   /* partners : brouillon de la liste des partenaires crédités. null tant que
-     rien n'a été retouché — la liste est alors relue depuis les réglages. */
+     rien n'a été retouché — la liste est alors relue depuis les réglages.
+     draft : brouillon des champs texte, même rôle, pour les panneaux qui se
+     redessinent avant d'avoir été enregistrés. */
   var state = { map: {}, loaded: false, error: null, busy: false,
-               index: null, page: "", q: "", partners: null };
+               index: null, page: "", q: "", partners: null, draft: null };
 
   /* ------------------------------ Données -------------------------------- */
 
@@ -229,6 +231,11 @@
   function fieldRow(f) {
     var v = state.map[f.k] || "";
     var social = f.k.indexOf("social.") === 0;
+    /* Une saisie en cours l'emporte sur la valeur enregistrée : les panneaux
+       qui se redessinent d'eux-mêmes (ajout ou retrait d'un partenaire)
+       repartaient de state.map et effaçaient sans un mot ce que l'opérateur
+       venait de taper dans les champs voisins. */
+    if (state.draft && Object.prototype.hasOwnProperty.call(state.draft, f.k)) v = state.draft[f.k];
     /* Le repère montre ce à quoi le champ revient s'il est vidé. Pour un
        réglage sans valeur compilée — un réseau social, un crédit — il n'y a
        rien à montrer : f.ph donne alors le format attendu, et non un exemple
@@ -389,18 +396,30 @@
       '</section>';
   });
 
+  /* Relit les champs texte du panneau avant un redessin. Sans elle, ajouter
+     une ligne de partenaire renvoyait « Aucune modification » sur un nom de
+     réalisateur qu'on venait de saisir : le champ avait été reconstruit
+     depuis la valeur enregistrée, c'est-à-dire vide. */
+  function syncCredits() {
+    var d = state.draft || (state.draft = {});
+    $$(".si-in").forEach(function (el) { d[el.getAttribute("data-k")] = el.value; });
+    return d;
+  }
+
   function bindCredits() {
     if ($("#si-login")) return bindLogin();
     bindCommon();
 
     var add = $("#si-padd");
     if (add) add.addEventListener("click", function () {
+      syncCredits();
       syncPartners().push({ label: "", url: "" });
       A.refresh();
     });
 
     $$(".si-pdel").forEach(function (b) {
       b.addEventListener("click", function () {
+        syncCredits();
         var i = parseInt(b.getAttribute("data-i"), 10);
         var l = syncPartners();
         if (i >= 0 && i < l.length) l.splice(i, 1);
@@ -419,24 +438,41 @@
         var perr = $("#si-perr");
         var jobs = [], bad = null;
 
+        /* Deux passes, et c'est essentiel : save() et clear() PARTENT dès
+           qu'on les appelle — ce sont des requêtes, pas des descriptions. En
+           les empilant au fil de la validation, un lien refusé arrêtait bien
+           l'enregistrement, mais les champs valides examinés avant lui étaient
+           déjà écrits : l'écran annonçait une erreur et « aucune modification »
+           sur des réglages pourtant partis. Rien n'est donc envoyé tant que
+           tout n'a pas été vérifié. */
+        var pending = [];
         $$(".si-in").forEach(function (el) {
           var k = el.getAttribute("data-k"), v = el.value.trim();
           var msg = invalid(k, v);
           if (msg) { if (!bad) bad = msg; return; }
           if (v === (state.map[k] || "")) return;
-          jobs.push(v ? save(k, v) : clear(k));
+          pending.push({ k: k, v: v });
         });
 
         /* Un partenaire nommé sans adresse est légitime ; une adresse sans nom
            ne l'est pas — il n'y aurait rien à cliquer. La ligne entièrement
            vide, elle, est simplement ignorée : c'est celle qu'on vient
-           d'ajouter et qu'on n'a pas remplie. */
-        var list = syncPartners().filter(function (p) { return p.label || p.url; });
-        for (var i = 0; i < list.length; i++) {
-          if (!list[i].label) { bad = bad || "Ligne " + (i + 1) + " : un partenaire doit avoir un nom."; break; }
-          if (list[i].url && !/^https:\/\/\S+$/.test(list[i].url))
-            { bad = bad || "« " + list[i].label + " » : l'adresse doit commencer par https://."; break; }
+           d'ajouter et qu'on n'a pas remplie.
+
+           Le numéro de ligne annoncé est celui de l'ÉCRAN, compté sur les
+           lignes non filtrées : calculé sur la liste réduite, il désignait une
+           ligne voisine et parfaitement valide, et c'est le seul repère dont
+           dispose l'opérateur puisque la ligne fautive n'a justement pas de
+           nom à citer. */
+        var rows = syncPartners();
+        for (var i = 0; i < rows.length; i++) {
+          var pr = rows[i];
+          if (!pr.label && !pr.url) continue;
+          if (!pr.label) { bad = bad || "Ligne " + (i + 1) + " : un partenaire doit avoir un nom."; break; }
+          if (pr.url && !/^https:\/\/\S+$/.test(pr.url))
+            { bad = bad || "« " + pr.label + " » : l'adresse doit commencer par https://."; break; }
         }
+        var list = rows.filter(function (p) { return p.label || p.url; });
 
         if (bad) {
           var box = perr && /partenaire|adresse doit/.test(bad) ? perr : err;
@@ -446,10 +482,13 @@
 
         var json = list.length ? JSON.stringify(list) : "";
         if (json !== (state.map["credits.partners"] || "")) {
-          jobs.push(json ? save("credits.partners", json) : clear("credits.partners"));
+          pending.push({ k: "credits.partners", v: json });
         }
 
-        if (!jobs.length) { toast("Aucune modification."); return; }
+        if (!pending.length) { toast("Aucune modification."); return; }
+
+        /* Tout est validé : les requêtes peuvent partir. */
+        jobs = pending.map(function (j) { return j.v ? save(j.k, j.v) : clear(j.k); });
 
         state.busy = true; btn.disabled = true;
         Promise.all(jobs).then(function () {
@@ -458,6 +497,7 @@
              qui a réellement été enregistré, sinon un échec partiel resterait
              affiché comme s'il avait abouti. */
           state.partners = null;
+          state.draft = null;
           return load();
         }).then(function () {
           state.busy = false; A.refresh();
@@ -503,6 +543,7 @@
        rechargée réapparaîtrait telle quelle et passerait pour la version
        en ligne. */
     state.partners = null;
+    state.draft = null;
     state.loaded = false; A.refresh();
     load().catch(function (e) { state.error = e.message; })
           .then(function () { A.refresh(); });

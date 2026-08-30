@@ -318,11 +318,27 @@
   }
 
   function registerHTML() {
-    var list = rows(), ps = pieces();
+    var list = rows();
+    var total = members().length;
+
+    /* Le droit est relu à chaque rendu, et non hérité du rendu précédent : un
+       compte rétrogradé pendant que l'écran est ouvert perdait bien le bouton,
+       mais les numéros déjà révélés restaient affichés en clair à chaque
+       rafraîchissement, sans plus aucun moyen de les remasquer. */
+    var su = isSuper();
+    if (!su) state.shown = {};
+
+    /* Les compteurs portent sur les membres RÉELLEMENT présents. Comptés sur
+       le magasin brut, les dossiers orphelins — que ce module conserve
+       délibérément quand un membre est supprimé — donnaient des rapports du
+       type « 4 / 2 », qui se lisent comme une incohérence de données plutôt
+       que comme la situation que l'onglet Contrôles décrit déjà. */
+    var live = {};
+    members().forEach(function (m) { live[m.id] = true; });
+    var ps = pieces().filter(function (p) { return live[p.id]; });
     var withPhoto = ps.filter(function (p) { return !!p.photo; }).length;
     var withCni   = ps.filter(function (p) { return !!p.cni; }).length;
     var verified  = ps.filter(function (p) { return !!p.verified; }).length;
-    var total     = members().length;
 
     var kpis =
       '<div class="kpis">' +
@@ -349,11 +365,15 @@
 
     var trs = list.length ? list.map(function (r) {
       var m = r.m, p = r.p;
+      /* Le rendu tranche sur le droit ACTUEL, pas sur ce qui a été révélé
+         autrefois : « révélé » ne survit pas à la perte du droit qui l'a
+         autorisé. */
+      var shown = su && state.shown[m.id];
       var num = p && p.cni
-        ? '<code class="pnum">' + esc(state.shown[m.id] ? groupCni(p.cni) : maskCni(p.cni)) + '</code>' +
-          (isSuper() ? ' <button class="iact preveal" data-id="' + esc(m.id) + '" title="' +
-                       (state.shown[m.id] ? "Masquer" : "Révéler le numéro") + '"><i data-ic=' +
-                       (state.shown[m.id] ? "lock" : "eye") + '></i></button>' : '')
+        ? '<code class="pnum">' + esc(shown ? groupCni(p.cni) : maskCni(p.cni)) + '</code>' +
+          (su ? ' <button class="iact preveal" data-id="' + esc(m.id) + '" title="' +
+                       (shown ? "Masquer" : "Révéler le numéro") + '"><i data-ic=' +
+                       (shown ? "lock" : "eye") + '></i></button>' : '')
         : '<span class="muted">—</span>';
       var st = !p || (!p.photo && !p.cni) ? '<span class="pstate pstate--none">Rien</span>'
              : (p.photo && p.cni && p.verified) ? '<span class="pstate pstate--ok"><i data-ic=check></i> Complet</span>'
@@ -436,6 +456,24 @@
     var p = piece(id) || { id: id, photo: "", px: 0, cni: "", type: "CNI", verified: false, verifiedAt: "", verifiedBy: "", note: "" };
     var draft = { photo: p.photo, px: p.px };
 
+    /* Le droit de LIRE le numéro est le même ici que dans le registre. Sans
+       cette ligne, le masquage de la liste, la réserve du bouton « révéler »
+       au Super Admin, l'export masqué et l'exclusion du numéro de la
+       recherche ne servaient à rien : il suffisait d'ouvrir la fiche pour
+       obtenir le numéro complet, en clair, dans un champ de saisie — sans
+       qu'aucune trace n'en soit gardée.
+
+       Un administrateur ordinaire garde en revanche le droit d'ÉCRIRE : c'est
+       lui qui saisit la pièce au guichet, la carte sous les yeux. Le champ lui
+       est donc présenté vide, avec le numéro en place indiqué en repère : le
+       laisser vide conserve ce qui est enregistré, y saisir un numéro le
+       remplace. Effacer un numéro déjà attesté reste réservé au Super Admin. */
+    var canSee = isSuper();
+
+    /* Ouvrir la fiche affiche le numéro : c'est une consultation, au même
+       titre que le bouton « révéler », et elle est journalisée comme telle. */
+    if (canSee && p.cni) alog(id, "consultation du numéro de pièce", m.name);
+
     openModal(
       '<div class="modal__head"><div class="dhead">' + thumb(m, p, 40) +
         '<div><h2>' + esc(m.name) + '</h2><span class="muted">Photo & pièce d’identité</span></div>' +
@@ -459,9 +497,15 @@
             fld("Type de pièce", '<select name="type">' + TYPES.map(function (t) {
               return '<option' + (t === (p.type || "CNI") ? " selected" : "") + '>' + esc(t) + '</option>';
             }).join("") + '</select>') +
-            fld("Numéro de la pièce", '<input name="cni" autocomplete="off" spellcheck="false" placeholder="C0123456789" value="' +
-              esc(p.cni ? groupCni(p.cni) : "") + '">') +
-            '<p class="muted pform__hint" id="p-cnih">Le numéro est enregistré sans espaces et masqué dans le registre.</p>' +
+            fld("Numéro de la pièce", '<input name="cni" autocomplete="off" spellcheck="false" ' +
+              'placeholder="' + esc(canSee || !p.cni ? "C0123456789" : maskCni(p.cni)) + '" value="' +
+              esc(canSee && p.cni ? groupCni(p.cni) : "") + '">') +
+            '<p class="muted pform__hint" id="p-cnih">' +
+              (canSee || !p.cni
+                ? 'Le numéro est enregistré sans espaces et masqué dans le registre.'
+                : 'Un numéro est déjà enregistré, et seul un Super Admin peut le lire. ' +
+                  'Laissez ce champ vide pour le conserver, ou saisissez-en un autre pour le remplacer.') +
+            '</p>' +
             '<label class="fcheck"><input type="checkbox" name="verified"' + (p.verified ? " checked" : "") + '> ' +
               'Pièce vue et vérifiée par l’ACCI</label>' +
             (p.verified && p.verifiedAt
@@ -480,6 +524,19 @@
       '</div>', true);
 
     var file = $("#p-file"), prev = $("#p-prev"), info = $("#p-info"), clear = $("#p-clear");
+
+    /* Le bouton « Enregistrer » vit dans le pied de la modale, hors du <form> :
+       ce formulaire n'a donc aucun bouton de soumission, et le champ « numéro »
+       est son unique champ texte. Dans ce cas précis, la touche Entrée soumet
+       le formulaire d'elle-même — une navigation GET vers la page courante,
+       qui rechargeait l'administration, perdait la saisie ET inscrivait le
+       numéro de pièce en clair dans la barre d'adresse puis dans l'historique
+       du navigateur. Soit exactement ce que le masquage, l'exclusion de la
+       recherche et le journal sans numéro servent à empêcher. */
+    $("#pf").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      $("#pf-s").click();
+    });
 
     file.addEventListener("change", function () {
       var f = file.files && file.files[0];
@@ -518,20 +575,38 @@
     function err(t) { var e = $("#pf-e"); if (e) { e.textContent = t; e.hidden = false; } }
 
     var del = $("#pf-del");
+    /* Le CRM confirme toute suppression (confirmDel, quatorze appels dans
+       admin.js). Ce bouton rouge voisine « Annuler » dans le même pied de
+       modale et détruisait une photo et un numéro attesté au premier clic,
+       sans retour possible — il n'existe aucune autre copie. */
     if (del) del.addEventListener("click", function () {
-      if (!dropPiece(id)) return;
-      alog(id, "dossier d’identité vidé", m.name);
-      delete state.shown[id];
-      closeModal(); toast("Dossier vidé."); A.refresh();
+      confirmPieces(
+        "Vider le dossier de " + esc(m.name) + " ? La photo, le numéro de pièce et " +
+        "la vérification seront perdus, et il n’en existe aucune autre copie.",
+        "Vider le dossier",
+        function () {
+          if (!dropPiece(id)) return;
+          alog(id, "dossier d’identité vidé", m.name);
+          delete state.shown[id];
+          closeModal(); toast("Dossier vidé."); A.refresh();
+        },
+        function () { openPiece(id); }        /* revenir à la fiche, pas au vide */
+      );
     });
 
     $("#pf-s").addEventListener("click", function () {
       var f = $("#pf");
       var raw = f.querySelector('[name="cni"]').value.trim();
-      var cni = normCni(raw);
       var type = f.querySelector('[name="type"]').value;
       var ver = f.querySelector('[name="verified"]').checked;
       var note = f.querySelector('[name="note"]').value.trim();
+
+      /* Champ laissé vide : pour un Super Admin, qui le voyait rempli, c'est
+         un effacement délibéré. Pour un administrateur ordinaire, à qui il est
+         présenté vide, c'est au contraire « je n'y touche pas » — le numéro en
+         place est conservé. Sans cette distinction, ouvrir puis enregistrer une
+         fiche depuis un compte ordinaire aurait effacé la pièce sans un mot. */
+      var cni = raw ? normCni(raw) : (canSee ? "" : normCni(p.cni));
 
       if (raw && !cniValid(raw)) return err("Le numéro doit compter entre 6 et 20 lettres ou chiffres.");
       if (ver && !cni) return err("Impossible de déclarer vérifiée une pièce dont le numéro n’est pas renseigné.");
@@ -553,12 +628,20 @@
         }
       }
 
+      /* Une attestation porte sur UN numéro précis. Si le numéro change, la
+         vérification antérieure ne dit plus rien de ce qui est enregistré :
+         elle nommerait un administrateur qui n'a jamais vu cette pièce-là, à
+         une date où elle n'était pas au dossier. Elle est donc re-datée au nom
+         de qui enregistre, et jamais reportée telle quelle. */
+      var same = cni === normCni(p.cni);
+      var keep = ver && cni && p.verified && same;
+
       var rec = {
         id: id, photo: draft.photo || "", px: draft.px || 0,
         cni: cni, type: type, note: note,
         verified: !!(ver && cni),
-        verifiedAt: (ver && cni) ? (p.verified && p.verifiedAt ? p.verifiedAt : new Date().toISOString()) : "",
-        verifiedBy: (ver && cni) ? (p.verified && p.verifiedBy ? p.verifiedBy : whoami()) : "",
+        verifiedAt: (ver && cni) ? (keep ? p.verifiedAt : new Date().toISOString()) : "",
+        verifiedBy: (ver && cni) ? (keep ? p.verifiedBy : whoami()) : "",
         createdAt: p.createdAt || ""
       };
 
@@ -569,11 +652,36 @@
 
       if (!!rec.photo !== !!p.photo) alog(id, rec.photo ? "photo enregistrée" : "photo retirée", m.name);
       else if (rec.photo && rec.photo !== p.photo) alog(id, "photo remplacée", m.name);
-      if (rec.cni !== normCni(p.cni)) alog(id, rec.cni ? "numéro de pièce enregistré" : "numéro de pièce effacé", m.name);
+      if (!same) alog(id, rec.cni ? "numéro de pièce enregistré" : "numéro de pièce effacé", m.name);
       if (rec.verified && !p.verified) alog(id, "pièce vérifiée", m.name);
+      /* Une re-vérification après changement de numéro est un fait distinct :
+         sans cette ligne, le journal ne montrait qu'un « numéro enregistré »
+         et l'attestation semblait n'avoir jamais bougé. */
+      else if (rec.verified && !keep) alog(id, "pièce re-vérifiée après changement de numéro", m.name);
       if (!rec.verified && p.verified) alog(id, "vérification retirée", m.name);
 
       closeModal(); toast("Dossier enregistré."); A.refresh();
+    });
+  }
+
+  /* confirmDel() d'admin.js n'est pas exposé par window.ACCI_ADMIN : la
+     confirmation est refaite ici, avec le même vocabulaire et le même
+     placement des boutons, pour que ce module ne détruise rien plus
+     facilement que le reste du CRM. onCancel permet de revenir à la fiche
+     d'où l'on vient — une confirmation refusée ne doit pas laisser
+     l'opérateur devant un écran vide. */
+  function confirmPieces(msg, label, onYes, onCancel) {
+    openModal(
+      '<div class="modal__head"><h2>Confirmer</h2>' +
+      '<button class="modal__x" data-close>&times;</button></div>' +
+      '<div class="modal__body"><p>' + msg + '</p></div>' +
+      '<div class="modal__foot"><span style="flex:1"></span>' +
+      '<button class="abtn abtn--ghost" id="pc-no">Annuler</button>' +
+      '<button class="abtn abtn--danger" id="pc-yes">' + esc(label) + '</button></div>');
+    $("#pc-yes").addEventListener("click", function () { closeModal(); onYes(); });
+    $("#pc-no").addEventListener("click", function () {
+      closeModal();
+      if (onCancel) onCancel();
     });
   }
 
@@ -607,6 +715,8 @@
     var used = bytesOf(STORE), all = totalBytes();
     var pct = Math.min(100, Math.round(all / BUDGET * 100));
 
+    var su = isSuper();
+
     var h = '<div class="ppanel"><h3><i data-ic=chart></i> Stockage</h3>' +
       '<p class="muted">Le registre partage les 5 Mo du navigateur avec toutes les autres données du CRM. ' +
       'Il n’existe que dans ce navigateur : une sauvegarde exportée est la seule copie.</p>' +
@@ -614,11 +724,34 @@
       '<p class="muted">' + kb(all) + ' utilisés sur ~' + kb(BUDGET) + ' prudents (' + pct + ' %) · ' +
       'dont ' + kb(used) + ' de photos et pièces.</p>' +
       (pct > 75 ? '<p class="ferr" style="display:block">Au-delà de 75 %, une écriture peut échouer à tout moment. ' +
-        'Exportez le registre, puis allégez-le.</p>' : '') +
-      '<div class="btnrow"><button class="abtn abtn--ghost abtn--sm" id="p-exp"><i data-ic=download></i> Exporter le registre (JSON)</button></div>' +
-      '<p class="muted">' + (isSuper()
-        ? 'L’export contient les numéros en clair : il vaut la pièce elle-même. Ne le laissez pas sur un poste partagé.'
-        : 'L’export réservé au Super Admin contient les numéros en clair ; le vôtre les remplace par leur forme masquée.') + '</p>' +
+        'Sauvegardez le registre, puis allégez-le.</p>' : '') +
+      '</div>';
+
+    /* Ce registre vit dans son propre magasin, hors de celui que parcourt la
+       sauvegarde du CRM : il n'y figure donc pas. La remise à zéro, elle,
+       efface toutes les clés « acci… » — celle-ci comprise. Couvert par la
+       moitié destructrice et absent de la moitié protectrice, il disparaissait
+       en silence dès qu'un opérateur suivait les instructions du CRM lui-même :
+       sauvegarder, remettre à zéro, restaurer. D'où une sauvegarde propre au
+       registre, et l'avertissement qui va avec. */
+    h += '<div class="ppanel"><h3><i data-ic=swap></i> Sauvegarde du registre</h3>' +
+      '<p class="ferr" style="display:block"><b>La sauvegarde générale du CRM ne contient pas ce registre.</b> ' +
+      'Et « Administration ▸ Sauvegarde ▸ Remettre à zéro » l’efface. ' +
+      'Avant toute remise à zéro, sauvegardez-le ici — sinon photos et numéros sont perdus sans avertissement.</p>' +
+      (su
+        ? '<div class="btnrow">' +
+            '<button class="abtn abtn--primary abtn--sm" id="p-bk"><i data-ic=download></i> Sauvegarder le registre</button>' +
+            '<label class="abtn abtn--ghost abtn--sm" for="p-imp"><i data-ic=upload></i> Restaurer une sauvegarde</label>' +
+            '<input type="file" id="p-imp" accept="application/json,.json" hidden>' +
+          '</div>' +
+          '<p class="muted">La sauvegarde contient les photos et les numéros en clair : elle vaut les pièces ' +
+          'elles-mêmes. Conservez-la comme telle, et jamais sur un poste partagé.</p>'
+        : '<p class="muted">La sauvegarde et la restauration sont réservées au Super Admin : ' +
+          'le fichier porte les numéros en clair.</p>') +
+      '<div class="btnrow"><button class="abtn abtn--ghost abtn--sm" id="p-exp"><i data-ic=doc></i> Exporter la liste' +
+        (su ? '' : ' (numéros masqués)') + '</button></div>' +
+      '<p class="muted">La liste est un état pour le travail courant — un tableau de qui a fourni quoi. ' +
+      'Elle ne contient pas les photos et ne permet pas de restaurer le registre.</p>' +
       '</div>';
 
     /* Dit à l'écran, et pas seulement en commentaire : un registre de pièces
@@ -669,13 +802,8 @@
                  verifiee: !!p.verified, verifieeLe: p.verifiedAt || "", verifieePar: p.verifiedBy || "",
                  photo: p.photo ? true : false, note: p.note || "", maj: p.updatedAt || "" };
       });
-      var name = "acci-pieces-" + new Date().toISOString().slice(0, 10) + (su ? "" : "-masque") + ".json";
-      var b = new Blob([JSON.stringify(out, null, 2)], { type: "application/json;charset=utf-8" });
-      var a = document.createElement("a");
-      a.href = URL.createObjectURL(b); a.download = name;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-      alog("", "export du registre des pièces", out.length + " dossier(s)" + (su ? "" : ", numéros masqués"));
+      dlJSON("acci-pieces-liste-" + new Date().toISOString().slice(0, 10) + (su ? "" : "-masque") + ".json", out);
+      alog("", "export de la liste des pièces", out.length + " dossier(s)" + (su ? "" : ", numéros masqués"));
       toast(out.length + " dossier(s) exporté(s).");
     });
 
@@ -684,10 +812,89 @@
       var ids = {}; members().forEach(function (m) { ids[m.id] = true; });
       var keep = pieces().filter(function (p) { return ids[p.id]; });
       var n = pieces().length - keep.length;
-      if (!writeJSON(STORE, keep)) return;
-      alog("", "purge des dossiers orphelins", n + " dossier(s)");
-      toast(n + " dossier(s) supprimé(s)."); A.refresh();
+      /* Un dossier orphelin est parfois la seule trace restante d'un membre
+         supprimé par erreur : il ne doit pas partir sur un simple clic. */
+      confirmPieces(
+        "Supprimer définitivement " + n + " dossier(s) orphelin(s) ? " +
+        "Les photos et numéros qu’ils contiennent seront perdus. " +
+        "Si un membre a été supprimé par erreur, son dossier en est la dernière trace.",
+        "Supprimer " + n + " dossier(s)",
+        function () {
+          if (!writeJSON(STORE, keep)) return;
+          alog("", "purge des dossiers orphelins", n + " dossier(s)");
+          toast(n + " dossier(s) supprimé(s)."); A.refresh();
+        },
+        function () { A.refresh(); });
     });
+
+    /* ---- Sauvegarde propre au registre ---- */
+    var bk = $("#p-bk");
+    if (bk) bk.addEventListener("click", function () {
+      if (!isSuper()) { toast("Réservé au Super Admin.", "err"); return; }
+      var ms = {}; members().forEach(function (m) { ms[m.id] = m; });
+      /* Les noms voyagent avec la sauvegarde, en repère seulement : ils
+         permettent de savoir ce qu'on restaure sans ouvrir le CRM. La
+         restauration, elle, ne se fie qu'aux identifiants. */
+      var out = { format: "acci-pieces", version: 1, exportedAt: new Date().toISOString(),
+                  noms: Object.keys(ms).reduce(function (o2, k) { o2[k] = ms[k].name; return o2; }, {}),
+                  dossiers: pieces() };
+      dlJSON("acci-registre-pieces-" + new Date().toISOString().slice(0, 10) + ".json", out);
+      alog("", "sauvegarde du registre des pièces", out.dossiers.length + " dossier(s)");
+      toast(out.dossiers.length + " dossier(s) sauvegardé(s).");
+    });
+
+    var imp = $("#p-imp");
+    if (imp) imp.addEventListener("change", function () {
+      var file = imp.files && imp.files[0];
+      imp.value = "";
+      if (!file) return;
+      if (!isSuper()) { toast("Réservé au Super Admin.", "err"); return; }
+      var r = new FileReader();
+      r.onload = function () {
+        var d;
+        try { d = JSON.parse(r.result); } catch (e2) { toast("Fichier illisible.", "err"); return; }
+        if (!d || d.format !== "acci-pieces" || !Array.isArray(d.dossiers)) {
+          toast("Ce fichier n’est pas une sauvegarde du registre.", "err"); return;
+        }
+        /* Seules les fiches exploitables sont retenues : un fichier retouché à
+           la main ne doit pas pouvoir écrire n'importe quelle clé dans le
+           magasin. Le numéro repasse par normCni, comme une saisie. */
+        var clean = d.dossiers.filter(function (p) {
+          return p && typeof p === "object" && typeof p.id === "string" && p.id;
+        }).map(function (p) {
+          return { id: p.id, photo: typeof p.photo === "string" ? p.photo : "",
+                   px: parseInt(p.px, 10) || 0, cni: normCni(p.cni),
+                   type: typeof p.type === "string" ? p.type : "CNI",
+                   note: typeof p.note === "string" ? p.note : "",
+                   verified: !!p.verified,
+                   verifiedAt: typeof p.verifiedAt === "string" ? p.verifiedAt : "",
+                   verifiedBy: typeof p.verifiedBy === "string" ? p.verifiedBy : "",
+                   createdAt: typeof p.createdAt === "string" ? p.createdAt : "",
+                   updatedAt: typeof p.updatedAt === "string" ? p.updatedAt : "" };
+        });
+        if (!clean.length) { toast("Aucun dossier exploitable dans ce fichier.", "err"); return; }
+        confirmPieces(
+          "Remplacer le registre par le contenu de « " + esc(file.name) + " » ? " +
+          "Les " + pieces().length + " dossier(s) actuellement enregistrés seront écrasés par les " +
+          clean.length + " du fichier.",
+          "Remplacer le registre",
+          function () {
+            if (!writeJSON(STORE, clean)) return;
+            alog("", "restauration du registre des pièces", clean.length + " dossier(s)");
+            toast(clean.length + " dossier(s) restauré(s)."); A.refresh();
+          },
+          function () { A.refresh(); });
+      };
+      r.readAsText(file, "utf-8");
+    });
+  }
+
+  function dlJSON(name, obj) {
+    var b = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(b); a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
   /* --------------------------------------------------------------------- */
