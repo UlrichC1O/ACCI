@@ -7,27 +7,26 @@ import os
 # le sitemap, robots.txt et les données structurées : une valeur erronée les
 # rend toutes inexploitables par les moteurs de recherche.
 #
-# Le domaine retenu pour le site est ivoiriens.ac.ci.
+# Le domaine du site est www.ivoiriens.ac.ci. Il est enregistré, rattaché au
+# projet Vercel et servi en HTTPS ; l'apex ivoiriens.ac.ci redirige vers lui en
+# 308, c'est donc la forme « www » qui est canonique.
 #
-# ⚠️ Il ne résout pas encore (aucun enregistrement A, CNAME ni MX au 30/08/2026).
-# Tant que c'est le cas, cette valeur n'est PAS celle publiée en production : la
-# priorité ci-dessous fait gagner l'URL fournie par Vercel, afin que les
-# canoniques, le sitemap et les données structurées désignent une adresse qui
-# répond. Publier des canoniques vers un hôte injoignable ferait sortir les pages
-# de l'index plutôt que de les y installer.
+# VERCEL_PROJECT_PRODUCTION_URL n'est PAS consulté, contrairement à ce que cette
+# fonction faisait auparavant. Vercel y met le nom généré du projet
+# (acci-ci.vercel.app) et l'y laisse même après le rattachement d'un domaine
+# personnalisé : les pages servies sur www.ivoiriens.ac.ci annonçaient donc des
+# canoniques, un sitemap, des données structurées et des aperçus de lien pointant
+# tous vers acci-ci.vercel.app. Deux conséquences : les moteurs indexaient le
+# domaine Vercel à la place du vrai, et les aperçus partagés affichaient
+# « acci-ci.vercel.app » comme source.
 #
-# Une fois le domaine enregistré et rattaché au projet Vercel, la bascule est
-# automatique : VERCEL_PROJECT_PRODUCTION_URL devient ce domaine. Pour forcer
-# la bascule avant, définir SITE_URL=https://ivoiriens.ac.ci
-# (Vercel : Settings → Environment Variables).
+# Pour publier depuis un autre domaine (préproduction, changement de nom),
+# définir SITE_URL — Vercel : Settings → Environment Variables.
 def _site_url():
     explicit = os.environ.get("SITE_URL")
     if explicit:
         return explicit.rstrip("/")
-    vercel = os.environ.get("VERCEL_PROJECT_PRODUCTION_URL")
-    if vercel:
-        return "https://" + vercel.rstrip("/")
-    return "https://ivoiriens.ac.ci"
+    return "https://www.ivoiriens.ac.ci"
 
 
 SITE = {
