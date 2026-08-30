@@ -8,7 +8,7 @@
 -- personnes de travailler sur le même annuaire.
 --
 -- PÉRIMÈTRE. Seules les données réellement partagées sont remontées :
--- membres, photos, pièces d'identité, demandes, cotisations, journal d'audit.
+-- membres, dossiers d'identité, demandes, cotisations, journal d'audit.
 -- Les autres magasins (notes personnelles, préférences d'affichage, brouillons)
 -- restent locaux — les partager n'apporterait rien et multiplierait les
 -- conflits d'écriture.
@@ -69,7 +69,26 @@ create table if not exists public.crm_admins (
 );
 
 alter table public.crm_admins enable row level security;
-alter table public.crm_admins force row level security;
+-- PAS de « force » sur CETTE table, contrairement aux autres.
+--
+-- « force » retire au propriétaire de la table sa dispense de RLS. Or les deux
+-- fonctions ci-dessous sont SECURITY DEFINER précisément pour lire crm_admins
+-- SANS repasser par sa politique — et cette politique les appelle. Forcer RLS
+-- ici, c'est refermer la boucle : la politique appelle la fonction, qui relit
+-- la table, qui applique la politique. Le commentaire juste en dessous
+-- annonçait cette précaution ; la ligne « force » la défaisait.
+--
+-- C'est aussi ce qui aurait empêché de créer le tout premier compte. Les
+-- politiques de crm_admins exigent d'être déjà administrateur : sur une table
+-- vide, aucune ne peut être satisfaite, et l'insertion d'amorçage depuis
+-- l'éditeur SQL n'aurait plus eu d'issue.
+--
+-- La protection reste entière là où elle compte : « enable » gouverne anon et
+-- authenticated, c'est-à-dire tout ce qui arrive par l'API. Seul le
+-- propriétaire — postgres, l'éditeur SQL — conserve sa dispense, et c'est
+-- exactement à lui qu'il revient d'amorcer la table.
+-- Les tables de données, elles, gardent « force » : aucune de leurs politiques
+-- ne se rappelle elle-même.
 
 -- Les fonctions sont SECURITY DEFINER : elles doivent lire crm_admins sans
 -- repasser par la politique de crm_admins, sous peine de récursion infinie.
@@ -198,63 +217,78 @@ create policy crm_members_all_admin on public.crm_members
   with check ((select private.is_crm_admin()));
 
 -- ---------------------------------------------------------------------------
--- Photos des membres
+-- Dossier d'un membre : photo, type de pièce, vérification
 -- ---------------------------------------------------------------------------
--- La photo sert à reconnaître un membre au guichet : tout administrateur du
--- CRM la voit. Elle est séparée de la fiche pour la même raison que côté
--- navigateur — une image en base64 pèse cinquante fois le reste, et la liste
--- des membres n'a pas à la transporter à chaque chargement.
-create table if not exists public.crm_member_photos (
+-- Tout ce qui n'est PAS le numéro lui-même. La photo sert à reconnaître un
+-- membre au guichet et le statut de vérification répond à « la pièce de ce
+-- membre a-t-elle été vue ? » : les deux intéressent chaque administrateur.
+--
+-- La table s'appelle « pieces » comme le magasin du navigateur qu'elle reçoit
+-- (acci_member_pieces) : le même dossier des deux côtés, sans traduction.
+--
+-- Séparée de la fiche membre pour la même raison que côté navigateur : une
+-- image en base64 pèse cinquante fois le reste, et la liste des membres n'a
+-- pas à la transporter à chaque chargement.
+create table if not exists public.crm_member_pieces (
   member_id   text primary key references public.crm_members (id) on delete cascade,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
-  photo       text not null,        -- URL de données, déjà réduite à 256 px
+
+  photo       text not null default '',   -- URL de données, déjà réduite à 256 px
   px          integer not null default 0,
+  doc_type    text not null default 'CNI',
+  verified    boolean not null default false,
+  verified_at timestamptz,                -- nul tant que rien n'est vérifié
+  verified_by text not null default '',
+  note        text not null default '',
 
   -- ~64 Ko : très au-delà de ce que produit le redimensionnement du CRM
   -- (12 à 18 Ko), et assez bas pour qu'un envoi non conforme soit refusé.
-  constraint crm_member_photos_len check (length(photo) <= 65536)
+  constraint crm_member_pieces_len check (
+    length(photo) <= 65536 and length(doc_type) <= 60 and
+    length(verified_by) <= 120 and length(note) <= 2000
+  )
 );
 
-drop trigger if exists crm_member_photos_touch on public.crm_member_photos;
-create trigger crm_member_photos_touch before insert or update on public.crm_member_photos
+drop trigger if exists crm_member_pieces_touch on public.crm_member_pieces;
+create trigger crm_member_pieces_touch before insert or update on public.crm_member_pieces
   for each row execute function private.touch_updated_at();
 
-alter table public.crm_member_photos enable row level security;
-alter table public.crm_member_photos force row level security;
+alter table public.crm_member_pieces enable row level security;
+alter table public.crm_member_pieces force row level security;
 
-drop policy if exists crm_member_photos_all_admin on public.crm_member_photos;
-create policy crm_member_photos_all_admin on public.crm_member_photos
+drop policy if exists crm_member_pieces_all_admin on public.crm_member_pieces;
+create policy crm_member_pieces_all_admin on public.crm_member_pieces
   for all to authenticated
   using ((select private.is_crm_admin()))
   with check ((select private.is_crm_admin()));
 
 -- ---------------------------------------------------------------------------
--- Pièces d'identité — table à part, politique à part
+-- Le numéro de pièce, et lui seul
 -- ---------------------------------------------------------------------------
--- Le numéro de pièce ne sort d'ici que pour un Super Admin. Un administrateur
--- ordinaire ne reçoit pas une valeur masquée : il ne reçoit rien. C'est la
--- différence entre un masquage d'affichage, contournable par la console, et un
--- refus du serveur.
+-- Cette table ne porte qu'une donnée : le numéro. C'est le seul élément du
+-- dossier qui soit réellement confidentiel, et l'isoler est ce qui permet au
+-- SERVEUR de refuser de l'envoyer — RLS étant une sécurité par ligne et non
+-- par colonne, une table par niveau de confidentialité est le seul découpage
+-- que Postgres sache faire respecter. Un administrateur ordinaire ne reçoit
+-- pas une valeur masquée : il ne reçoit rien.
 --
--- Le statut de vérification, lui, intéresse tout le monde (« la pièce de ce
--- membre a-t-elle été vue ? ») et vit donc avec la photo, sans le numéro.
+-- LIRE ET ÉCRIRE NE SE GOUVERNENT PAS PAREIL, et c'est le point délicat.
+-- Celui qui tient le guichet recopie le numéro de la carte qu'il a sous les
+-- yeux : lui interdire d'écrire rendrait le registre inutilisable, et c'est
+-- ce que faisait la politique « for all » précédente. Mais il n'a aucune
+-- raison de RELIRE le numéro d'un autre membre plus tard.
+-- D'où quatre politiques distinctes plutôt qu'une : il peut inscrire et
+-- corriger sans jamais lire, et cela reflète exactement ce que fait déjà
+-- l'écran (champ vide, numéro en place indiqué en repère masqué).
 create table if not exists public.crm_member_ids (
   member_id    text primary key references public.crm_members (id) on delete cascade,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
 
   doc_number   text not null default '',   -- normalisé : majuscules, sans espaces
-  doc_type     text not null default 'CNI',
-  verified     boolean not null default false,
-  verified_at  timestamptz,
-  verified_by  text not null default '',
-  note         text not null default '',
 
-  constraint crm_member_ids_len check (
-    length(doc_number) <= 32 and length(doc_type) <= 60 and
-    length(verified_by) <= 120 and length(note) <= 2000
-  )
+  constraint crm_member_ids_len check (length(doc_number) <= 32)
 );
 
 -- Une pièce ne vaut que pour une adhésion : le contrôle de doublon que le CRM
@@ -276,11 +310,32 @@ create trigger crm_member_ids_touch before insert or update on public.crm_member
 alter table public.crm_member_ids enable row level security;
 alter table public.crm_member_ids force row level security;
 
-drop policy if exists crm_member_ids_super on public.crm_member_ids;
-create policy crm_member_ids_super on public.crm_member_ids
-  for all to authenticated
-  using ((select private.is_crm_super()))
-  with check ((select private.is_crm_super()));
+-- Lire : Super Admin seulement. C'est toute la raison d'être de la table.
+drop policy if exists crm_member_ids_select_super on public.crm_member_ids;
+create policy crm_member_ids_select_super on public.crm_member_ids
+  for select to authenticated
+  using ((select private.is_crm_super()));
+
+-- Inscrire un numéro : tout administrateur approuvé. Il l'a sous les yeux.
+drop policy if exists crm_member_ids_insert_admin on public.crm_member_ids;
+create policy crm_member_ids_insert_admin on public.crm_member_ids
+  for insert to authenticated
+  with check ((select private.is_crm_admin()));
+
+-- Corriger un numéro : de même. USING sans politique SELECT autorise la mise à
+-- jour sans ouvrir la lecture — c'est précisément la distinction recherchée.
+drop policy if exists crm_member_ids_update_admin on public.crm_member_ids;
+create policy crm_member_ids_update_admin on public.crm_member_ids
+  for update to authenticated
+  using ((select private.is_crm_admin()))
+  with check ((select private.is_crm_admin()));
+
+-- Effacer : Super Admin seulement. Retirer une pièce attestée est un acte de
+-- gestion, pas une correction de saisie.
+drop policy if exists crm_member_ids_delete_super on public.crm_member_ids;
+create policy crm_member_ids_delete_super on public.crm_member_ids
+  for delete to authenticated
+  using ((select private.is_crm_super()));
 
 -- ---------------------------------------------------------------------------
 -- Demandes & signalements
@@ -411,14 +466,37 @@ comment on table public.crm_admins is
   'Droits des comptes Supabase dans le CRM. Pivot de toutes les politiques.';
 comment on table public.crm_members is
   'Annuaire partagé des membres et partenaires. Suppression douce (deleted_at).';
-comment on table public.crm_member_photos is
-  'Portraits des membres. Lisibles par tout administrateur approuvé.';
+comment on table public.crm_member_pieces is
+  'Dossier d''identité hors numéro : photo, type de pièce, vérification. Lisible par tout administrateur approuvé.';
 comment on table public.crm_member_ids is
-  'Numéros de pièce d''identité. Lecture et écriture réservées au Super Admin : le serveur ne les transmet pas aux autres.';
+  'Numéros de pièce d''identité, et rien d''autre. Lecture réservée au Super Admin ; tout administrateur peut inscrire et corriger sans jamais relire.';
 comment on table public.crm_tickets is 'Demandes et signalements.';
 comment on table public.crm_invoices is 'Cotisations et factures.';
 comment on table public.crm_audit is
   'Journal d''audit. Insertion et lecture seulement : ni modification ni suppression.';
+
+-- ---------------------------------------------------------------------------
+-- POUR LA COUCHE DE SYNCHRONISATION — trois conversions obligatoires
+-- ---------------------------------------------------------------------------
+-- Le CRM du navigateur emploie la chaîne vide là où Postgres attend autre
+-- chose. Les trois cas ci-dessous provoqueraient une erreur à la première
+-- remontée ; ils sont notés ici parce que c'est le schéma qui les impose, et
+-- qu'un commentaire dans le code client se serait perdu.
+--
+--   1. verified_at : le CRM écrit "" tant qu'aucune pièce n'est vérifiée.
+--      Envoyer "" dans une colonne timestamptz échoue
+--      (« invalid input syntax for type timestamp »). Convertir en null.
+--
+--   2. member_id des demandes et des cotisations : le CRM écrit "" quand
+--      aucun membre n'est rattaché. La clé étrangère refuse "" — aucun membre
+--      ne porte cet identifiant. Convertir en null ; la colonne l'accepte, et
+--      « on delete set null » repose sur cette même valeur.
+--
+--   3. total d'une cotisation : envoyer un nombre, jamais "". numeric refuse
+--      la chaîne vide, et 0 n'est pas la même chose qu'« inconnu ».
+--
+-- Dans l'autre sens, une colonne nulle revient en null et non en "" : c'est au
+-- client de retomber sur sa valeur par défaut.
 
 -- ---------------------------------------------------------------------------
 -- PREMIER COMPTE — à exécuter une fois, à la main
