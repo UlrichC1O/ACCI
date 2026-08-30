@@ -34,7 +34,7 @@
     "site.name": "ACCI",
     "site.long_name": "Association des Créateurs de Contenu Ivoiriens",
     "site.tagline": "Pour un usage responsable, sûr et éthique des réseaux sociaux en Côte d’Ivoire.",
-    "site.email": "contact@acci.ci",
+    "site.email": "contact@ivoiriens.ac.ci",
     "site.phone": "+225 27 22 00 00 00",
     "site.address": "Cocody, Riviera Golf — Abidjan, Côte d’Ivoire"
   };

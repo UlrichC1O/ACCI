@@ -87,7 +87,7 @@
     },
     {
       keys: ["contact", "joindre", "telephone", "email", "mail", "adresse", "ecrire"],
-      reply: "Vous pouvez nous écrire via le formulaire de contact, par e-mail à contact@acci.ci ou nous appeler au +225 27 22 00 00 00.",
+      reply: "Vous pouvez nous écrire via le formulaire de contact, par e-mail à contact@ivoiriens.ac.ci ou nous appeler au +225 27 22 00 00 00.",
       links: [["Nous contacter", "contact.html"]]
     },
     {

@@ -7,11 +7,19 @@ import os
 # le sitemap, robots.txt et les données structurées : une valeur erronée les
 # rend toutes inexploitables par les moteurs de recherche.
 #
-# ⚠️ acci.ci ne résout pas actuellement (NXDOMAIN). Renseignez le domaine qui
-# servira réellement le site avant toute mise en ligne, ou définissez la
-# variable d’environnement SITE_URL (Vercel : Settings → Environment Variables).
-# À défaut, Vercel fournit VERCEL_PROJECT_PRODUCTION_URL sur les déploiements
-# de production, ce qui évite de publier des canoniques pointant dans le vide.
+# Le domaine retenu pour le site est ivoiriens.ac.ci.
+#
+# ⚠️ Il ne résout pas encore (aucun enregistrement A, CNAME ni MX au 30/08/2026).
+# Tant que c'est le cas, cette valeur n'est PAS celle publiée en production : la
+# priorité ci-dessous fait gagner l'URL fournie par Vercel, afin que les
+# canoniques, le sitemap et les données structurées désignent une adresse qui
+# répond. Publier des canoniques vers un hôte injoignable ferait sortir les pages
+# de l'index plutôt que de les y installer.
+#
+# Une fois le domaine enregistré et rattaché au projet Vercel, la bascule est
+# automatique : VERCEL_PROJECT_PRODUCTION_URL devient ce domaine. Pour forcer
+# la bascule avant, définir SITE_URL=https://ivoiriens.ac.ci
+# (Vercel : Settings → Environment Variables).
 def _site_url():
     explicit = os.environ.get("SITE_URL")
     if explicit:
@@ -19,7 +27,7 @@ def _site_url():
     vercel = os.environ.get("VERCEL_PROJECT_PRODUCTION_URL")
     if vercel:
         return "https://" + vercel.rstrip("/")
-    return "https://www.acci.ci"
+    return "https://ivoiriens.ac.ci"
 
 
 SITE = {
@@ -27,7 +35,7 @@ SITE = {
     "long_name": "Association des Créateurs de Contenu Ivoiriens",
     "tagline": "Pour un usage responsable, sûr et éthique des réseaux sociaux en Côte d’Ivoire.",
     "url": _site_url(),
-    "email": "contact@acci.ci",
+    "email": "contact@ivoiriens.ac.ci",
     "phone": "+225 27 22 00 00 00",
     "address": "Cocody, Riviera Golf — Abidjan, Côte d’Ivoire",
     "year": 2026,

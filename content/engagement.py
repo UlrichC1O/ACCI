@@ -178,7 +178,7 @@ PAGES = [
     {"type": "richtext", "html": """
       <h2>Éditeur du site</h2>
       <p>Le présent site est édité par l’<strong>Association des Créateurs de Contenu Ivoiriens (ACCI)</strong>, association à but non lucratif dont le siège est situé à Abidjan, Côte d’Ivoire.</p>
-      <p><strong>Contact :</strong> contact@acci.ci — +225 27 22 00 00 00</p>
+      <p><strong>Contact :</strong> contact@ivoiriens.ac.ci — +225 27 22 00 00 00</p>
 
       <h2>Directeur de la publication</h2>
       <p>Le directeur de la publication est le représentant légal de l’association (Présidence du Bureau exécutif).</p>
@@ -196,7 +196,7 @@ PAGES = [
       <p>Ce site peut contenir des liens vers des sites tiers. L’ACCI n’exerce aucun contrôle sur ces sites et ne saurait être tenue responsable de leur contenu.</p>
 
       <h2>Contact</h2>
-      <p>Pour toute question relative aux présentes mentions légales, vous pouvez nous écrire à contact@acci.ci.</p>
+      <p>Pour toute question relative aux présentes mentions légales, vous pouvez nous écrire à contact@ivoiriens.ac.ci.</p>
     """},
   ],
 },
@@ -227,7 +227,7 @@ PAGES = [
       <p>Vos données sont conservées le temps nécessaire aux finalités pour lesquelles elles ont été collectées, puis supprimées ou anonymisées.</p>
 
       <h2>Vos droits</h2>
-      <p>Vous disposez d’un droit d’accès, de rectification et de suppression de vos données. Vous pouvez également retirer votre consentement à tout moment. Pour exercer ces droits, il vous suffit de nous écrire à contact@acci.ci.</p>
+      <p>Vous disposez d’un droit d’accès, de rectification et de suppression de vos données. Vous pouvez également retirer votre consentement à tout moment. Pour exercer ces droits, il vous suffit de nous écrire à contact@ivoiriens.ac.ci.</p>
 
       <h2>Sécurité</h2>
       <p>Nous mettons en œuvre des mesures techniques et organisationnelles raisonnables pour protéger vos données contre tout accès non autorisé, perte ou divulgation.</p>
@@ -236,7 +236,7 @@ PAGES = [
       <p>Ce site limite l’usage des cookies au strict nécessaire à son bon fonctionnement et, le cas échéant, à la mesure d’audience anonyme. Votre navigateur peut être configuré pour les refuser.</p>
 
       <h2>Contact</h2>
-      <p>Pour toute question relative à cette politique de confidentialité, contactez-nous à contact@acci.ci.</p>
+      <p>Pour toute question relative à cette politique de confidentialité, contactez-nous à contact@ivoiriens.ac.ci.</p>
     """},
   ],
 },

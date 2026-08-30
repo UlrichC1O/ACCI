@@ -138,6 +138,9 @@
     var number = opts.number || "";
     var date = opts.date || "";
     var ink = opts.ink || INK;
+    /* Le tampon porte le niveau : « CRÉATEUR RESPONSABLE » n'est que le
+       premier des trois. Le mot CRÉATEUR est fixe, seul le rang change. */
+    var label = "CRÉATEUR " + (opts.label || "RESPONSABLE");
     var rot = opts.rotate === undefined ? -7 : opts.rotate;
     var n = ++uid;                /* les identifiants d'arc doivent rester
                                      uniques : plusieurs tampons cohabitent
@@ -193,8 +196,8 @@
       '<g text-anchor="middle" fill="' + ink + '" ' +
           'font-family="Georgia,&quot;Times New Roman&quot;,serif">' +
         '<text x="120" y="122" font-size="16" font-weight="700" letter-spacing="3.8">CERTIFIÉ</text>' +
-        '<text x="120" y="144" font-size="9" font-weight="700" letter-spacing="0.9">' +
-          'CRÉATEUR RESPONSABLE</text>' +
+        '<text x="120" y="144" font-size="' + (label.length > 20 ? 8.2 : 9) + '" ' +
+            'font-weight="700" letter-spacing="0.9">' + esc(label) + '</text>' +
         (number
           ? '<text x="120" y="160" font-size="7.8" letter-spacing="0.4" opacity=".85">' +
             'N° ' + esc(number) + '</text>' : '') +
@@ -254,8 +257,8 @@
            officielle ; à l'écran il reste assez pâle pour ne rien gêner. */
         '<div class="cert__ground" aria-hidden="true">' +
           '<svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">' +
-            guilloche(500, 500, { r: 430, rings: 13, step: 13, amp: 13, lobes: 52,
-                                  n: 620, sw: 0.55, opacity: 0.085 }) +
+            guilloche(500, 500, { r: 430, rings: 11, step: 15, amp: 13, lobes: 52,
+                                  n: 470, sw: 0.55, opacity: 0.085 }) +
           '</svg>' +
         '</div>' +
 
@@ -309,88 +312,179 @@
     /* Le badge n'appartient pas à l'attestation : il ne s'imprime pas, il se
        télécharge. Il est présenté ici parce que c'est là que l'on vient
        chercher les pièces d'un membre. */
-    '<section class="badge-block">' +
-      '<div class="badge-block__head">' +
-        '<div>' +
-          '<h3>Badge pour les réseaux sociaux</h3>' +
-          '<p>Image carrée de 1200 × 1200, à publier en photo de profil, en story ' +
-             'ou dans le fil. Le fichier est enregistré sur cet appareil ; rien n\'est envoyé.</p>' +
-        '</div>' +
-        '<button type="button" class="abtn abtn--primary badge-dl" data-badge="' + payload + '">' +
-          'Télécharger le badge (PNG)</button>' +
-      '</div>' +
-      '<div class="badge-block__preview">' + badge(data) + '</div>' +
-      '<p class="badge-block__err" hidden></p>' +
-    '</section>';
+    badgePanel(data, { level: "certifie" });
   }
 
   /* --------------------------------------------------------------------- */
-  /* Badge social                                                          */
+  /* Badges sociaux                                                        */
   /* --------------------------------------------------------------------- */
-  /* Carré : c'est le seul format qui survive à la fois au fil d'actualité, à
-     la photo de profil et à la story. Fond vert sombre — le badge doit se
-     détacher d'un fil clair — et le logo y passe en version claire, sans quoi
-     son « I » anthracite disparaîtrait. */
+  /* Deux modèles, trois teintes, trois niveaux : dix-huit pièces, toutes
+     tirées des mêmes tracés. Le carré traverse le fil d'actualité et la
+     story ; le rond est fait pour la photo de profil, que les plateformes
+     détourent en cercle de toute façon.
+
+     Chaque teinte porte les trois couleurs de l'ACCI — vert, orange, blanc.
+     Ce qui change d'une variante à l'autre est celle qui domine, et c'est
+     elle qui lui donne son nom. Aucun texte n'est posé sur un fond qui ne
+     lui donne pas 4,5:1 : le fond orange est #B34F00 et non l'orange de
+     marque, sur lequel du blanc ne donnerait que 2,63:1. */
   var BADGE = 1200;
 
-  function badgeSVG(data, forExport) {
+  var MODELS = { carre: "Carré", rond: "Rond" };
+
+  /* Les trois rangs de l'adhésion. Les étoiles ne décorent pas : elles
+     comptent le niveau, et c'est le seul repère lisible quand le badge est
+     réduit à une vignette. */
+  var LEVELS = {
+    responsable:   { l: "Responsable",   t: "RESPONSABLE",   k: "SIGNATAIRE DE LA CHARTE", s: 1 },
+    certifie:      { l: "Certifié",      t: "CERTIFIÉ",      k: "MEMBRE CERTIFIÉ",         s: 2 },
+    professionnel: { l: "Professionnel", t: "PROFESSIONNEL", k: "MEMBRE PROFESSIONNEL",    s: 3 }
+  };
+
+  var PALETTES = {
+    vert: {
+      l: "Vert", bg: "#07301F", outer: "#EAF3EE",
+      logo: { a: ORANGE, c1: "#2FBF8D", c2: ORANGE, i: "#FFFFFF" },
+      frame: ORANGE, hair: "#FFFFFF", eyebrow: ORANGE, title: "#FFFFFF",
+      name: "#EAF3EE", dim: "#96BBA8", rule: ORANGE, ink: "#EAF3EE", grid: "#FFFFFF"
+    },
+    orange: {
+      l: "Orange", bg: "#B34F00", outer: "#FFF1E4",
+      logo: { a: "#FFFFFF", c1: "#07301F", c2: "#FFFFFF", i: "#07301F" },
+      frame: "#07301F", hair: "#FFFFFF", eyebrow: "#0B3D2E", title: "#FFFFFF",
+      name: "#FFF1E4", dim: "#FFE0C2", rule: "#07301F", ink: "#FFFFFF", grid: "#FFFFFF"
+    },
+    blanc: {
+      l: "Blanc", bg: "#FFFFFF", outer: "#0B3D2E",
+      logo: { a: ORANGE, c1: GREEN, c2: ORANGE, i: SLATE },
+      frame: GREEN, hair: ORANGE, eyebrow: "#A34700", title: "#0B3D2E",
+      name: "#14201B", dim: "#55625B", rule: ORANGE, ink: INK, grid: INK
+    }
+  };
+
+  function pick(map, key, fallback) {
+    return Object.prototype.hasOwnProperty.call(map, String(key)) ? String(key) : fallback;
+  }
+
+  /* Rangée d'étoiles centrée : une, deux ou trois selon le rang. */
+  function rank(cx, cy, count, r, fill) {
+    var gap = r * 2.7, out = "", i, x0 = cx - (count - 1) * gap / 2;
+    for (i = 0; i < count; i++) out += star(x0 + i * gap, cy, r, fill);
+    return out;
+  }
+
+  /* Un nom long rétrécit plutôt que de déborder du cadre. */
+  function nameSizeFor(name, base) {
+    var n = name.length;
+    return n > 30 ? base - 22 : n > 22 ? base - 14 : n > 15 ? base - 7 : base;
+  }
+
+  function squareBody(name, yr, ref, p, lv) {
+    return '<rect width="1200" height="1200" fill="' + p.bg + '"/>' +
+      guilloche(600, 600, { r: 545, rings: 12, step: 22, amp: 22, lobes: 40,
+                            n: 480, stroke: p.grid, opacity: 0.07, sw: 1 }) +
+      '<rect x="40" y="40" width="1120" height="1120" rx="26" fill="none" ' +
+          'stroke="' + p.frame + '" stroke-width="3" opacity=".65"/>' +
+      '<rect x="54" y="54" width="1092" height="1092" rx="18" fill="none" ' +
+          'stroke="' + p.hair + '" stroke-width="1" opacity=".2"/>' +
+
+      logoAt(600, 228, 356, p.logo) +
+      rank(600, 348, lv.s, 17, p.rule) +
+
+      '<g text-anchor="middle" font-family="Georgia,&quot;Times New Roman&quot;,serif">' +
+        '<text x="600" y="412" font-size="25" letter-spacing="8" fill="' + p.eyebrow + '">' +
+          esc(lv.k) + (yr ? " · " + esc(yr) : "") + '</text>' +
+        '<text x="600" y="526" font-size="96" font-weight="700" fill="' + p.title + '">CRÉATEUR</text>' +
+        '<text x="600" y="626" font-size="96" font-weight="700" fill="' + p.title + '">' + lv.t + '</text>' +
+        (name ? '<text x="600" y="728" font-size="' + nameSizeFor(name, 58) + '" fill="' + p.name + '">' +
+          esc(name) + '</text>' : '') +
+      '</g>' +
+      '<line x1="470" y1="774" x2="730" y2="774" stroke="' + p.rule + '" ' +
+          'stroke-width="2" opacity=".75"/>' +
+
+      '<g transform="translate(475,817)">' +
+        seal({ size: 250, ink: p.ink, rotate: 0, label: lv.t }) +
+      '</g>' +
+
+      '<text x="600" y="1132" text-anchor="middle" fill="' + p.dim + '" font-size="22" ' +
+          'letter-spacing="3" font-family="Georgia,&quot;Times New Roman&quot;,serif">' +
+        'ivoiriens.ac.ci' + (ref ? "  ·  " + esc(ref) : "") + '</text>';
+  }
+
+  /* Le modèle rond est un médaillon : le disque porte le dessin, et le carré
+     qui l'entoure prend la couleur complémentaire de la teinte, pour que la
+     pièce reste lisible aussi bien sur un fond clair que sombre. Les deux
+     couronnes suivent la même règle que le tampon — l'arc bas est tracé à
+     l'envers pour que les lettres restent à l'endroit. */
+  function roundBody(name, yr, ref, p, lv) {
+    var n = ++uid;
+    return '<defs>' +
+        '<clipPath id="rb-disc-' + n + '"><circle cx="600" cy="600" r="576"/></clipPath>' +
+        '<path id="rb-top-' + n + '" d="M 600,600 m -490,0 a 490,490 0 1,1 980,0" fill="none"/>' +
+        '<path id="rb-bot-' + n + '" d="M 600,600 m -520,0 a 520,520 0 1,0 1040,0" fill="none"/>' +
+      '</defs>' +
+
+      '<rect width="1200" height="1200" fill="' + p.outer + '"/>' +
+      '<circle cx="600" cy="600" r="576" fill="' + p.bg + '"/>' +
+      '<g clip-path="url(#rb-disc-' + n + ')">' +
+        guilloche(600, 600, { r: 520, rings: 11, step: 26, amp: 20, lobes: 38,
+                              n: 460, stroke: p.grid, opacity: 0.07, sw: 1 }) +
+      '</g>' +
+      '<circle cx="600" cy="600" r="556" fill="none" stroke="' + p.frame + '" stroke-width="7"/>' +
+      '<circle cx="600" cy="600" r="538" fill="none" stroke="' + p.hair + '" ' +
+          'stroke-width="1.5" opacity=".3"/>' +
+
+      '<g font-family="Georgia,&quot;Times New Roman&quot;,serif" fill="' + p.dim + '">' +
+        '<text font-size="34" font-weight="700">' +
+          '<textPath href="#rb-top-' + n + '" startOffset="11.7%" ' +
+              'textLength="1180" lengthAdjust="spacing">' +
+            'ASSOCIATION DES CRÉATEURS DE CONTENU IVOIRIENS' +
+          '</textPath></text>' +
+        '<text font-size="29" font-weight="700" letter-spacing="9">' +
+          '<textPath href="#rb-bot-' + n + '" startOffset="50%" text-anchor="middle">' +
+            'CÔTE D\'IVOIRE · ACCI.CI' +
+          '</textPath></text>' +
+      '</g>' +
+      star(95, 600, 16, p.rule) + star(1105, 600, 16, p.rule) +
+
+      logoAt(600, 392, 316, p.logo) +
+      rank(600, 504, lv.s, 16, p.rule) +
+
+      '<g text-anchor="middle" font-family="Georgia,&quot;Times New Roman&quot;,serif">' +
+        '<text x="600" y="562" font-size="23" letter-spacing="7" fill="' + p.eyebrow + '">' +
+          esc(lv.k) + (yr ? " · " + esc(yr) : "") + '</text>' +
+        '<text x="600" y="668" font-size="88" font-weight="700" fill="' + p.title + '">CRÉATEUR</text>' +
+        '<text x="600" y="758" font-size="88" font-weight="700" fill="' + p.title + '">' + lv.t + '</text>' +
+        (name ? '<text x="600" y="850" font-size="' + nameSizeFor(name, 52) + '" fill="' + p.name + '">' +
+          esc(name) + '</text>' : '') +
+        (ref ? '<text x="600" y="922" font-size="21" letter-spacing="3" fill="' + p.dim + '">' +
+          'RÉF. ' + esc(ref) + '</text>' : '') +
+      '</g>' +
+      '<line x1="505" y1="888" x2="695" y2="888" stroke="' + p.rule + '" ' +
+          'stroke-width="2" opacity=".75"/>';
+  }
+
+  function badgeSVG(data, opts) {
     data = data || {};
+    opts = opts || {};
+    var model = pick(MODELS, opts.model, "carre");
+    var p  = PALETTES[pick(PALETTES, opts.palette, "vert")];
+    var lv = LEVELS[pick(LEVELS, opts.level, "certifie")];
     var name = String(data.name || "").trim();
     var yr = yearOf(data.date);
     var ref = data.number || "";
-    var LIGHT = "#EAF3EE", DIM = "#8FB6A2";
-
-    /* Un nom long doit rétrécir plutôt que déborder du carré. */
-    var nameSize = name.length > 30 ? 40 : name.length > 22 ? 48 : name.length > 15 ? 56 : 64;
 
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" ' +
         'width="' + BADGE + '" height="' + BADGE + '" ' +
-        (forExport ? '' : 'class="badge-svg" ') +
-        'role="img" aria-label="Badge ACCI — créateur responsable' +
+        (opts.forExport ? '' : 'class="badge-svg" ') +
+        'role="img" aria-label="Badge ACCI, créateur ' + esc(lv.t.toLowerCase()) +
         (name ? ", " + esc(name) : "") + '">' +
-
-      '<rect width="1200" height="1200" fill="#07301F"/>' +
-      guilloche(600, 600, { r: 545, rings: 12, step: 22, amp: 22, lobes: 40,
-                            n: 480, stroke: "#FFFFFF", opacity: 0.07, sw: 1 }) +
-
-      /* Deux filets intérieurs : ils cadrent le badge là où le bord du carré
-         se confondrait avec un fond sombre. */
-      '<rect x="40" y="40" width="1120" height="1120" rx="26" fill="none" ' +
-          'stroke="' + ORANGE + '" stroke-width="3" opacity=".55"/>' +
-      '<rect x="54" y="54" width="1092" height="1092" rx="18" fill="none" ' +
-          'stroke="#FFFFFF" stroke-width="1" opacity=".16"/>' +
-
-      logoAt(600, 236, 372, { a: ORANGE, c1: "#25B183", c2: ORANGE, i: "#FFFFFF" }) +
-
-      '<g text-anchor="middle" font-family="Georgia,&quot;Times New Roman&quot;,serif">' +
-        '<text x="600" y="418" font-size="26" letter-spacing="9" fill="' + ORANGE + '">' +
-          'MEMBRE CERTIFIÉ' + (yr ? " · " + esc(yr) : "") + '</text>' +
-
-        '<text x="600" y="542" font-size="100" font-weight="700" fill="#FFFFFF">CRÉATEUR</text>' +
-        '<text x="600" y="648" font-size="100" font-weight="700" fill="#FFFFFF">RESPONSABLE</text>' +
-
-        (name
-          ? '<text x="600" y="754" font-size="' + nameSize + '" fill="' + LIGHT + '">' +
-            esc(name) + '</text>' : '') +
-      '</g>' +
-
-      '<line x1="470" y1="800" x2="730" y2="800" stroke="' + ORANGE + '" ' +
-          'stroke-width="2" opacity=".7"/>' +
-
-      /* Le tampon, en encre claire : c'est lui qui rend le badge crédible.
-         Sous 240 unités, la couronne n'est plus lisible une fois le carré
-         réduit à une vignette — mieux vaut un sceau franc qu'un sceau décoratif. */
-      '<g transform="translate(465,825)">' +
-        seal({ size: 270, ink: LIGHT, rotate: 0, number: "", date: "" }) +
-      '</g>' +
-
-      '<text x="600" y="1136" text-anchor="middle" fill="' + DIM + '" font-size="22" ' +
-          'letter-spacing="3" font-family="Georgia,&quot;Times New Roman&quot;,serif">' +
-        'acci.ci' + (ref ? "  ·  " + esc(ref) : "") + '</text>' +
+      (model === "rond" ? roundBody(name, yr, ref, p, lv)
+                        : squareBody(name, yr, ref, p, lv)) +
     '</svg>';
   }
 
-  function badge(data) { return badgeSVG(data, false); }
+  function badge(data, opts) { return badgeSVG(data, opts); }
 
   /* --------------------------------------------------------------------- */
   /* Téléchargement                                                        */
@@ -407,8 +501,12 @@
     return v || "membre";
   }
 
-  function download(data, done) {
-    var svg = badgeSVG(data, true);
+  function download(data, opts, done) {
+    if (typeof opts === "function") { done = opts; opts = {}; }
+    opts = opts || {};
+    var svg = badgeSVG(data, {
+      model: opts.model, palette: opts.palette, level: opts.level, forExport: true
+    });
     var blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var img = new Image();
@@ -429,7 +527,12 @@
         var href = URL.createObjectURL(out);
         var a = document.createElement("a");
         a.href = href;
-        a.download = "badge-acci-" + slug(data && data.name) + ".png";
+        /* Le nom de fichier dit ce qu'il contient : six pièces peuvent
+           cohabiter dans le même dossier de téléchargement. */
+        a.download = ["badge-acci", slug(data && data.name),
+                      pick(MODELS, opts.model, "carre"),
+                      pick(PALETTES, opts.palette, "vert"),
+                      pick(LEVELS, opts.level, "certifie")].join("-") + ".png";
         document.body.appendChild(a);
         a.click();
         setTimeout(function () { URL.revokeObjectURL(href); a.remove(); }, 2000);
@@ -445,24 +548,139 @@
     img.src = url;
   }
 
-  /* Le bouton est produit par ce module, donc écouté par ce module : passer
-     par admin.js obligerait à retoucher la fenêtre modale à chaque pièce
-     nouvelle. La délégation survit aussi à la fermeture et à la réouverture. */
+  /* --------------------------------------------------------------------- */
+  /* Panneau de sélection                                                  */
+  /* --------------------------------------------------------------------- */
+  function optBtn(kind, key, label, on, swatch) {
+    return '<button type="button" class="badge-opt' + (on ? " is-on" : "") + '" ' +
+        'data-' + kind + '="' + key + '" aria-pressed="' + (on ? "true" : "false") + '">' +
+      (swatch ? '<i class="badge-opt__dot" style="background:' + swatch + '"></i>' : '') +
+      esc(label) + '</button>';
+  }
+
+  function pickRow(label, kind, map, current, swatchOf, labelOf) {
+    var keys = Object.keys(map), i, out = '';
+    for (i = 0; i < keys.length; i++) {
+      out += optBtn(kind, keys[i], labelOf(map[keys[i]]), keys[i] === current,
+                    swatchOf ? swatchOf(map[keys[i]]) : null);
+    }
+    return '<div class="badge-pick__row"><span class="badge-pick__lbl">' + label + '</span>' +
+      out + '</div>';
+  }
+
+  /* L'état vit sur la section elle-même : la modale peut être refermée et
+     rouverte sans qu'aucune variable de module ne se désynchronise. */
+  function badgePanel(data, opts) {
+    injectStyles();
+    data = data || {};
+    opts = opts || {};
+    var model = pick(MODELS, opts.model, "carre");
+    var palk  = pick(PALETTES, opts.palette, "vert");
+    var lvl   = pick(LEVELS, opts.level, "certifie");
+    var payload = encodeURIComponent(JSON.stringify({
+      name: data.name || "", number: data.number || "", date: data.date || ""
+    }));
+
+    return '<section class="badge-block" data-badge="' + payload + '" ' +
+        'data-model="' + model + '" data-pal="' + palk + '" data-lvl="' + lvl + '">' +
+      '<div class="badge-block__head"><div>' +
+        '<h3>Badges pour les réseaux sociaux</h3>' +
+        '<p>Deux modèles, trois teintes, trois niveaux. Image de 1200 × 1200, à publier ' +
+           'en photo de profil, en story ou dans le fil. Le fichier est enregistré sur ' +
+           'cet appareil ; rien n\'est envoyé.</p>' +
+      '</div></div>' +
+      '<div class="badge-pick">' +
+        pickRow("Modèle", "model", MODELS, model, null, function (v) { return v; }) +
+        pickRow("Couleur", "pal", PALETTES, palk,
+                function (v) { return v.bg; }, function (v) { return v.l; }) +
+        pickRow("Niveau", "lvl", LEVELS, lvl, null, function (v) { return v.l; }) +
+      '</div>' +
+      '<div class="badge-block__preview" data-badge-preview>' +
+        badgeSVG(data, { model: model, palette: palk, level: lvl }) +
+      '</div>' +
+      '<div class="badge-block__act">' +
+        '<button type="button" class="abtn abtn--primary badge-dl">' +
+          'Télécharger ce badge (PNG)</button>' +
+      '</div>' +
+      '<p class="badge-block__err" hidden></p>' +
+    '</section>';
+  }
+
+  /* Ouvre les badges dans leur propre fenêtre, sans passer par l'attestation :
+     un membre peut vouloir son badge sans réimprimer son attestation. */
+  function openBadges(data) {
+    if (!A.ui.openModal) return;
+    data = data || {};
+    A.ui.openModal(
+      '<div class="modal__head"><h2>Badges — ' + esc(data.name || "membre") + '</h2>' +
+        '<button class="modal__x" data-close>&times;</button></div>' +
+      '<div class="modal__body">' + badgePanel(data, { level: opts0(data) }) + '</div>' +
+      '<div class="modal__foot"><span style="flex:1"></span>' +
+        '<button class="abtn abtn--ghost" data-close>Fermer</button></div>', true);
+  }
+
+  /* Un membre certifié ouvre sur « Certifié », les autres sur « Responsable » :
+     le rang proposé par défaut doit être celui que le membre détient. */
+  function opts0(data) { return data && data.number ? "certifie" : "responsable"; }
+
+  function boxState(box) {
+    var data;
+    try { data = JSON.parse(decodeURIComponent(box.getAttribute("data-badge") || "{}")); }
+    catch (e) { data = {}; }
+    return { data: data, opts: {
+      model: box.getAttribute("data-model"),
+      palette: box.getAttribute("data-pal"),
+      level: box.getAttribute("data-lvl")
+    } };
+  }
+
+  function renderPreview(box) {
+    var host = box.querySelector("[data-badge-preview]");
+    if (!host) return;
+    var st = boxState(box);
+    host.innerHTML = badgeSVG(st.data, st.opts);
+  }
+
+  /* Les commandes sont produites par ce module, donc écoutées par ce module :
+     passer par admin.js obligerait à retoucher la fenêtre modale à chaque
+     pièce nouvelle. La délégation survit à la fermeture et à la réouverture. */
   document.addEventListener("click", function (ev) {
-    var btn = ev.target && ev.target.closest && ev.target.closest(".badge-dl");
+    var t = ev.target;
+    if (!t || !t.closest) return;
+
+    /* Choix d'un modèle, d'une teinte ou d'un niveau */
+    var opt = t.closest(".badge-opt");
+    if (opt) {
+      var obox = opt.closest(".badge-block");
+      if (!obox) return;
+      var kind = opt.hasAttribute("data-model") ? "model"
+               : opt.hasAttribute("data-pal") ? "pal" : "lvl";
+      obox.setAttribute("data-" + kind, opt.getAttribute("data-" + kind));
+      /* Une seule option allumée par rangée. */
+      var sibs = opt.parentNode.querySelectorAll(".badge-opt"), i;
+      for (i = 0; i < sibs.length; i++) {
+        if (sibs[i] === opt) sibs[i].classList.add("is-on");
+        else sibs[i].classList.remove("is-on");
+        sibs[i].setAttribute("aria-pressed", sibs[i] === opt ? "true" : "false");
+      }
+      renderPreview(obox);
+      return;
+    }
+
+    /* Téléchargement de la pièce affichée */
+    var btn = t.closest(".badge-dl");
     if (!btn) return;
     var box = btn.closest(".badge-block");
-    var err = box && box.querySelector(".badge-block__err");
-    var data;
-    try { data = JSON.parse(decodeURIComponent(btn.getAttribute("data-badge") || "{}")); }
-    catch (e) { data = {}; }
+    if (!box) return;
+    var err = box.querySelector(".badge-block__err");
+    var st = boxState(box);
 
     var was = btn.textContent;
     btn.disabled = true;
     btn.textContent = "Préparation…";
     if (err) err.hidden = true;
 
-    download(data, function (msg) {
+    download(st.data, st.opts, function (msg) {
       btn.disabled = false;
       btn.textContent = was;
       if (msg) {
@@ -537,12 +755,28 @@
         'gap:18px;flex-wrap:wrap;}',
       '.badge-block__head h3{margin:0 0 4px;font-size:15px;}',
       '.badge-block__head p{margin:0;font-size:12.5px;color:var(--muted,#6b776f);max-width:48ch;}',
+      '.badge-pick{display:flex;flex-direction:column;gap:9px;margin-top:16px;}',
+      '.badge-pick__row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}',
+      '.badge-pick__lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;',
+        'color:var(--muted,#6b776f);width:62px;flex:none;}',
+      '.badge-opt{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:12.5px;',
+        'padding:6px 13px;border-radius:999px;border:1px solid var(--line,#e4eae6);',
+        'background:#fff;color:var(--ink,#14201b);cursor:pointer;}',
+      '.badge-opt:hover{border-color:var(--muted,#6b776f);}',
+      '.badge-opt:focus-visible{outline:2px solid ' + ORANGE + ';outline-offset:2px;}',
+      '.badge-opt.is-on{background:' + PAPER + ';border-color:' + PAPER + ';color:#fff;}',
+      '.badge-opt__dot{width:11px;height:11px;border-radius:50%;flex:none;',
+        'box-shadow:inset 0 0 0 1px rgba(0,0,0,.22);}',
+      '.badge-block__act{margin-top:16px;display:flex;justify-content:center;}',
       '.badge-block__preview{margin-top:16px;display:flex;justify-content:center;}',
       '.badge-svg{width:100%;max-width:330px;height:auto;display:block;border-radius:12px;',
         'box-shadow:0 8px 26px -12px rgba(7,48,31,.55);}',
       '.badge-block__err{margin:12px 0 0;font-size:12.5px;color:#8f2a20;}',
 
       '@media print{',
+        /* Sous la feuille, le fond gris de l'interface débordait en bas de
+           page : la zone imprimée doit être blanche jusqu'au bord. */
+        'html,body{background:#fff!important;}',
         '.badge-block{display:none!important;}',
         '.cert{padding:0;}',
         '.cert__frame{min-height:236mm;}',
@@ -557,7 +791,9 @@
   }
 
   window.ACCI_CERT = {
-    logo: logo, seal: seal, html: html, badge: badge,
-    download: download, fmtLong: fmtLong
+    logo: logo, seal: seal, html: html,
+    badge: badge, badgePanel: badgePanel, openBadges: openBadges,
+    download: download, fmtLong: fmtLong,
+    MODELS: MODELS, PALETTES: PALETTES, LEVELS: LEVELS
   };
 })();

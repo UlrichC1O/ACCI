@@ -154,7 +154,10 @@ PAGES = [
      "title": "Galerie photos",
      "subtitle": "Nos actions de terrain, nos rencontres et nos campagnes en images."},
 
-    {"type": "gallery", "columns": 3, "title": "Nos temps forts",
+    # « manage » rend ces deux blocs administrables depuis le CRM
+    # (rubrique « Galerie photos »). Ce qui suit reste le contenu de repli,
+    # affiché tant qu'aucune ligne n'a été enregistrée.
+    {"type": "gallery", "columns": 3, "title": "Nos temps forts", "manage": "gallery",
      "lead": "Un aperçu de la vie de l’association et de ses actions de sensibilisation.",
      "items": [
        {"image": "hero-creators.jpg", "alt": "Atelier de tournage", "caption": "Atelier de création de contenu"},
@@ -165,7 +168,7 @@ PAGES = [
        {"image": "solidarite.jpg", "alt": "Action de sensibilisation collective", "caption": "Sensibilisation et solidarité"},
      ]},
 
-    {"type": "cards", "columns": 3, "title": "Nos albums",
+    {"type": "cards", "columns": 3, "title": "Nos albums", "manage": "albums",
      "items": [
        {"icon": "camera", "title": "Forum du créateur responsable", "text": "Les temps forts de notre rendez-vous annuel."},
        {"icon": "graduation", "title": "Ateliers & formations", "text": "Nos interventions auprès des jeunes et des créateurs."},

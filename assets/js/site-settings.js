@@ -23,6 +23,9 @@
 
   var SUPABASE_URL = "https://durwoqjfjhdersuwxxwg.supabase.co";
   var SUPABASE_KEY = "sb_publishable_BdVe64A0kV6d6vCjdJglvg_JakPYpZ5";
+  /* Le cache suit le découpage de la requête : une seule entrée partagée
+     appliquerait à une page la tranche téléchargée pour une autre, et ses
+     propres corrections manqueraient. */
   var CACHE_KEY = "acci_site_settings";
   var CACHE_MS = 5 * 60 * 1000;   // même fenêtre que les surcharges d'images
 
@@ -41,7 +44,7 @@
 
   function readCache() {
     try {
-      var raw = localStorage.getItem(CACHE_KEY);
+      var raw = localStorage.getItem(CACHE_KEY + ":" + pageSlug());
       if (!raw) return null;
       var c = JSON.parse(raw);
       if (!c || typeof c.map !== "object" || !c.at) return null;
@@ -51,7 +54,7 @@
 
   function writeCache(map) {
     try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), map: map }));
+      localStorage.setItem(CACHE_KEY + ":" + pageSlug(), JSON.stringify({ at: Date.now(), map: map }));
     } catch (e) { /* le cache est un confort, jamais une condition */ }
   }
 
@@ -170,10 +173,17 @@
   function applyContent(map) {
     var nodes = document.querySelectorAll("[data-ck]");
     for (var i = 0; i < nodes.length; i++) {
-      var v = map["content." + nodes[i].getAttribute("data-ck")];
-      if (typeof v === "string" && v !== "" && !nodes[i].hasAttribute("data-icon")) {
-        setRich(nodes[i], v);
-      }
+      var node = nodes[i];
+      var v = map["content." + node.getAttribute("data-ck")];
+      if (typeof v !== "string" || v === "" || node.hasAttribute("data-icon")) continue;
+      setRich(node, v);
+      /* Un chiffre-clé est aussi la cible du compteur animé de main.js, qui lit
+         data-count et se termine par « textContent = raw ». Sans report de la
+         correction dans l'attribut, la valeur corrigée s'affichait puis
+         disparaissait au moment où le bloc entrait dans l'écran, remplacée par
+         la valeur compilée — et seulement là, ce qui la rendait difficile à
+         croire pour qui venait de l'enregistrer. */
+      if (node.hasAttribute("data-count")) node.setAttribute("data-count", v);
     }
   }
 
@@ -342,6 +352,96 @@
     }
   }
 
+  /* ------------------------------------------------------------------------
+     Bureau exécutif
+     La composition d'un bureau change : départs, arrivées, réélections. Figer
+     neuf places à la compilation obligerait à recompiler le site à chaque
+     mouvement, et à passer par un développeur pour une photo. La liste est donc
+     transportée en JSON dans un seul réglage, et reconstruite ici.
+
+     Comme partout sur cette page, une valeur illisible ne casse rien : la liste
+     compilée reste affichée. Un bureau vidé par erreur réapparaît tel qu'il
+     était, plutôt que de laisser une page sans personne.
+     ------------------------------------------------------------------------ */
+  function memberNode(m) {
+    var card = document.createElement("div");
+    card.className = "member reveal is-in";
+
+    var name = typeof m.name === "string" ? m.name.trim() : "";
+    var photo = typeof m.photo === "string" ? m.photo.trim() : "";
+
+    var av = document.createElement("div");
+    if (photo) {
+      av.className = "member__avatar member__avatar--photo";
+      var img = document.createElement("img");
+      img.src = photo;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      /* Un portrait injoignable rend la main aux initiales : mieux vaut une
+         pastille lisible qu'un cadre vide au milieu de la grille. */
+      img.onerror = function () {
+        av.className = "member__avatar";
+        av.textContent = initialsOf(name);
+      };
+      av.appendChild(img);
+    } else {
+      av.className = "member__avatar";
+      av.textContent = initialsOf(name);
+    }
+    card.appendChild(av);
+
+    var h = document.createElement("h3");
+    h.className = "member__name";
+    h.textContent = name;
+    card.appendChild(h);
+
+    var role = typeof m.role === "string" ? m.role.trim() : "";
+    if (role) {
+      var r = document.createElement("span");
+      r.className = "member__role";
+      r.textContent = role;
+      card.appendChild(r);
+    }
+    var bio = typeof m.bio === "string" ? m.bio.trim() : "";
+    if (bio) {
+      var b = document.createElement("p");
+      b.className = "member__bio";
+      b.textContent = bio;
+      card.appendChild(b);
+    }
+    return card;
+  }
+
+  function initialsOf(name) {
+    return String(name || "").split(/\s+/).slice(0, 2)
+      .map(function (w) { return w.charAt(0); }).join("").toUpperCase();
+  }
+
+  function applyTeam(map) {
+    var grids = document.querySelectorAll("[data-site-team]");
+    for (var g = 0; g < grids.length; g++) {
+      var grid = grids[g];
+      var raw = map["team." + grid.getAttribute("data-site-team")];
+      if (typeof raw !== "string" || raw === "") continue;
+      var list = null;
+      try { list = JSON.parse(raw); } catch (e) { continue; }
+      if (!Array.isArray(list)) continue;
+
+      /* Une entrée sans nom n'est pas une personne : on l'ignore plutôt que
+         d'afficher une fiche anonyme. Si aucune n'est valable, la liste
+         compilée reste en place. */
+      var valid = list.filter(function (m) {
+        return m && typeof m === "object" &&
+               typeof m.name === "string" && m.name.trim() !== "";
+      });
+      if (!valid.length) continue;
+
+      while (grid.firstChild) grid.removeChild(grid.firstChild);
+      for (var i = 0; i < valid.length; i++) grid.appendChild(memberNode(valid[i]));
+    }
+  }
+
   function apply(map) {
     if (!map) return;
     publish(map);
@@ -349,6 +449,7 @@
     applyContent(map);
     applyIcons(map);
     applyCharts(map);
+    applyTeam(map);
 
     /* Texte : nom, slogan, coordonnées. */
     TEXT_KEYS.forEach(function (k) {
@@ -531,13 +632,51 @@
     return map;
   }
 
-  function fetchSettings() {
-    return fetch(SUPABASE_URL + "/rest/v1/site_settings?select=key,value", {
+  /* La page ne demande que ce qui la concerne.
+
+     Les corrections de texte sont enregistrées une par champ, sous une clé
+     « content.<page>#<bloc>.<champ> ». Le site en compte 1419 : les charger
+     toutes à chaque page revenait à télécharger, pour la page d'accueil, les
+     corrections des cinquante et une autres. La requête ne retient donc que les
+     clés générales — identité, couleurs, icônes, graphiques, assistant — et les
+     corrections de la page affichée.
+
+     Le repère de page est lu sur le premier noeud modifiable plutôt que dans
+     l'adresse : c'est la même valeur que celle qui sert de clé, donc elle reste
+     juste quelle que soit la façon dont la page a été servie (avec ou sans
+     .html, par un alias, depuis un sous-dossier). */
+  function pageSlug() {
+    var n = document.querySelector("[data-ck]");
+    if (n) {
+      var k = n.getAttribute("data-ck") || "";
+      var hash = k.indexOf("#");
+      if (hash > 0) return k.slice(0, hash);
+    }
+    var last = (location.pathname.split("/").pop() || "index").replace(/\.html$/, "");
+    return last || "index";
+  }
+
+  function get(query) {
+    return fetch(SUPABASE_URL + "/rest/v1/site_settings?" + query, {
       headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }
     }).then(function (r) {
       if (!r.ok) throw new Error("http " + r.status);
       return r.json();
     }).then(toMap);
+  }
+
+  function fetchSettings() {
+    var slug = pageSlug();
+    /* Un repère inattendu ne part pas dans la requête : il y ouvrirait la
+       syntaxe du filtre. Dans ce cas on demande tout, comme avant. */
+    if (!/^[a-z0-9-]+$/.test(slug)) return get("select=key,value");
+    var filtered = "select=key,value&or=(key.not.like.content.*,key.like.content."
+      + encodeURIComponent(slug) + "%23*)";
+    return get(filtered).catch(function () {
+      /* Filtre refusé (syntaxe, version du service) : on retombe sur la
+         requête complète plutôt que de laisser la page sans ses réglages. */
+      return get("select=key,value");
+    });
   }
 
   function run() {

@@ -1,0 +1,35 @@
+/* =========================================================================
+   ACCI — Galerie photos : styles de la rubrique
+   Chargée par gallery.js, comme pieces.css l'est par pieces.js.
+   ========================================================================= */
+
+/* La vignette sert à reconnaître la photo d'un coup d'œil, pas à la juger :
+   une hauteur fixe garde les lignes du tableau régulières. */
+.gal-thumb{
+  width:64px; height:44px; object-fit:cover; border-radius:6px;
+  border:1px solid var(--line,#e4eae6); display:block; background:var(--bg-soft,#f6f9f7);
+}
+.gal-thumb--none{
+  display:grid; place-items:center; color:var(--muted,#6b776f); font-size:12px;
+}
+
+/* La clé de photothèque est une donnée technique : elle reste lisible mais
+   ne doit pas rivaliser avec la légende. */
+.gal-src{ font-size:12.5px; word-break:break-all; max-width:180px }
+.gal-pos{ font-variant-numeric:tabular-nums; text-align:right; width:56px }
+
+.gal-act{ white-space:nowrap; text-align:right }
+.gal-act .abtn{ margin-left:4px }
+
+/* Repris de social-bank.css pour que la rubrique ne dépende pas d'un autre
+   module pour son propre affichage. */
+.sb-warn{
+  margin-top:8px; font-size:13.5px;
+  border-left:3px solid var(--orange,#F77F00); padding-left:12px;
+}
+
+@media (max-width:720px){
+  .gal-src{ max-width:110px }
+  .gal-act{ white-space:normal }
+  .gal-act .abtn{ margin:2px 0 0 4px }
+}

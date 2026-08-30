@@ -682,3 +682,14 @@ input.afield:focus{outline:none;border-color:var(--orange);
   .artiste-hero__id{gap:12px;}
   .artiste-hero__id .avatar{width:56px!important;height:56px!important;font-size:21px!important;}
 }
+
+/* ---------------------------------------------------------------------------
+   Bureau exécutif
+   --------------------------------------------------------------------------- */
+.bd-thumb{width:44px;height:44px;border-radius:50%;object-fit:cover;display:grid;
+  place-items:center;background:var(--line-2);font-weight:800;font-size:13px;
+  color:var(--muted);flex-shrink:0;}
+.bd-thumb--none{font-family:var(--font-head);}
+.bd-photo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.bd-photo img{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--line-2);}
+.bd-photo .bd-thumb{width:72px;height:72px;font-size:18px;}

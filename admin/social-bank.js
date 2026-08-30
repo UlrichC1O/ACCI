@@ -855,7 +855,7 @@
      Repli sur les valeurs compilées si la lecture échoue. */
   var IDENT = {
     "site.long_name": "Association des Créateurs de Contenu Ivoiriens",
-    "site.email": "contact@acci.ci",
+    "site.email": "contact@ivoiriens.ac.ci",
     "site.phone": "+225 27 22 00 00 00",
     "site.address": "Cocody, Riviera Golf — Abidjan, Côte d’Ivoire"
   };
@@ -887,6 +887,7 @@
     return '@page{size:A4;margin:16mm 14mm 14mm}' +
     'html,body{margin:0;padding:0}' +
     'body{font:10.5pt/1.5 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#22302a;background:#fff;' +
+      'orphans:3;widows:3;' +
       '-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
     'h1,h2,h3,h4{font-family:"Sora",Georgia,serif;color:#0B3D2E;margin:0;line-height:1.2}' +
     '.seal{display:block}' +
@@ -904,12 +905,19 @@
     /* sections */
     '.part{break-before:page}' +
     '.part__num{font-size:8pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#B34F00}' +
-    '.part h2{font-size:18pt;margin:2mm 0 3mm}' +
+    '.part h2{font-size:18pt;margin:2mm 0 3mm;break-after:avoid;page-break-after:avoid}' +
     '.part__lede{font-size:10pt;color:#5b6b63;max-width:150mm;margin-bottom:7mm}' +
-    '.grp{break-inside:avoid;margin-bottom:7mm}' +
-    '.grp__t{font-size:11pt;color:#0B7A3B;border-bottom:.4mm solid #e1e9e4;padding-bottom:2mm;margin-bottom:4mm}' +
+    /* Pas de break-inside:avoid ici : un groupe de pilier fait 2,5 à 2,7 pages.
+       Demander au moteur de ne pas le couper est impossible à satisfaire, et il
+       s'en tire en poussant tout le groupe à la page suivante — d'où les grands
+       blancs en bas de page. La consigne appartient aux éléments qui tiennent
+       vraiment sur une page (.w et .g), pas à leur conteneur. */
+    '.grp{margin-bottom:7mm}' +
+    /* Un titre de section ne reste jamais seul en bas d'une page. */
+    '.grp__t{font-size:11pt;color:#0B7A3B;border-bottom:.4mm solid #e1e9e4;padding-bottom:2mm;' +
+      'margin-bottom:4mm;break-after:avoid;page-break-after:avoid}' +
     /* publications rédigées */
-    '.w{break-inside:avoid;margin-bottom:5mm;padding-left:16mm;position:relative}' +
+    '.w{break-inside:avoid;page-break-inside:avoid;margin-bottom:5mm;padding-left:16mm;position:relative}' +
     '.w__ref{position:absolute;left:0;top:0;font-family:"Sora",Georgia,serif;font-weight:700;' +
       'font-size:9pt;color:#B34F00;font-variant-numeric:tabular-nums}' +
     '.w__fmt{font-size:7.5pt;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0B7A3B}' +
@@ -932,7 +940,7 @@
     '.w__c b{color:#B34F00}' +
     /* pistes générées */
     '.pistes{column-count:2;column-gap:8mm}' +
-    '.g{break-inside:avoid;margin-bottom:4mm}' +
+    '.g{break-inside:avoid;page-break-inside:avoid;margin-bottom:4mm}' +
     '.g p{margin:0}' +
     '.g__t{font-family:"Sora",Georgia,serif;font-weight:700;font-size:9.5pt;color:#14201b;line-height:1.3}' +
     '.g__a{font-size:8pt;color:#0B7A3B;margin-top:.6mm}' +

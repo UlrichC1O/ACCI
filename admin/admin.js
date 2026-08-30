@@ -1007,7 +1007,7 @@ function seedMembers(){
       {id:"c8",type:"Individuel",name:"Sékou Ouattara",company:"",email:"sekou.o@exemple.ci",phone:"+225 07 55 66 77",city:"Abidjan",country:"Côte d'Ivoire",tags:["Actualité & médias"],status:"Actif",charter:true,premium:true,approved:false,approvalCode:"",approvedAt:""},
       {id:"c9",type:"Individuel",name:"Aminata Coulibaly",company:"",email:"aminata.c@exemple.ci",phone:"+225 01 88 99 00",city:"Daloa",country:"Côte d'Ivoire",tags:["Entrepreneuriat"],status:"Lead",approved:false,approvalCode:"",approvedAt:""},
       {id:"c10",type:"Individuel",name:"Ibrahim Sanogo",company:"",email:"ibrahim.s@exemple.ci",phone:"+225 05 99 00 11",city:"Man",country:"Côte d'Ivoire",tags:["Éducation"],status:"Lead",approved:false,approvalCode:"",approvedAt:""},
-      {id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@acci.ci",phone:"+225 07 00 00 99",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,approved:false,approvalCode:"",approvedAt:""}
+      {id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@ivoiriens.ac.ci",phone:"+225 07 00 00 99",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,approved:false,approvalCode:"",approvedAt:""}
     ];
     cs.forEach(function(c,i){c.address="";c.social="";c.notes=c.notes||"";c.charter=c.charter||false;c.createdAt=new Date(N-86400000*(60-i*5)).toISOString();c.updatedAt=todayISO();S.customers.save(S.customers.all().concat([c]));});
   }
@@ -1086,9 +1086,9 @@ function seedAll(){
       {id:uid(),title:"Prochaine formation ACCI — Création responsable",content:"Formation ouverte à tous les membres ACCI sur la création de contenu responsable. Inscriptions en cours.",priority:"Haute",createdAt:new Date(N-86400000*5).toISOString()}
     ]);
     S.teamMembers.save([
-      {id:uid(),name:"Admin ACCI",role:"Administrateur",email:"admin@acci.ci",phone:"+225 07 00 00 00",department:"Direction",status:"Actif",createdAt:new Date(N-86400000*90).toISOString()},
-      {id:uid(),name:"Agent Support ACCI",role:"Agent",email:"support@acci.ci",phone:"+225 05 00 00 01",department:"Support",status:"Actif",createdAt:new Date(N-86400000*60).toISOString()},
-      {id:uid(),name:"Agent Commercial ACCI",role:"Agent",email:"commercial@acci.ci",phone:"+225 05 00 00 02",department:"Commercial",status:"Actif",createdAt:new Date(N-86400000*45).toISOString()}
+      {id:uid(),name:"Admin ACCI",role:"Administrateur",email:"admin@ivoiriens.ac.ci",phone:"+225 07 00 00 00",department:"Direction",status:"Actif",createdAt:new Date(N-86400000*90).toISOString()},
+      {id:uid(),name:"Agent Support ACCI",role:"Agent",email:"support@ivoiriens.ac.ci",phone:"+225 05 00 00 01",department:"Support",status:"Actif",createdAt:new Date(N-86400000*60).toISOString()},
+      {id:uid(),name:"Agent Commercial ACCI",role:"Agent",email:"commercial@ivoiriens.ac.ci",phone:"+225 05 00 00 02",department:"Commercial",status:"Actif",createdAt:new Date(N-86400000*45).toISOString()}
     ]);
   }
   storageWrite("acci_seeded_v5","1");
@@ -2140,6 +2140,7 @@ function openCustomerDetail(id){
       ' — Réf. <code style="background:var(--green-l);padding:3px 8px;border-radius:6px;font-weight:700">'+esc(x.certNumber||"")+'</code>'+
       '<br><span class="muted">Délivrée le '+fmtDate(x.certDate)+(x.certExpiry?' · valable jusqu\'au '+fmtDate(x.certExpiry):'')+'</span>'+
       '<br><button class="abtn abtn--primary abtn--sm" id="cd-cert-view" style="margin-top:6px"><i data-ic=doc></i> Voir l\'attestation</button>'+
+      ' <button class="abtn abtn--ghost abtn--sm" id="cd-cert-badges" style="margin-top:6px"><i data-ic=badge></i> Badges</button>'+
       ' <button class="abtn abtn--danger abtn--sm" id="cd-cert-revoke" style="margin-top:6px">Révoquer</button>';
   }else if(!x.charter){
     certH+='<span class="muted">Non certifié</span><br><span class="muted" style="font-size:11.5px">La charte ACCI doit d\'abord être signée par le membre.</span>';
@@ -2249,6 +2250,13 @@ function openCustomerDetail(id){
   });
   var certView=$("#cd-cert-view");
   if(certView)certView.addEventListener("click",function(){openCertificate(x);});
+  /* Les badges s'ouvrent seuls : un membre peut vouloir sa vignette pour les
+     réseaux sans réimprimer son attestation. */
+  var certBadges=$("#cd-cert-badges");
+  if(certBadges)certBadges.addEventListener("click",function(){
+    if(!window.ACCI_CERT||!window.ACCI_CERT.openBadges){toast("Module de badges indisponible.","err");return;}
+    window.ACCI_CERT.openBadges({name:x.name,type:x.type,number:x.certNumber,date:x.certDate});
+  });
   var certRevoke=$("#cd-cert-revoke");
   if(certRevoke)certRevoke.addEventListener("click",function(){
     confirmDel(function(){

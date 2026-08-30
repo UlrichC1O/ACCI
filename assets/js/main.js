@@ -334,22 +334,28 @@
   /* =======================================================================
      FORMULAIRES — validation réelle + envoi fonctionnel
      -----------------------------------------------------------------------
-     Deux modes d'envoi :
-     1) Si ACCI_FORM_ENDPOINT est renseigné (Formspree, Web3Forms, etc.),
-        le formulaire est envoyé en arrière-plan par fetch (AJAX).
-     2) Sinon, on ouvre le client e-mail du visiteur, pré-rempli
-        (mailto), vers l'adresse de contact — fonctionne sans serveur.
-     Pour activer l'envoi automatique : remplacez la chaîne vide ci-dessous
-     par votre URL de point de terminaison (ex. https://formspree.io/f/xxxx).
+     Trois destinations, dans cet ordre :
+     1) ACCI_FORM_ENDPOINT s'il est renseigné (Formspree, Web3Forms…) ;
+     2) sinon la table « form_requests » du projet Supabase, d'où la
+        « Réception » de l'administration redescend les demandes ;
+     3) sinon la messagerie du visiteur, pré-remplie (mailto).
+
+     Avant l'ajout de (2), aucune destination n'était configurée : chaque
+     formulaire rempli ouvrait la messagerie du visiteur, à charge pour lui
+     de cliquer « Envoyer », et la Réception du CRM restait vide.
+
+     La clé ci-dessous est la clé PUBLIABLE, faite pour être distribuée dans
+     un bundle public. Ce sont les politiques RLS qui décident de ce qu'elle
+     autorise : déposer une demande, et rien d'autre. Elle ne permet pas de
+     relire ce que d'autres ont envoyé — indispensable, ces messages
+     contenant ceux adressés à la cellule d'écoute.
+     Voir supabase/migrations/20260830120000_form_requests.sql.
      ======================================================================= */
   var ACCI_FORM_ENDPOINT = "";              // ← coller ici votre endpoint
-  if (!ACCI_FORM_ENDPOINT) {
-    console.warn("[ACCI] Aucun ACCI_FORM_ENDPOINT configuré : les formulaires " +
-      "basculent sur l’ouverture du client e-mail du visiteur. Renseignez un " +
-      "service de formulaire (Formspree, Web3Forms) avant la mise en ligne " +
-      "pour que les envois parviennent réellement à l’association.");
-  }
-  var ACCI_CONTACT_EMAIL = "contact@acci.ci";
+  var SUPABASE_URL = "https://durwoqjfjhdersuwxxwg.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_BdVe64A0kV6d6vCjdJglvg_JakPYpZ5";
+  var REQUESTS_TABLE = "form_requests";
+  var ACCI_CONTACT_EMAIL = "contact@ivoiriens.ac.ci";
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   function setError(field, msg) {
@@ -416,6 +422,37 @@
     }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r; });
   }
 
+  /* Dépôt d'une demande dans Supabase. Les longueurs sont bornées ici comme
+     elles le sont par la contrainte CHECK de la table : dépasser côté client
+     ferait échouer l'insertion sans que le visiteur comprenne pourquoi. */
+  function postRequest(kind, d) {
+    return fetch(SUPABASE_URL + "/rest/v1/" + REQUESTS_TABLE, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: "Bearer " + SUPABASE_KEY,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        kind: kind,
+        name: (d.name || "").slice(0, 200),
+        email: (d.email || "").slice(0, 200),
+        phone: (d.phone === "—" ? "" : (d.phone || "")).slice(0, 60),
+        subject: (d.subject || "").slice(0, 300),
+        message: (d.message || "").slice(0, 5000),
+        page: (location.pathname || "").slice(0, 300)
+      })
+    }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r; });
+  }
+
+  /* La destination retenue, ou null s'il faut passer par la messagerie. */
+  function sender(kind) {
+    if (ACCI_FORM_ENDPOINT) return function (d) { return postEndpoint(d); };
+    if (SUPABASE_URL && SUPABASE_KEY) return function (d) { return postRequest(kind, d); };
+    return null;
+  }
+
   /* ---- Formulaire de contact ---- */
   var contactForm = document.getElementById("contact-form");
   if (contactForm) {
@@ -437,9 +474,10 @@
       var btn = document.getElementById("contact-submit");
       var orig = btn.textContent;
 
-      if (ACCI_FORM_ENDPOINT) {
+      var send = sender(contactForm.getAttribute("data-kind") || "contact");
+      if (send) {
         btn.disabled = true; btn.textContent = "Envoi en cours…";
-        postEndpoint(data).then(function () {
+        send(data).then(function () {
           note(noteEl, "Merci " + data.name + " ! Votre message a bien été envoyé. Nous vous répondrons rapidement.", "ok");
           contactForm.reset();
         }).catch(function () {
@@ -493,9 +531,13 @@
       input.classList.remove("is-invalid");
       input.setAttribute("aria-invalid", "false");
       var btn = newsForm.querySelector("button");
-      if (ACCI_FORM_ENDPOINT) {
+      var sendNews = sender("newsletter");
+      if (sendNews) {
         btn.disabled = true; btn.textContent = "…";
-        postEndpoint({ email: email, _form: "newsletter", _source: "Site ACCI" }).then(function () {
+        /* Pas d'objet : la Réception affiche déjà « Lettre d'information »
+           d'après le type, et le répéter donnait « Lettre d'information —
+           Inscription à la lettre d'information ». */
+        sendNews({ email: email, _form: "newsletter", _source: "Site ACCI" }).then(function () {
           note(noteEl, "Merci ! Votre inscription est confirmée.", "ok"); newsForm.reset();
         }).catch(function () {
           mailtoFallback("Inscription à la newsletter de l’ACCI", "Je souhaite m’abonner à la newsletter avec l’adresse : " + email);

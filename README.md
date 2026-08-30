@@ -203,6 +203,48 @@ git config core.hooksPath tools/git-hooks
 Si une clé secrète a été exposée (collée dans une conversation, un ticket, une
 capture d'écran), révoquez-la : *Supabase → Settings → API keys → Rotate*.
 
+## Graphiques, assistant et données — modifiables depuis l'administration
+
+La rubrique **« Graphiques & assistant »** de `/admin/` complète « Textes du site » :
+l'essentiel de ce qu'affiche le site se corrige désormais sans recompilation.
+
+| Quoi | Où | Clé enregistrée |
+|---|---|---|
+| Textes et **données des blocs** (chiffres-clés, étapes, chronologie, équipe, définitions, listes, téléchargements) | Identité du site ▸ Textes du site | `content.<page>#<bloc>.<champ>` |
+| **Graphiques** (barres et anneau) : intitulés, valeurs, suffixes, couleurs, ajout / retrait / ordre des séries | Graphiques & assistant ▸ Graphiques | `chart.<page>#<bloc>` |
+| **Assistant** : intentions (mots-clés → réponse → liens) et suggestions rapides | Graphiques & assistant ▸ Assistant | `chat.intents`, `chat.quick` |
+
+L'inventaire des textes modifiables est passé de 1 083 à **1 419** : les données des
+blocs, et non plus seulement leurs titres, sont adressables.
+
+### Ce qui protège le site de ses propres réglages
+
+Un réglage est écrit par un humain pressé, et lu par toutes les pages publiques.
+Trois garde-fous, chacun posé en réponse à un défaut réel constaté dans ce dépôt :
+
+- **Une valeur illisible ne casse rien.** Série vide, JSON invalide, valeur négative,
+  couleur qui n'en est pas une : la valeur est écartée et la page garde ce qui a été
+  compilé. Un graphique ne peut pas devenir un cadre blanc.
+- **Un graphique est redessiné, pas seulement réécrit.** La largeur d'une barre et
+  l'arc d'un secteur sont calculés à la compilation. Remplacer le nombre affiché sans
+  refaire ce calcul aurait donné une barre dont la longueur dément son étiquette.
+- **La base de connaissances de l'assistant n'est jamais interprétée comme du
+  balisage.** `chat.js` insérait ses réponses en `innerHTML` ; une base modifiable en
+  aurait fait un point d'exécution sur les 52 pages du site. Les réponses sont
+  désormais posées en texte, et l'adresse d'un lien n'est retenue que si elle mène à
+  une page du site, à une adresse électronique ou à un numéro.
+
+Un **contrôle à la compilation** refuse par ailleurs de marquer modifiable un élément
+qui en contient d'autres : une correction enregistrée sur un tel noeud en effacerait
+la structure — icône, lien, paragraphes — et seulement chez le visiteur. Trois défauts
+de ce type existaient et ont été corrigés (le libellé d'un bouton qui emportait sa
+flèche, un bloc de texte enrichi entier, et des clés de contact numérotées sur la
+longueur du HTML au lieu du rang de la ligne).
+
+Enfin, chaque page ne télécharge que **les réglages qui la concernent** : les clés
+générales, plus les corrections de la page affichée. Sans ce filtre, la page d'accueil
+aurait chargé les corrections des cinquante et une autres.
+
 ## Réseaux sociaux — renseignés depuis l'administration
 
 Les icônes de réseaux sociaux (barre supérieure et pied de page) **ne sont pas
@@ -244,7 +286,7 @@ obligatoires, format e-mail, longueur minimale), protection anti-spam
 Deux modes d'envoi, configurables en haut de `assets/js/main.js` :
 
 - **Par défaut (sans serveur)** : à la validation, le client e-mail du
-  visiteur s'ouvre, pré-rempli, vers `contact@acci.ci` (constante
+  visiteur s'ouvre, pré-rempli, vers `contact@ivoiriens.ac.ci` (constante
   `ACCI_CONTACT_EMAIL`).
 - **Envoi automatique (recommandé en production)** : renseignez
   `ACCI_FORM_ENDPOINT` avec l'URL d'un service de formulaire
@@ -320,7 +362,7 @@ et jamais un mineur en situation d'exposition.
 ### URL canonique — à renseigner avant la mise en ligne
 
 `SITE["url"]` alimente les balises canoniques, le sitemap, `robots.txt` et les
-données structurées. La valeur par défaut est `https://www.acci.ci`, **domaine
+données structurées. La valeur par défaut est `https://ivoiriens.ac.ci`, **domaine
 qui ne résout pas à ce jour** (NXDOMAIN, constaté le 29/08/2026). Renseignez le
 domaine réel via la variable d'environnement `SITE_URL` (Vercel : *Settings →
 Environment Variables*) ou en modifiant `content/site.py`.

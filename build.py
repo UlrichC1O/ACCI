@@ -302,6 +302,11 @@ def card_image(item, page):
 # employée, sans avoir à analyser le HTML produit.
 IMG_PLACEMENTS = []
 
+# Bureaux exécutifs rencontrés au rendu : l'administration s'en sert pour
+# proposer la composition compilée comme point de départ, et pour savoir sous
+# quelle clé enregistrer la liste modifiée.
+TEAM_BLOCKS = []
+
 
 def _block_index(page, block):
     """Rang du bloc dans sa page — rend l'identifiant d'emplacement unique.
@@ -415,6 +420,24 @@ def r_section(b, page):
     return f'<section class="section"{sid}><div class="container">{head}{body_html}</div></section>'
 
 
+def manage_hook(b):
+    """Repère « ce bloc est administrable » posé sur la section.
+
+    Un bloc porteur de `"manage": "gallery"` (ou "albums") est rendu comme les
+    autres, mais reçoit un attribut que assets/js/site-gallery.js reconnaît :
+    s'il existe des lignes dans Supabase, elles remplacent chez le visiteur ce
+    qui a été compilé. Sans lignes — ou sans réseau — la page garde son contenu
+    d'origine, ce qui est le comportement voulu : le site reste complet même si
+    la base est injoignable.
+
+    Le repère est opt-in par bloc plutôt que par type : r_gallery et r_cards
+    servent des dizaines de sections dans tout le site, et une seule d'entre
+    elles se pilote depuis le CRM.
+    """
+    m = b.get("manage")
+    return f' data-manage="{e(m)}"' if m else ""
+
+
 def r_cards(b, page):
     cols = b.get("columns", 3)
     head = ""
@@ -453,7 +476,8 @@ def r_cards(b, page):
             clickable_close = "</div>"
         body = f'<span class="card__body">{ic}{tag}<h3 class="card__title"{ck(b,f"items.{ci}.title",c["title"])}>{para(c["title"])}</h3>{text}{link}</span>'
         items += f'{clickable_open}{media}{body}{clickable_close}'
-    return f'<section class="section"><div class="container">{head}<div class="grid grid--{cols} reveal">{items}</div></div></section>'
+    return (f'<section class="section"{manage_hook(b)}><div class="container">{head}'
+            f'<div class="grid grid--{cols} reveal">{items}</div></div></section>')
 
 
 def r_stats(b, page):
@@ -461,11 +485,14 @@ def r_stats(b, page):
     if b.get("title"):
         head = f'<div class="section__head section__head--center reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     items = ""
-    for s in b["items"]:
-        suffix = f'<span class="stat__suffix">{e(s.get("suffix",""))}</span>' if s.get("suffix") else ""
+    for si, s in enumerate(b["items"]):
+        suffix = (f'<span class="stat__suffix"{ck(b,f"items.{si}.suffix",s.get("suffix",""))}>'
+                  f'{e(s.get("suffix",""))}</span>') if s.get("suffix") else ""
         items += (
-            f'<div class="stat"><div class="stat__value" data-count="{e(s.get("value",""))}">'
-            f'{e(s["value"])}</div>{suffix}<div class="stat__label">{e(s["label"])}</div></div>'
+            f'<div class="stat"><div class="stat__value" data-count="{e(s.get("value",""))}"'
+            f'{ck(b,f"items.{si}.value",str(s["value"]))}>'
+            f'{e(s["value"])}</div>{suffix}'
+            f'<div class="stat__label"{ck(b,f"items.{si}.label",s["label"])}>{e(s["label"])}</div></div>'
         )
     variant = b.get("variant", "")
     return f'<section class="section section--stats {variant}"><div class="container">{head}<div class="stats reveal">{items}</div></div></section>'
@@ -515,8 +542,9 @@ def r_steps(b, page):
     for i, s in enumerate(b["items"], 1):
         items += (
             f'<li class="step reveal"><span class="step__num">{i:02d}</span>'
-            f'<div class="step__body"><h3 class="step__title">{para(s["title"])}</h3>'
-            f'<p>{para(s["text"])}</p></div></li>'
+            f'<div class="step__body">'
+            f'<h3 class="step__title"{ck(b,f"items.{i-1}.title",s["title"])}>{para(s["title"])}</h3>'
+            f'<p{ck(b,f"items.{i-1}.text",s["text"])}>{para(s["text"])}</p></div></li>'
         )
     return f'<section class="section"><div class="container container--narrow">{head}<ol class="steps">{items}</ol></div></section>'
 
@@ -567,7 +595,10 @@ def r_checklist(b, page):
     cols = b.get("columns", 2)
     good = b.get("variant", "good")
     ic = "check" if good == "good" else "x-circle"
-    items = "".join(f'<li class="reveal">{icon(ic,20,"li-icon li-icon--"+good)}<span>{para(x)}</span></li>' for x in b["items"])
+    items = "".join(
+        f'<li class="reveal">{icon(ic,20,"li-icon li-icon--"+good)}'
+        f'<span{ck(b,f"items.{xi}",x)}>{para(x)}</span></li>'
+        for xi, x in enumerate(b["items"]))
     return f'<section class="section"><div class="container">{head}<ul class="checklist checklist--{cols} checklist--{good}">{items}</ul></div></section>'
 
 
@@ -610,11 +641,13 @@ def r_timeline(b, page):
     if b.get("title"):
         head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     items = ""
-    for it in b["items"]:
+    for ti, it in enumerate(b["items"]):
         items += (
             f'<li class="tl__item reveal"><span class="tl__dot"></span>'
-            f'<span class="tl__year">{e(it["year"])}</span>'
-            f'<div class="tl__card"><h3>{para(it["title"])}</h3><p>{para(it["text"])}</p></div></li>'
+            f'<span class="tl__year"{ck(b,f"items.{ti}.year",str(it["year"]))}>{e(it["year"])}</span>'
+            f'<div class="tl__card">'
+            f'<h3{ck(b,f"items.{ti}.title",it["title"])}>{para(it["title"])}</h3>'
+            f'<p{ck(b,f"items.{ti}.text",it["text"])}>{para(it["text"])}</p></div></li>'
         )
     return f'<section class="section"><div class="container container--narrow">{head}<ul class="timeline">{items}</ul></div></section>'
 
@@ -625,15 +658,56 @@ def r_team(b, page):
         lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
         head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>{lead}</div>'
     items = ""
-    for m in b["items"]:
-        initials = "".join(w[0] for w in m["name"].split()[:2]).upper()
-        bio = f'<p class="member__bio">{para(m["bio"])}</p>' if m.get("bio") else ""
-        items += (
-            f'<div class="member reveal"><div class="member__avatar">{e(initials)}</div>'
-            f'<h3 class="member__name">{e(m["name"])}</h3>'
-            f'<span class="member__role">{e(m["role"])}</span>{bio}</div>'
-        )
-    return f'<section class="section"><div class="container">{head}<div class="grid grid--3">{items}</div></div></section>'
+    for mi, m in enumerate(b["items"]):
+        items += render_member(m, ck_root=b, mi=mi)
+    # L'ancre permet de reconstruire toute la liste depuis l'administration :
+    # la composition d'un bureau change (départs, arrivées, réélections), et un
+    # nombre de places figé à la compilation obligerait à recompiler le site.
+    anchor_key = b.get("_ck", "")
+    TEAM_BLOCKS.append({
+        "anchor": anchor_key,
+        "page": page["slug"],
+        "title": page.get("title", ""),
+        "members": [
+            {"name": m.get("name", ""), "role": m.get("role", ""),
+             "bio": m.get("bio", ""), "photo": m.get("photo", "")}
+            for m in b["items"]
+        ],
+    })
+    anchor = f' data-site-team="{anchor_key}"'
+    return (f'<section class="section"><div class="container">{head}'
+            f'<div class="grid grid--3"{anchor}>{items}</div></div></section>')
+
+
+def member_avatar(m, slot=None, page=None):
+    """Portrait d'un membre, ou ses initiales à défaut.
+
+    La photo reste facultative : un bureau se renouvelle et l'on ne dispose pas
+    toujours du portrait de chacun. Les initiales évitent alors une silhouette
+    générique, qui signalerait une absence plutôt qu'un choix.
+    """
+    photo = m.get("photo")
+    if photo and photo in IMG_MANIFEST:
+        return (f'<div class="member__avatar member__avatar--photo">'
+                f'{picture(photo, alt="", decorative=True, sizes="220px", slot=slot, page=page)}'
+                f'</div>')
+    initials = "".join(w[0] for w in str(m.get("name", "")).split()[:2]).upper()
+    return f'<div class="member__avatar">{e(initials)}</div>'
+
+
+def render_member(m, ck_root=None, mi=0, slot=None, page=None):
+    """Fiche d'un membre du bureau — même balisage à la compilation et à la
+    reconstruction côté navigateur, pour que les deux rendus coïncident."""
+    def mark(field, value):
+        return ck(ck_root, f"items.{mi}.{field}", value) if ck_root else ""
+    bio = (f'<p class="member__bio"{mark("bio", m["bio"])}>{para(m["bio"])}</p>'
+           if m.get("bio") else "")
+    return (
+        f'<div class="member reveal" data-member="{mi}">'
+        f'{member_avatar(m, slot=slot, page=page)}'
+        f'<h3 class="member__name"{mark("name", m.get("name",""))}>{e(m.get("name",""))}</h3>'
+        f'<span class="member__role"{mark("role", m.get("role",""))}>{e(m.get("role",""))}</span>{bio}</div>'
+    )
 
 
 def r_posts(b, page):
@@ -671,10 +745,11 @@ def r_downloads(b, page):
     if b.get("title"):
         head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     items = ""
-    for d in b["items"]:
+    for di, d in enumerate(b["items"]):
         items += f"""<div class="download reveal"><span class="download__icon">{icon("doc",26)}</span>
-          <div class="download__body"><h3>{para(d["title"])}</h3><p>{para(d.get("text",""))}</p></div>
-          <span class="download__meta">{e(d.get("meta","PDF"))}{icon("download",18,"download__dl")}</span></div>"""
+          <div class="download__body"><h3{ck(b,f"items.{di}.title",d["title"])}>{para(d["title"])}</h3>
+          <p{ck(b,f"items.{di}.text",d.get("text",""))}>{para(d.get("text",""))}</p></div>
+          <span class="download__meta"><span{ck(b,f"items.{di}.meta",d.get("meta","PDF"))}>{e(d.get("meta","PDF"))}</span>{icon("download",18,"download__dl")}</span></div>"""
     return f'<section class="section"><div class="container container--narrow">{head}<div class="downloads">{items}</div></div></section>'
 
 
@@ -683,8 +758,10 @@ def r_definitions(b, page):
     if b.get("title"):
         head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     items = ""
-    for d in b["items"]:
-        items += f'<div class="defn reveal"><dt>{para(d["term"])}</dt><dd>{para(d["def"])}</dd></div>'
+    for di, d in enumerate(b["items"]):
+        items += (f'<div class="defn reveal">'
+                  f'<dt{ck(b,f"items.{di}.term",d["term"])}>{para(d["term"])}</dt>'
+                  f'<dd{ck(b,f"items.{di}.def",d["def"])}>{para(d["def"])}</dd></div>')
     return f'<section class="section"><div class="container container--narrow">{head}<dl class="defns">{items}</dl></div></section>'
 
 
@@ -781,7 +858,8 @@ def r_gallery(b, page):
                             sizes=f"(min-width: 900px) {round(100/cols)}vw, 50vw",
                             slot=f"gallery:{page['slug']}:{gi}", page=page['slug'])
                   + f'{cap}</figure>')
-    return f'<section class="section"><div class="container">{head}<div class="gallery grid--{cols}">{items}</div></div></section>'
+    return (f'<section class="section"{manage_hook(b)}><div class="container">{head}'
+            f'<div class="gallery grid--{cols}">{items}</div></div></section>')
 
 
 # Palette et géométrie des graphiques. Elles sont posées ici, puis recopiées
@@ -1234,6 +1312,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <script src="{js_images}" defer></script>
   <script src="{js_settings}" defer></script>
   <script src="{js_partners}" defer></script>
+  <script src="{js_gallery}" defer></script>
 </body>
 </html>
 """
@@ -1339,6 +1418,7 @@ ASSET_URLS = {
     "js_images": "assets/js/site-images.js",
     "js_settings": "assets/js/site-settings.js",
     "js_partners": "assets/js/site-partners.js",
+    "js_gallery": "assets/js/site-gallery.js",
 }
 
 
@@ -1478,6 +1558,10 @@ def build():
               encoding="utf-8") as f:
         json.dump(inventory, f, ensure_ascii=False, separators=(",", ":"))
 
+    # Inventaire du bureau exécutif, lu par l'administration.
+    with open(os.path.join(DIST, "assets", "team-index.json"), "w", encoding="utf-8") as f:
+        json.dump({"blocks": TEAM_BLOCKS}, f, ensure_ascii=False, separators=(",", ":"))
+
     # Sitemap + robots
     with open(os.path.join(DIST, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(build_sitemap(pages))
@@ -1514,6 +1598,8 @@ def build():
     with open(os.path.join(DIST, "assets", "icons.json"), "w", encoding="utf-8") as f:
         json.dump(ICONS, f, ensure_ascii=False, separators=(",", ":"))
     print(f"✓ Inventaire de contenu : {len(CONTENT_INDEX)} textes éditables")
+    if TEAM_BLOCKS:
+        print(f"✓ Bureau exécutif : {len(TEAM_BLOCKS[0]['members'])} membres")
     print(f"✓ Inventaire des graphiques : {len(CHART_INDEX)} graphique(s)")
 
     # Garde-fou : une surcharge de texte est appliquée par setRich(), qui vide le
