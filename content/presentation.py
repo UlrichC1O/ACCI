@@ -400,6 +400,10 @@ PAGES = [
        {"icon": "money", "title": "Secteur privé", "text": "Entreprises mécènes soutenant nos programmes d’intérêt général."},
      ]},
 
+    {"type": "partners",
+     "title": "Ils nous accompagnent",
+     "lead": "Les organisations qui soutiennent l'action de l'ACCI. Cette liste est tenue à jour depuis l'espace d'administration."},
+
     {"type": "split", "icon": "handshake", "reverse": True,
      "kicker": "Devenir partenaire", "title": "Associons nos forces",
      "text": [

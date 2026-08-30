@@ -848,13 +848,28 @@ def r_chart(b, page):
     return f'<section class="section"><div class="container{narrow}">{head}<div class="chart-card reveal">{body}{source}</div></div></section>'
 
 
+def r_partners(b, page):
+    """Grille de partenaires, remplie chez le visiteur.
+
+    La liste vit dans Supabase pour que le bureau puisse ajouter un partenaire
+    sans recompiler le site. La section part masquée et n'est révélée que si
+    des partenaires ont pu être lus : sans cela, un service injoignable — ou
+    une liste encore vide — laisserait un titre suivi d'un vide inexpliqué.
+    """
+    lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
+    title = f'<h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>' if b.get("title") else ""
+    head = f'<div class="section__head section__head--center reveal">{title}{lead}</div>' if (title or lead) else ""
+    return (f'<section class="section section--partners" data-partners hidden>'
+            f'<div class="container">{head}<div class="partners"></div></div></section>')
+
+
 RENDERERS = {
     "hero": r_hero, "section": r_section, "cards": r_cards, "stats": r_stats,
     "accordion": r_accordion, "steps": r_steps, "split": r_split, "callout": r_callout,
     "checklist": r_checklist, "quote": r_quote, "cta": r_cta, "table": r_table,
     "timeline": r_timeline, "team": r_team, "posts": r_posts, "downloads": r_downloads,
     "definitions": r_definitions, "contact": r_contact, "richtext": r_richtext,
-    "image": r_image, "gallery": r_gallery, "chart": r_chart,
+    "image": r_image, "gallery": r_gallery, "chart": r_chart, "partners": r_partners,
 }
 
 
@@ -1179,6 +1194,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <script src="{js_chat}" defer></script>
   <script src="{js_images}" defer></script>
   <script src="{js_settings}" defer></script>
+  <script src="{js_partners}" defer></script>
 </body>
 </html>
 """
@@ -1283,6 +1299,7 @@ ASSET_URLS = {
     "js_chat":   "assets/js/chat.js",
     "js_images": "assets/js/site-images.js",
     "js_settings": "assets/js/site-settings.js",
+    "js_partners": "assets/js/site-partners.js",
 }
 
 

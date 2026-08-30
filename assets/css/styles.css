@@ -926,3 +926,33 @@ a.fcontact:hover { color: #ffc98a; }
 /* Le formulaire garde sa largeur propre : sans cela la mention l'étirait et
    décalait le bouton « S'abonner » sous le champ. */
 .newsletter__form { max-width: 520px; }
+
+/* ---------- Partenaires (grille alimentée à l'exécution) ---------- */
+.partners {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+.partner {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 96px; padding: 16px;
+  background: var(--white); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); text-decoration: none;
+  transition: border-color .18s, transform .18s, box-shadow .18s;
+}
+a.partner:hover, a.partner:focus-visible {
+  border-color: var(--orange); transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(11, 61, 46, .08);
+}
+/* Les logos arrivent à des formats très différents : la hauteur est bornée et
+   le rapport préservé, sinon un logo panoramique écrase toute la ligne. */
+.partner__logo { max-height: 56px; max-width: 100%; width: auto; object-fit: contain; }
+.partner__name {
+  font-weight: 600; font-size: .95rem; color: var(--ink);
+  text-align: center; line-height: 1.35;
+}
+@media (max-width: 560px) {
+  .partners { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .partner { min-height: 78px; padding: 12px; }
+}
