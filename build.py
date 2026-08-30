@@ -377,7 +377,7 @@ def r_stats(b, page):
             f'{e(s["value"])}</div>{suffix}<div class="stat__label">{e(s["label"])}</div></div>'
         )
     variant = b.get("variant", "")
-    return f'<section class="section section--stats {variant}"><div class="container"><div class="stats reveal">{items}</div></div></section>'
+    return f'<section class="section section--stats {variant}"><div class="container">{head}<div class="stats reveal">{items}</div></div></section>'
 
 
 _ACC_SEQ = [0]
