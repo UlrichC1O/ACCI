@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# ---------------------------------------------------------------------------
+# Refuse tout commit contenant une clé secrète Supabase.
+#
+# Le site est statique et son administration s'exécute dans le navigateur :
+# aucun code de ce dépôt ne tourne côté serveur. Une clé « sb_secret_ » ou
+# « service_role » y serait donc forcément exposée au public — et elle ignore
+# les politiques RLS, ce qui donnerait à n'importe quel visiteur un accès
+# complet en lecture, écriture et suppression sur la base.
+#
+# Activation (une fois par poste) :
+#     git config core.hooksPath tools/git-hooks
+# ---------------------------------------------------------------------------
+set -euo pipefail
+
+motifs='sb_secret_|service_role|SUPABASE_SECRET_KEY'
+
+# Le fichier de contrôle lui-même et la documentation citent forcément ces
+# motifs : les exclure, sinon le garde-fou s'interdirait d'être installé.
+fichiers=$(git diff --cached --name-only \
+           | grep -vE '^(tools/git-hooks/|README\.md$|.*\.example$)' || true)
+[ -z "$fichiers" ] && exit 0
+
+if printf '%s\n' "$fichiers" | xargs -r git diff --cached -- \
+   | grep -nE "^\+.*($motifs)" >/dev/null 2>&1; then
+  echo ""
+  echo "✗ Commit refusé : une clé secrète Supabase apparaît dans les modifications."
+  echo ""
+  printf '%s\n' "$fichiers" | xargs -r git diff --cached -- \
+    | grep -nE "^\+.*($motifs)" | head -5 | sed 's/^/    /'
+  echo ""
+  echo "  Ce dépôt n'a aucun composant serveur : une clé secrète y serait publique."
+  echo "  Utilisez la clé publiable (sb_publishable_…), protégée par les"
+  echo "  politiques RLS. Si la clé secrète a fuité, révoquez-la dans le"
+  echo "  tableau de bord Supabase (Settings → API keys)."
+  echo ""
+  exit 1
+fi

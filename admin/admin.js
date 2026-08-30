@@ -101,9 +101,23 @@ var state={view:"dashboard",sub:{},query:"",cFSt:"",cFCat:"",cSort:"createdAt",c
 
 /* =========================== ADMIN HELPERS =============================== */
 var SUPER_USER="ogou";
-function currentAdmin(){try{return JSON.parse(sessionStorage.getItem("acci_admin"));}catch(e){return null;}}
+/* La session ne conserve qu'un repère vers la fiche : les droits sont relus dans
+   acci_admins à chaque contrôle. La copie figée dans sessionStorage survivait
+   sinon au retrait d'un module, au changement de mot de passe et même à la
+   suppression du compte — un onglet ouvert gardait tous ses accès. */
+function currentAdmin(){
+  var s;try{s=JSON.parse(sessionStorage.getItem("acci_admin"));}catch(e){return null;}
+  if(!s)return null;
+  var a=S.admins.all().find(function(x){return s.id?x.id===s.id:x.username===s.username;});
+  if(!a||!a.approved){sessionStorage.removeItem("acci_admin");return null;}
+  return a;
+}
 function isSuperAdmin(){var a=currentAdmin();return a&&a.role==="super_admin";}
-function canAccess(mod){var a=currentAdmin();if(!a)return false;if(a.role==="super_admin")return true;if(!a.allowedModules)return false;return a.allowedModules.indexOf(mod)!==-1;}
+/* « Tous les modules » est enregistré comme le seul jeton "*". Le jeton est gardé
+   tel quel plutôt qu'étendu à la création, sinon les rubriques déclarées ensuite
+   (images.js) manqueraient à un compte censé tout couvrir. */
+function hasAllModules(a){return!!(a&&a.allowedModules&&a.allowedModules.indexOf("*")!==-1);}
+function canAccess(mod){var a=currentAdmin();if(!a)return false;if(a.role==="super_admin")return true;if(!a.allowedModules)return false;if(hasAllModules(a))return true;return a.allowedModules.indexOf(mod)!==-1;}
 
 /* All sidebar items definition */
 var SIDEBAR_ITEMS=[
@@ -170,6 +184,9 @@ function initAuth(){
     var code=$("#member-code").value.trim().toUpperCase();
     var err=$("#member-err");
     if(!code){err.textContent="Veuillez entrer votre code.";err.hidden=false;return;}
+    /* Le fichier des membres n'était rempli que par la session administrateur : sur
+       un poste où le CRM n'a jamais été ouvert, un code valide était rejeté. */
+    migrate();seedMembers();
     var member=S.customers.all().find(function(c){return c.approved===true&&c.approvalCode===code;});
     if(!member){err.textContent="Code invalide ou accès non approuvé.";err.hidden=false;return;}
     err.hidden=true;
@@ -190,11 +207,16 @@ function initAuth(){
     var code=$("#artiste-code").value.trim().toUpperCase();
     var err=$("#artiste-err");
     if(!code){err.textContent="Veuillez entrer votre code.";err.hidden=false;return;}
+    /* Même amorçage que le portail Membre, pour la même raison : le compte Artiste
+       de démonstration n'existe pas tant qu'aucun admin n'est passé sur ce poste. */
+    migrate();seedMembers();
     var artiste=S.customers.all().find(function(c){return c.approved===true&&c.premium===true&&c.approvalCode===code;});
     if(!artiste){err.textContent="Code invalide, accès non approuvé, ou statut Premium non activé.";err.hidden=false;return;}
     err.hidden=true;
     lEl.hidden=true;aEl.hidden=true;mEl.hidden=true;artEl.hidden=false;
-    sessionStorage.setItem("acci_artiste",JSON.stringify(artiste));
+    /* Rien ne relit une session Artiste au chargement : la conserver ne faisait que
+       laisser derrière elle une fiche périmée, que la sortie seule effaçait. Le
+       portail Membre fonctionne de la même façon, sans trace persistante. */
     renderArtistePortal(artiste);
   });
 
@@ -202,7 +224,6 @@ function initAuth(){
   var artLogout=$("#artiste-logout");
   if(artLogout)artLogout.addEventListener("click",function(){
     artEl.hidden=true;lEl.hidden=false;
-    sessionStorage.removeItem("acci_artiste");
     var ac=$("#artiste-code");if(ac)ac.value="";
   });
 
@@ -219,6 +240,9 @@ function initAuth(){
   /* Resume session */
   if(currentAdmin()){show();return;}
 
+  /* L'indice du champ doit nommer le compte réellement livré : recopié tel quel,
+     un indice fantaisiste renvoyait « Utilisateur introuvable ». */
+  var lu=$("#login-user");if(lu)lu.placeholder=SUPER_USER;
   var hint=$("#login-hint");if(hint){hint.textContent="Demandez vos identifiants à l'administrateur ogou.";hint.hidden=false;}
 
   /* Admin login form */
@@ -534,13 +558,13 @@ function migrate(){
 }
 
 /* =========================== SEED DATA ================================== */
-function seedAll(){
-  if(localStorage.getItem("acci_seeded_v5"))return;
-  var N=Date.now();
-  if(S.services.count()===0){
-    [["Formation création de contenu",150000],["Accompagnement juridique",75000],["Certification créateur responsable",50000],["Audit de chaîne / page",100000],["Médiation de conflit",60000],["Atelier monétisation",120000],["Signalement d'abus",0],["Cellule d'écoute",0],["Vérification d'information",30000]].forEach(function(s){S.services.add({name:s[0],defaultPrice:s[1],active:true});});
-  }
+/* Les portails Membre et Artiste interrogent le fichier des membres avant toute
+   connexion admin : sur un poste neuf, les codes valides étaient refusés parce que
+   ce fichier n'était rempli que par la session administrateur. Le jeu de démo
+   complet (demandes, cotisations, projets) reste, lui, réservé à cette session. */
+function seedMembers(){
   if(S.customers.count()===0){
+    var N=Date.now();
     var cs=[
       {id:"c1",type:"Individuel",name:"Awa Koné",company:"",email:"awa.kone@exemple.ci",phone:"+225 07 01 02 03",city:"Abidjan",country:"Côte d'Ivoire",tags:["Éducation"],status:"Actif",notes:"Créatrice éducative engagée dans la sensibilisation ACCI.",charter:true,premium:true,approved:true,approvalCode:"FHBXZ294",approvedAt:new Date(N-86400000*30).toISOString()},
       {id:"c2",type:"Individuel",name:"Yao Brou",company:"",email:"yao.brou@exemple.ci",phone:"+225 05 11 22 33",city:"Bouaké",country:"Côte d'Ivoire",tags:["Humour & divertissement"],status:"Actif",charter:true,premium:true,approved:true,approvalCode:"RXKMT847",approvedAt:new Date(N-86400000*25).toISOString()},
@@ -555,7 +579,23 @@ function seedAll(){
       {id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@acci.ci",phone:"+225 07 00 00 99",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,approved:true,approvalCode:"AAAAAOOO",approvedAt:new Date(N-86400000*5).toISOString()}
     ];
     cs.forEach(function(c,i){c.address="";c.social="";c.notes=c.notes||"";c.charter=c.charter||false;c.createdAt=new Date(N-86400000*(60-i*5)).toISOString();c.updatedAt=todayISO();S.customers.save(S.customers.all().concat([c]));});
+  }
+  /* Le compte de démonstration Artiste Premium est garanti à part : il sert de
+     porte d'entrée au portail Artiste et peut manquer d'un import de membres. */
+  var hasArt=S.customers.all().some(function(c){return c.approvalCode==="AAAAAOOO";});
+  if(!hasArt){
+    S.customers.add({id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@acci.ci",phone:"+225 07 00 00 99",address:"",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,social:"",approved:true,approvalCode:"AAAAAOOO",approvedAt:new Date().toISOString(),createdAt:new Date().toISOString(),updatedAt:todayISO()});
+  }
+}
 
+function seedAll(){
+  if(localStorage.getItem("acci_seeded_v5"))return;
+  var N=Date.now();
+  if(S.services.count()===0){
+    [["Formation création de contenu",150000],["Accompagnement juridique",75000],["Certification créateur responsable",50000],["Audit de chaîne / page",100000],["Médiation de conflit",60000],["Atelier monétisation",120000],["Signalement d'abus",0],["Cellule d'écoute",0],["Vérification d'information",30000]].forEach(function(s){S.services.add({name:s[0],defaultPrice:s[1],active:true});});
+  }
+  seedMembers();
+  if(S.contacts.count()===0){
     S.contacts.save([
       {id:uid(),customerId:"c3",name:"Marc Diouf",role:"Directeur",email:"marc@mediapro.ci",phone:"+225 07 11 00 11",createdAt:new Date(N-86400000*38).toISOString()},
       {id:uid(),customerId:"c3",name:"Aïcha Konaté",role:"Comm.",email:"aicha@mediapro.ci",phone:"+225 05 22 00 22",createdAt:new Date(N-86400000*35).toISOString()},
@@ -618,12 +658,6 @@ function seedAll(){
     ]);
   }
   localStorage.setItem("acci_seeded_v5","1");
-
-  /* Always ensure AAAAAOOO premium artiste exists */
-  var hasArt=S.customers.all().some(function(c){return c.approvalCode==="AAAAAOOO";});
-  if(!hasArt){
-    S.customers.add({id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@acci.ci",phone:"+225 07 00 00 99",address:"",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,social:"",approved:true,approvalCode:"AAAAAOOO",approvedAt:new Date().toISOString(),createdAt:new Date().toISOString(),updatedAt:todayISO()});
-  }
 }
 
 /* =========================== UI COMPONENTS ============================== */
@@ -1222,13 +1256,13 @@ RA("admin.admins",function(){
       '<div class="drow"><span class="dk">Nom</span><span class="dv">'+esc(me.name)+'</span></div>'+
       '<div class="drow"><span class="dk">Rôle</span><span class="dv">'+badge(me.role==="super_admin"?"Super Admin":"Admin")+'</span></div>'+
       (me.approvalCode?'<div class="drow"><span class="dk">Code d\'approbation</span><span class="dv"><code style="font-size:15px;letter-spacing:2px;font-weight:700;background:var(--green-l);padding:3px 10px;border-radius:6px">'+esc(me.approvalCode)+'</code></span></div>':'')+
-      '<div class="drow"><span class="dk">Modules autorisés</span><span class="dv">'+(me.allowedModules&&me.allowedModules[0]==="*"?"Tous":esc((me.allowedModules||[]).join(", ")))+'</span></div>'+
+      '<div class="drow"><span class="dk">Modules autorisés</span><span class="dv">'+(hasAllModules(me)?"Tous":esc((me.allowedModules||[]).join(", ")))+'</span></div>'+
       '</section><p class="muted">Seul l\'administrateur <b>ogou</b> peut modifier les comptes administrateurs.</p>';
   }
   /* Super admin — full admin management */
   var cards=admins.map(function(a){
     var isS=a.role==="super_admin";
-    var modCount=a.allowedModules&&a.allowedModules[0]==="*"?"Tous ("+ALL_MODULES.length+")":((a.allowedModules||[]).length+" / "+ALL_MODULES.length);
+    var modCount=hasAllModules(a)?"Tous ("+ALL_MODULES.length+")":((a.allowedModules||[]).length+" / "+ALL_MODULES.length);
     return'<div class="admin-card'+(isS?" admin-card--super":"")+'">'+
       avatar({name:a.name||a.username},40)+
       '<div class="admin-card__info"><h3>'+esc(a.name||a.username)+'</h3><p>@'+esc(a.username)+' · '+(isS?'<span style="color:var(--orange);font-weight:700">👑 Super Admin</span>':'Admin')+
@@ -1253,7 +1287,7 @@ function openAdminForm(id){
   if(!a)return;
   var isNew=!id;
   var modChecks=ALL_MODULES.map(function(m){
-    var checked=a.allowedModules&&(a.allowedModules[0]==="*"||a.allowedModules.indexOf(m)!==-1);
+    var checked=hasAllModules(a)||!!(a.allowedModules&&a.allowedModules.indexOf(m)!==-1);
     var modLabel=MODS[m]?MODS[m].title:(m==="inbox"?"Réception":m==="data"?"Import / Export":m);
     return'<label class="perm-item"><input type="checkbox" class="perm-cb" value="'+m+'"'+(checked?" checked":"")+'> '+esc(modLabel)+'</label>';
   }).join("");
@@ -1269,7 +1303,7 @@ function openAdminForm(id){
       '</div>'+
       '<h3 style="margin-top:8px">Modules autorisés</h3>'+
       '<p class="muted" style="margin-bottom:6px">Sélectionnez les sections du CRM auxquelles cet admin aura accès.</p>'+
-      '<label class="perm-item" style="background:var(--orange-l);font-weight:700"><input type="checkbox" id="perm-all"'+(a.allowedModules&&a.allowedModules[0]==="*"?" checked":"")+'> ✅ Tous les modules</label>'+
+      '<label class="perm-item" style="background:var(--orange-l);font-weight:700"><input type="checkbox" id="perm-all"'+(hasAllModules(a)?" checked":"")+'> ✅ Tous les modules</label>'+
       '<div class="perm-grid" id="perm-grid">'+modChecks+'</div>'+
       '<p class="ferr" id="adm-err" hidden></p>'+
     '</form>'+
@@ -1355,17 +1389,43 @@ RA("admin.logs",function(){return'<section class="panel"><div class="panel__head
 
 /* 97. admin.backup */
 RA("admin.backup",function(){
+  /* Le panneau de code d'accès agit sur la seule fiche de l'admin connecté :
+     il reste ouvert à tous, alors que sauvegarde, restauration et remise à zéro
+     portent sur l'ensemble du CRM et n'appartiennent qu'au super admin. */
+  var pwPanel='<section class="panel"><div class="panel__head"><h2 class="panel__title">Code d\'accès admin ACCI</h2></div><div class="fgrid">'+ffield("Code actuel",'<input type="password" id="pw-cur">')+ffield("Nouveau code",'<input type="password" id="pw-new">')+'</div><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="pw-save">Modifier</button></div><p class="ferr" id="pw-msg" hidden></p></section>';
+  /* L'onglet est atteignable par tout admin disposant du module Administration :
+     sans ce filtre, un compte ordinaire restaurait un JSON retouché à la main et
+     s'y attribuait le rôle super_admin. */
+  if(!isSuperAdmin())return'<div class="banner banner--info">🔒 Sauvegarde, restauration et réinitialisation des données ACCI sont réservées à l\'administrateur <b>ogou</b>.</div>'+pwPanel;
   return'<div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title">💾 Sauvegarder les données ACCI</h2></div><p class="muted">Téléchargez une sauvegarde complète de toutes les données du CRM ACCI.</p><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="bk-dl">⬇ Télécharger backup</button></div></section>'+
-    '<section class="panel"><div class="panel__head"><h2 class="panel__title">⬆ Restaurer</h2></div><p class="muted">Restaurez les données ACCI depuis un fichier JSON.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm">⬆ Choisir fichier<input type="file" id="bk-up" accept=".json" hidden></label></div><p class="ferr" id="bk-msg" hidden></p></section></div>'+
-    '<section class="panel panel--danger"><div class="panel__head"><h2 class="panel__title">Zone sensible</h2></div><p class="muted">Réinitialiser efface toutes les données ACCI.</p><button class="abtn abtn--danger abtn--sm" id="bk-wipe">Tout réinitialiser</button></section>'+
-    '<section class="panel"><div class="panel__head"><h2 class="panel__title">Configuration ACCI</h2></div><div class="fgrid">'+ffield("Devise",'<input id="cfg-cur" value="'+esc(localStorage.getItem("acci_currency")||"FCFA")+'">')+ffield("Taux TVA (%)",'<input id="cfg-tax" type="number" value="'+(localStorage.getItem("acci_tax")||"18")+'">')+'</div><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="cfg-save">Enregistrer</button></div><p class="ferr" id="cfg-msg" hidden></p></section>'+
-    '<section class="panel"><div class="panel__head"><h2 class="panel__title">Code d\'accès admin ACCI</h2></div><div class="fgrid">'+ffield("Code actuel",'<input type="password" id="pw-cur">')+ffield("Nouveau code",'<input type="password" id="pw-new">')+'</div><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="pw-save">Modifier</button></div><p class="ferr" id="pw-msg" hidden></p></section>';
+    '<section class="panel"><div class="panel__head"><h2 class="panel__title">⬆ Restaurer</h2></div><p class="muted">Restaurez les données ACCI depuis un fichier JSON. Les comptes administrateurs ne sont pas modifiés.</p><div class="btnrow"><label class="abtn abtn--ghost abtn--sm">⬆ Choisir fichier<input type="file" id="bk-up" accept=".json" hidden></label></div><p class="ferr" id="bk-msg" hidden></p></section></div>'+
+    '<section class="panel panel--danger"><div class="panel__head"><h2 class="panel__title">Zone sensible</h2></div><p class="muted">Réinitialiser efface toutes les données ACCI. Les comptes administrateurs sont conservés.</p><button class="abtn abtn--danger abtn--sm" id="bk-wipe">Tout réinitialiser</button></section>'+
+    '<section class="panel"><div class="panel__head"><h2 class="panel__title">Configuration ACCI</h2></div><div class="fgrid">'+ffield("Devise",'<input id="cfg-cur" value="'+esc(localStorage.getItem("acci_currency")||"FCFA")+'">')+ffield("Taux TVA (%)",'<input id="cfg-tax" type="number" value="'+(localStorage.getItem("acci_tax")||"18")+'">')+'</div><div class="btnrow"><button class="abtn abtn--primary abtn--sm" id="cfg-save">Enregistrer</button></div><p class="ferr" id="cfg-msg" hidden></p></section>'+pwPanel;
 },function(){
+  /* Le code d'accès vit dans la fiche admin, seule source relue à la connexion :
+     l'écrire ailleurs laisserait le formulaire de connexion exiger l'ancien code.
+     Le try/catch garantit un retour à l'écran — sans lui, la moindre exception
+     laisse le panneau muet et l'opérateur sans moyen de changer son code. */
+  var ps=$("#pw-save");if(ps)ps.addEventListener("click",function(){var m=$("#pw-msg");try{
+    var me=currentAdmin();var rec=me?S.admins.get(me.id):null;
+    if(!rec){m.className="ferr";m.textContent="Session expirée — reconnectez-vous.";m.hidden=false;return;}
+    if(hash($("#pw-cur").value)!==rec.passHash){m.className="ferr";m.textContent="Code incorrect.";m.hidden=false;return;}
+    var np=$("#pw-new").value.trim();
+    if(np.length<4){m.className="ferr";m.textContent="Au moins 4 caractères.";m.hidden=false;return;}
+    rec.passHash=hash(np);S.admins.update(rec);sessionStorage.setItem("acci_admin",JSON.stringify(rec));
+    alog("admin",rec.id,"code d'accès",rec.username);
+    $("#pw-cur").value="";$("#pw-new").value="";
+    m.className="ferr okmsg";m.textContent="✓ Code admin ACCI modifié.";m.hidden=false;toast("Code modifié.");
+  }catch(err){m.className="ferr";m.textContent="Échec : "+err.message;m.hidden=false;}});
+  if(!isSuperAdmin())return;
   $("#bk-dl").addEventListener("click",exportFullJSON);
   var up=$("#bk-up");if(up)up.addEventListener("change",function(e){importFullJSON(e);});
-  $("#bk-wipe").addEventListener("click",function(){confirmDel(function(){Object.keys(localStorage).filter(function(k){return k.startsWith("acci");}).forEach(function(k){localStorage.removeItem(k);});localStorage.removeItem("acci_crm_members");localStorage.removeItem("acci_crm_seeded");toast("Données ACCI réinitialisées.");refresh();});});
+  /* Les comptes administrateurs sont tenus hors de la remise à zéro : aucune
+     graine ne les recrée (seul ogou l'est), leur effacement fermait donc le CRM
+     aux autres administrateurs, sans que rien à l'écran ne le signale. Le
+     rechargement évite de continuer à afficher des données supprimées. */
+  $("#bk-wipe").addEventListener("click",function(){confirmDel(function(){Object.keys(localStorage).filter(function(k){return k.startsWith("acci")&&k!=="acci_admins";}).forEach(function(k){localStorage.removeItem(k);});localStorage.removeItem("acci_crm_members");localStorage.removeItem("acci_crm_seeded");location.reload();},"Effacer toutes les données ACCI — membres, contacts, demandes, adhésions, cotisations, projets, documents et configuration ? Les comptes administrateurs sont conservés. Irréversible.");});
   var cs=$("#cfg-save");if(cs)cs.addEventListener("click",function(){localStorage.setItem("acci_currency",$("#cfg-cur").value.trim()||"FCFA");localStorage.setItem("acci_tax",$("#cfg-tax").value||"18");var m=$("#cfg-msg");m.className="ferr okmsg";m.textContent="✓ Configuration ACCI sauvegardée.";m.hidden=false;toast("Config mise à jour.");});
-  var ps=$("#pw-save");if(ps)ps.addEventListener("click",function(){var m=$("#pw-msg");if(hash($("#pw-cur").value)!==localStorage.getItem(PASS_KEY)){m.className="ferr";m.textContent="Code incorrect.";m.hidden=false;return;}if($("#pw-new").value.trim().length<4){m.className="ferr";m.textContent="Au moins 4 caractères.";m.hidden=false;return;}localStorage.setItem(PASS_KEY,hash($("#pw-new").value.trim()));m.className="ferr okmsg";m.textContent="✓ Code admin ACCI modifié.";m.hidden=false;toast("Code modifié.");});
 });
 
 /* 98. admin.integrations */
@@ -1660,14 +1720,21 @@ function exportCSV(type){
   var head=fields.join(",");var lines=data.map(function(x){return fields.map(function(f){return csvCell(x[f]);}).join(",");});
   dl("acci-"+type+"-"+todayISO()+".csv","\uFEFF"+head+"\n"+lines.join("\n"),"text/csv");toast(data.length+" exporté(s).");
 }
+/* Une restauration ne réécrit jamais les comptes : le fichier JSON se retouche à
+   la main, et un administrateur ordinaire pouvait s'y attribuer le rôle
+   super_admin puis reprendre la main sur tout le CRM à la connexion suivante. */
+function restoreStores(d){Object.keys(d).forEach(function(k){if(k==="admins")return;if(S[k]&&S[k].save)S[k].save(d[k]);});}
 function exportFullJSON(){
-  var data={};Object.keys(S).forEach(function(k){if(S[k].all)data[k]=S[k].all();});
+  var data={},su=isSuperAdmin();
+  /* La sauvegarde transporte empreintes de mots de passe et codes d'approbation :
+     un administrateur ordinaire ne repart pas avec les identifiants de ses pairs. */
+  Object.keys(S).forEach(function(k){if(k==="admins"&&!su)return;if(S[k].all)data[k]=S[k].all();});
   dl("acci-crm-backup-"+todayISO()+".json",JSON.stringify(data,null,2),"application/json");toast("Backup ACCI téléchargé.");
 }
 function importFile(e){
   var file=e.target.files[0];if(!file)return;var msg=$("#imp-m");if(msg)msg.hidden=true;
   var r=new FileReader();r.onload=function(){try{var added=0,txt=r.result;
-    if(/\.json$/i.test(file.name)){var d=JSON.parse(txt);if(d.customers){Object.keys(d).forEach(function(k){if(S[k]&&S[k].save)S[k].save(d[k]);});added=d.customers.length;}else if(Array.isArray(d)){d.forEach(function(x){if(x.name||x.email){x.id=x.id||uid();x.approved=x.approved||false;x.approvalCode=x.approvalCode||"";x.approvedAt=x.approvedAt||"";S.customers.add(x);added++;}});}
+    if(/\.json$/i.test(file.name)){var d=JSON.parse(txt);if(d.customers){restoreStores(d);added=d.customers.length;}else if(Array.isArray(d)){d.forEach(function(x){if(x.name||x.email){x.id=x.id||uid();x.approved=x.approved||false;x.approvalCode=x.approvalCode||"";x.approvedAt=x.approvedAt||"";S.customers.add(x);added++;}});}
     }else{var rows=parseCSV(txt);rows.forEach(function(x){if(!x.name&&!x.email)return;S.customers.add({type:x.type||"Individuel",name:x.name||"",company:x.company||"",email:x.email||"",phone:x.phone||"",address:"",city:x.city||"",country:x.country||"Côte d'Ivoire",tags:(x.tags||"").split(/[;,]/).map(function(t){return t.trim();}).filter(Boolean),status:CUSTOMER_STATUSES.indexOf(x.status)!==-1?x.status:"Lead",notes:x.notes||"",charter:false,social:"",approved:false,approvalCode:"",approvedAt:""});added++;});}
     if(msg){msg.className="ferr okmsg";msg.textContent="✓ "+added+" importé(s).";msg.hidden=false;}toast(added+" importé(s).");setTimeout(function(){go("customers");},500);
   }catch(err){if(msg){msg.className="ferr";msg.textContent="Fichier illisible.";msg.hidden=false;}}};
@@ -1675,7 +1742,7 @@ function importFile(e){
 }
 function importFullJSON(e){
   var file=e.target.files[0];if(!file)return;var msg=$("#bk-msg");
-  var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);Object.keys(d).forEach(function(k){if(S[k]&&S[k].save)S[k].save(d[k]);});if(msg){msg.className="ferr okmsg";msg.textContent="✓ Données ACCI restaurées.";msg.hidden=false;}toast("Restauré.");refresh();}catch(err){if(msg){msg.className="ferr";msg.textContent="Erreur.";msg.hidden=false;}}};
+  var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);restoreStores(d);if(msg){msg.className="ferr okmsg";msg.textContent="✓ Données ACCI restaurées.";msg.hidden=false;}toast("Restauré.");refresh();}catch(err){if(msg){msg.className="ferr";msg.textContent="Erreur.";msg.hidden=false;}}};
   r.readAsText(file,"utf-8");e.target.value="";
 }
 function parseCSV(text){text=text.replace(/^\uFEFF/,"");var rows=[],row=[],val="",q=false;for(var i=0;i<text.length;i++){var c=text[i];if(q){if(c==='"'&&text[i+1]==='"'){val+='"';i++;}else if(c==='"')q=false;else val+=c;}else{if(c==='"')q=true;else if(c===","){row.push(val);val="";}else if(c==="\n"||c==="\r"){if(val!==""||row.length){row.push(val);rows.push(row);row=[];val="";}if(c==="\r"&&text[i+1]==="\n")i++;}else val+=c;}}if(val!==""||row.length){row.push(val);rows.push(row);}if(!rows.length)return[];var head=rows.shift().map(function(h){return h.trim().toLowerCase();});return rows.filter(function(r){return r.some(function(c){return c.trim();});}).map(function(r){var o={};head.forEach(function(h,i){o[h]=(r[i]||"").trim();});return o;});}
@@ -1731,6 +1798,14 @@ function boot(){
     if(!b)return;
     go(b.getAttribute("data-view"));
     $(".sidebar").classList.remove("is-open");
+  });
+  /* Une révocation prononcée depuis un autre onglet doit s'appliquer sans attendre :
+     les droits ne sont relus qu'au rendu suivant, un onglet resté ouvert gardait
+     donc une barre latérale et des vues auxquelles son compte n'a plus droit. */
+  window.addEventListener("storage",function(e){
+    if(e.key&&e.key!=="acci_admins")return;
+    if(!currentAdmin()){location.reload();return;}
+    buildSidebar();refresh();
   });
   $("#logout").addEventListener("click",function(){sessionStorage.removeItem("acci_admin");location.reload();});
   $("#add-btn").addEventListener("click",function(){
