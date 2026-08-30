@@ -73,7 +73,41 @@
       note: "Écran d'accueil iPhone / iPad. Carrée, 180 × 180." }
   ];
 
-  var state = { map: {}, loaded: false, error: null, busy: false };
+  /* Couleurs exposées : celles qui portent l'identité visuelle. Les variantes
+     accessibles sont signalées — l'orange de marque ne peut pas porter de texte
+     blanc (2,63:1), c'est --orange-solid qui sert de fond aux boutons. */
+  var COLORS = [
+    { k: "theme.color.orange",       l: "Orange de marque",     d: "#F77F00" },
+    { k: "theme.color.orange-solid", l: "Orange des boutons",   d: "#B34F00", n: "Porte du texte blanc : doit rester foncé." },
+    { k: "theme.color.orange-text",  l: "Orange en texte",      d: "#A34700", n: "Utilisé comme texte sur fond clair." },
+    { k: "theme.color.green",        l: "Vert principal",       d: "#0B7A3B" },
+    { k: "theme.color.green-d",      l: "Vert foncé",           d: "#0B3D2E" },
+    { k: "theme.color.green-deep",   l: "Vert du pied de page", d: "#07301F" },
+    { k: "theme.color.ink",          l: "Texte des titres",     d: "#14201b" },
+    { k: "theme.color.body",         l: "Texte courant",        d: "#3d4a44" },
+    { k: "theme.color.bg",           l: "Fond des pages",       d: "#ffffff" },
+    { k: "theme.color.bg-soft",      l: "Fond des sections",    d: "#f6f9f7" },
+    { k: "theme.color.danger",       l: "Alerte",               d: "#c0392b" },
+    { k: "theme.color.info",         l: "Information",          d: "#1b6ec2" }
+  ];
+
+  /* La politique de sécurité du site n'autorise que des polices servies depuis
+     son propre domaine (font-src 'self') : seules Inter et Sora, déjà
+     embarquées, et les polices présentes sur l'appareil sont proposées. Une
+     police Google serait bloquée et la page retomberait sur la police système
+     sans le dire. */
+  var FONTS = [
+    { v: '"Sora", system-ui, sans-serif',  l: "Sora (fournie)" },
+    { v: '"Inter", system-ui, sans-serif', l: "Inter (fournie)" },
+    { v: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', l: "Police du système" },
+    { v: 'Georgia, "Times New Roman", serif', l: "Georgia (avec empattements)" }
+  ];
+
+  var COMPILED_FONT = { "theme.font.head": '"Sora", system-ui, sans-serif',
+                        "theme.font.body": '"Inter", system-ui, sans-serif' };
+
+  var state = { map: {}, loaded: false, error: null, busy: false,
+               index: null, page: "", q: "" };
 
   /* ------------------------------ Données -------------------------------- */
 
@@ -132,6 +166,8 @@
     if (!v) return null;                       // vide = retour à la valeur compilée
     if (key === "site.email" && !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(v))
       return "Adresse e-mail invalide.";
+    if (key.indexOf("theme.color.") === 0 && !/^#[0-9a-f]{3,8}$/i.test(v))
+      return "Couleur invalide : notation hexadécimale attendue, par exemple #F77F00.";
     if (key.indexOf("social.") === 0 || key.indexOf("brand.") === 0) {
       if (!/^https:\/\/\S+$/.test(v))
         return "L'adresse doit commencer par https:// — un lien en http est bloqué par la politique de sécurité du site.";
@@ -342,6 +378,153 @@
     });
   }
 
+  /* ----------------------------- Apparence -------------------------------- */
+
+  function colorRow(c) {
+    var v = state.map[c.k] || "";
+    var shown = v || c.d;
+    return '<div class="afield">' +
+      '<label>' + esc(c.l) + (v ? ' <span class="tag" style="background:#dcfce7;color:#166534">modifié</span>' : '') + '</label>' +
+      '<div style="display:flex;gap:8px;align-items:center">' +
+        '<input type="color" class="si-swatch" data-for="' + esc(c.k) + '" value="' + esc(shown) + '" style="width:44px;height:34px;padding:2px;border:1px solid var(--line);border-radius:8px;background:#fff">' +
+        '<input class="si-in" data-k="' + esc(c.k) + '" type="text" value="' + esc(v) + '" placeholder="' + esc(c.d) + '" style="flex:1">' +
+      '</div>' +
+      (c.n ? '<span class="muted" style="font-size:11.5px">' + esc(c.n) + '</span>' : '') +
+      '</div>';
+  }
+
+  function fontRow(k, label) {
+    var v = state.map[k] || "";
+    var opts = '<option value="">— Police d\'origine —</option>' + FONTS.map(function (f) {
+      return '<option value="' + esc(f.v) + '"' + (f.v === v ? " selected" : "") + '>' + esc(f.l) + '</option>';
+    }).join("");
+    return '<div class="afield"><label>' + esc(label) + '</label>' +
+      '<select class="si-in" data-k="' + esc(k) + '">' + opts + '</select></div>';
+  }
+
+  var themeHTML = guard(function () {
+    return '<section class="panel"><div class="panel__head"><h2 class="panel__title">Couleurs</h2></div>' +
+      '<p class="muted">Ces couleurs se propagent à l\'ensemble du site. Un champ vidé rétablit la teinte d\'origine.</p>' +
+      '<div class="fgrid">' + COLORS.map(colorRow).join("") + '</div>' +
+      '<div class="btnrow"><button class="abtn abtn--primary si-save">Enregistrer</button>' +
+      '<button class="abtn abtn--ghost si-reload">Recharger</button>' +
+      '<button class="abtn abtn--danger si-reset-theme">Tout rétablir</button></div>' +
+      '<p class="ferr" id="si-err" hidden></p>' +
+      '</section>' +
+      '<section class="panel"><div class="panel__head"><h2 class="panel__title">Typographie</h2></div>' +
+      '<p class="muted">Seules les polices livrées avec le site et celles présentes sur l\'appareil du visiteur sont proposées : ' +
+      'la politique de sécurité du site interdit d\'en charger depuis un autre domaine.</p>' +
+      '<div class="fgrid">' + fontRow("theme.font.head", "Police des titres") +
+                              fontRow("theme.font.body", "Police du texte") + '</div>' +
+      '<div class="btnrow"><button class="abtn abtn--primary si-save">Enregistrer</button></div>' +
+      delay() + '</section>';
+  });
+
+  /* ------------------------------ Contenu --------------------------------- */
+
+  function loadIndex() {
+    if (state.index) return Promise.resolve(state.index);
+    return fetch("../assets/content-index.json").then(function (r) {
+      if (!r.ok) throw new Error("Inventaire de contenu introuvable — relancez la compilation du site.");
+      return r.json();
+    }).then(function (j) { state.index = Array.isArray(j) ? j : []; return state.index; });
+  }
+
+  var FIELD_LABEL = { title: "Titre", subtitle: "Sous-titre", kicker: "Surtitre",
+                      lead: "Chapô", q: "Question", a: "Réponse", text: "Texte",
+                      body: "Paragraphe", icon: "Icône" };
+
+  function fieldLabel(f) {
+    var base = f.split(".").pop();
+    if (/^\d+$/.test(base)) base = f.split(".").slice(-2)[0];
+    return FIELD_LABEL[base] || base;
+  }
+
+  var contentHTML = guard(function () {
+    if (!state.index) return '<section class="panel"><p class="muted">Chargement de l\'inventaire…</p></section>';
+
+    var pages = [], seen = {};
+    state.index.forEach(function (x) {
+      if (!seen[x.slug]) { seen[x.slug] = 1; pages.push({ slug: x.slug, title: x.page }); }
+    });
+    var cur = state.page || pages[0] && pages[0].slug || "";
+    var q = state.q.toLowerCase();
+
+    var rows = state.index.filter(function (x) {
+      if (q) return (x.v || "").toLowerCase().indexOf(q) !== -1;
+      return x.slug === cur;
+    });
+    var shown = rows.slice(0, 120);
+
+    var opts = pages.map(function (p) {
+      return '<option value="' + esc(p.slug) + '"' + (p.slug === cur ? " selected" : "") + '>' +
+        esc(p.title || p.slug) + '</option>';
+    }).join("");
+
+    var edited = Object.keys(state.map).filter(function (k) { return k.indexOf("content.") === 0; }).length;
+
+    var body = shown.map(function (x) {
+      var k = "content." + x.k;
+      var v = state.map[k] || "";
+      var badge = v ? ' <span class="tag" style="background:#dcfce7;color:#166534">modifié</span>' : '';
+      return '<div class="afield">' +
+        '<label>' + esc(fieldLabel(x.f)) + ' <span class="muted" style="font-weight:400">· ' + esc(x.type) +
+        (q ? ' · ' + esc(x.page || x.slug) : '') + '</span>' + badge + '</label>' +
+        '<textarea class="si-in" data-k="' + esc(k) + '" rows="2" placeholder="' + esc(x.v) + '">' + esc(v) + '</textarea>' +
+        '</div>';
+    }).join("");
+
+    return '<section class="panel"><div class="panel__head"><h2 class="panel__title">Textes du site</h2></div>' +
+      '<p class="muted">' + state.index.length + ' textes repérés sur l\'ensemble du site, ' + edited + ' modifié(s). ' +
+      'Un champ vidé rétablit le texte d\'origine. La mise en gras s\'écrit **entre deux paires d\'astérisques**.</p>' +
+      '<div class="fgrid">' +
+        '<div class="afield"><label>Page</label><select id="si-page">' + opts + '</select></div>' +
+        '<div class="afield"><label>Rechercher dans tout le site</label>' +
+          '<input id="si-q" type="search" value="' + esc(state.q) + '" placeholder="un mot du texte…"></div>' +
+      '</div>' +
+      (rows.length > shown.length
+        ? '<p class="muted">' + rows.length + ' résultats — les ' + shown.length + ' premiers sont affichés.</p>' : '') +
+      (shown.length ? body : '<p class="muted">Aucun texte pour ce filtre.</p>') +
+      '<div class="btnrow"><button class="abtn abtn--primary si-save">Enregistrer</button>' +
+      '<button class="abtn abtn--ghost si-reload">Recharger</button></div>' +
+      '<p class="ferr" id="si-err" hidden></p>' + delay() + '</section>';
+  });
+
+  function bindTheme() {
+    if ($("#si-login")) return bindLogin();
+    bindForm();
+    /* Le sélecteur de couleur alimente le champ texte, qui reste la source :
+       c'est lui que la sauvegarde relit. */
+    $$(".si-swatch").forEach(function (sw) {
+      sw.addEventListener("input", function () {
+        var t = document.querySelector('.si-in[data-k="' + sw.getAttribute("data-for") + '"]');
+        if (t) t.value = sw.value;
+      });
+    });
+    var rt = $(".si-reset-theme");
+    if (rt) rt.addEventListener("click", function () {
+      var keys = Object.keys(state.map).filter(function (k) { return k.indexOf("theme.") === 0; });
+      if (!keys.length) { toast("Aucune personnalisation à rétablir."); return; }
+      Promise.all(keys.map(clear)).then(function () {
+        toast("Apparence d'origine rétablie."); return load();
+      }).then(function () { A.refresh(); }).catch(function (e) { toast(e.message, "err"); });
+    });
+  }
+
+  function bindContent() {
+    if ($("#si-login")) return bindLogin();
+    if (!state.index) {
+      loadIndex().catch(function (e) { state.error = e.message; })
+                 .then(function () { A.refresh(); });
+      return;
+    }
+    bindForm();
+    var sp = $("#si-page");
+    if (sp) sp.addEventListener("change", function () { state.page = sp.value; state.q = ""; A.refresh(); });
+    var sq = $("#si-q");
+    if (sq) sq.addEventListener("change", function () { state.q = sq.value.trim(); A.refresh(); });
+  }
+
   /* --------------------------- Enregistrement ----------------------------- */
 
   A.register(
@@ -349,12 +532,16 @@
     { title: "Identité du site", tabs: [
       { id: "general", l: "Identité & contact" },
       { id: "social",  l: "Réseaux sociaux" },
-      { id: "brand",   l: "Logo & favicon" }
+      { id: "brand",   l: "Logo & favicon" },
+      { id: "content", l: "Textes du site" },
+      { id: "theme",   l: "Couleurs & polices" }
     ] },
     {
       "identity.general": { r: generalHTML, b: bindForm },
       "identity.social":  { r: socialHTML,  b: bindForm },
-      "identity.brand":   { r: brandHTML,   b: bindBrand }
+      "identity.brand":   { r: brandHTML,   b: bindBrand },
+      "identity.content": { r: contentHTML, b: bindContent },
+      "identity.theme":   { r: themeHTML,   b: bindTheme }
     }
   );
 

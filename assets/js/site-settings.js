@@ -84,8 +84,98 @@
     for (var i = 0; i < nodes.length; i++) nodes[i].textContent = value;
   }
 
+  /* Le site écrit **gras** dans ses textes ; para() le convertit à la
+     compilation. Un texte corrigé doit suivre la même convention, sinon les
+     astérisques s'afficheraient tels quels. Les fragments sont posés par
+     createTextNode : rien de ce qui vient des réglages n'est interprété comme
+     du balisage — c'est ce qui rend une correction de texte inoffensive. */
+  function setRich(node, text) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+    var parts = String(text).split("**");
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i] === "") continue;
+      if (i % 2) {
+        var b = document.createElement("strong");
+        b.appendChild(document.createTextNode(parts[i]));
+        node.appendChild(b);
+      } else {
+        node.appendChild(document.createTextNode(parts[i]));
+      }
+    }
+  }
+
+  /* Apparence : les couleurs et la typographie du site sont des variables CSS.
+     Les redéfinir sur :root suffit à les propager partout, sans toucher une
+     seule règle. Seules les clés connues sont écrites, et leur valeur est
+     validée : une chaîne quelconque insérée dans une feuille de style pourrait
+     en refermer la déclaration et en injecter d'autres. */
+  var COLOR_RE = /^#[0-9a-f]{3,8}$/i;
+  var FONT_RE = /^[a-z0-9 ,'"\-]+$/i;
+
+  function applyTheme(map) {
+    var css = "";
+    Object.keys(map).forEach(function (k) {
+      var v = map[k];
+      if (!v) return;
+      if (k.indexOf("theme.color.") === 0 && COLOR_RE.test(v)) {
+        css += "--" + k.slice(12) + ":" + v + ";";
+      } else if (k === "theme.font.head" && FONT_RE.test(v)) {
+        css += "--font-head:" + v + ";";
+      } else if (k === "theme.font.body" && FONT_RE.test(v)) {
+        css += "--font-body:" + v + ";";
+      } else if (k === "theme.radius" && /^\d{1,2}px$/.test(v)) {
+        css += "--radius:" + v + ";";
+      }
+    });
+    if (!css) return;
+    var el = document.getElementById("acci-theme");
+    if (!el) {
+      el = document.createElement("style");
+      el.id = "acci-theme";
+      document.head.appendChild(el);
+    }
+    el.textContent = ":root{" + css + "}";
+  }
+
+  /* Icônes : le réglage ne transporte qu'un nom, redessiné à partir du jeu
+     livré avec le site. Un nom inconnu ne change rien. */
+  var icons = null;
+  function applyIcons(map) {
+    var wanted = [];
+    var nodes = document.querySelectorAll("[data-icon][data-ck]");
+    for (var i = 0; i < nodes.length; i++) {
+      var v = map["content." + nodes[i].getAttribute("data-ck")];
+      if (v) wanted.push([nodes[i], v]);
+    }
+    if (!wanted.length) return;
+    (icons || (icons = fetch("assets/icons.json").then(function (r) {
+      if (!r.ok) throw new Error("icons");
+      return r.json();
+    }))).then(function (set) {
+      wanted.forEach(function (pair) {
+        var body = set[pair[1]];
+        if (!body) return;                       // nom inconnu : on ne touche à rien
+        var svg = pair[0].querySelector("svg");
+        if (svg) svg.innerHTML = body;           // balisage issu du site, pas du réglage
+      });
+    }).catch(function () { /* jeu d'icônes absent : icônes d'origine */ });
+  }
+
+  function applyContent(map) {
+    var nodes = document.querySelectorAll("[data-ck]");
+    for (var i = 0; i < nodes.length; i++) {
+      var v = map["content." + nodes[i].getAttribute("data-ck")];
+      if (typeof v === "string" && v !== "" && !nodes[i].hasAttribute("data-icon")) {
+        setRich(nodes[i], v);
+      }
+    }
+  }
+
   function apply(map) {
     if (!map) return;
+    applyTheme(map);
+    applyContent(map);
+    applyIcons(map);
 
     /* Texte : nom, slogan, coordonnées. */
     TEXT_KEYS.forEach(function (k) {

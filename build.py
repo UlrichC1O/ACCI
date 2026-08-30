@@ -278,8 +278,8 @@ def para(text):
 # ---------------------------------------------------------------------------
 def r_hero(b, page):
     variant = b.get("variant", "default")
-    kicker = f'<span class="hero__kicker">{e(b["kicker"])}</span>' if b.get("kicker") else ""
-    subtitle = f'<p class="hero__subtitle">{para(b["subtitle"])}</p>' if b.get("subtitle") else ""
+    kicker = f'<span class="hero__kicker"{ck(b,"kicker",b["kicker"])}>{e(b["kicker"])}</span>' if b.get("kicker") else ""
+    subtitle = f'<p class="hero__subtitle"{ck(b,"subtitle",b["subtitle"])}>{para(b["subtitle"])}</p>' if b.get("subtitle") else ""
     ctas = ""
     if b.get("cta"):
         btns = "".join(
@@ -305,7 +305,7 @@ def r_hero(b, page):
       <div class="hero__pattern" aria-hidden="true"></div>
       <div class="container hero__inner reveal">
         {kicker}
-        <h1 class="hero__title">{para(b["title"])}</h1>
+        <h1 class="hero__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h1>
         {subtitle}
         {ctas}
         {badges}
@@ -315,10 +315,11 @@ def r_hero(b, page):
 
 def r_section(b, page):
     sid = f' id="{b["id"]}"' if b.get("id") else ""
-    kicker = f'<span class="section__kicker">{e(b["kicker"])}</span>' if b.get("kicker") else ""
-    title = f'<h2 class="section__title">{para(b["title"])}</h2>' if b.get("title") else ""
-    lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
-    body = "".join(f"<p>{para(p)}</p>" for p in b.get("body", []))
+    kicker = f'<span class="section__kicker"{ck(b,"kicker",b["kicker"])}>{e(b["kicker"])}</span>' if b.get("kicker") else ""
+    title = f'<h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>' if b.get("title") else ""
+    lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
+    body = "".join(f'<p{ck(b,f"body.{i}",p)}>{para(p)}</p>'
+                   for i, p in enumerate(b.get("body", [])))
     align = b.get("align", "left")
     head = f'<div class="section__head section__head--{align} reveal">{kicker}{title}{lead}</div>' if (kicker or title or lead) else ""
     body_html = f'<div class="prose reveal">{body}</div>' if body else ""
@@ -329,13 +330,13 @@ def r_cards(b, page):
     cols = b.get("columns", 3)
     head = ""
     if b.get("title") or b.get("lead"):
-        kicker = f'<span class="section__kicker">{e(b["kicker"])}</span>' if b.get("kicker") else ""
-        title = f'<h2 class="section__title">{para(b["title"])}</h2>' if b.get("title") else ""
-        lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
+        kicker = f'<span class="section__kicker"{ck(b,"kicker",b["kicker"])}>{e(b["kicker"])}</span>' if b.get("kicker") else ""
+        title = f'<h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>' if b.get("title") else ""
+        lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
         head = f'<div class="section__head reveal">{kicker}{title}{lead}</div>'
     sizes = f"(min-width: 900px) {round(100 / max(cols, 1))}vw, (min-width: 560px) 50vw, 100vw"
     items = ""
-    for c in b["items"]:
+    for ci, c in enumerate(b["items"]):
         img = card_image(c, page)
         # Quand la carte porte une photo, celle-ci occupe la fonction visuelle de
         # l'icône : les cumuler alourdirait la carte sans rien ajouter.
@@ -347,9 +348,10 @@ def r_cards(b, page):
                            slot=slot, page=page["slug"])
                  + '</span>') if img else ""
         ic = ("" if img else
-              f'<span class="card__icon">{icon(c.get("icon","star"),26)}</span>' if c.get("icon") else "")
+              f'<span class="card__icon" data-icon{ck(b,f"items.{ci}.icon",c.get("icon","star"))}>'
+              f'{icon(c.get("icon","star"),26)}</span>' if c.get("icon") else "")
         tag = f'<span class="card__tag">{e(c["tag"])}</span>' if c.get("tag") else ""
-        text = f'<p class="card__text">{para(c["text"])}</p>' if c.get("text") else ""
+        text = f'<p class="card__text"{ck(b,f"items.{ci}.text",c["text"])}>{para(c["text"])}</p>' if c.get("text") else ""
         link = ""
         if c.get("href"):
             link = f'<span class="card__link">{e(c.get("link_label","En savoir plus"))} {icon("arrow",16,"card__arrow")}</span>'
@@ -360,7 +362,7 @@ def r_cards(b, page):
             cls = "card" + (" card--media" if img else "")
             clickable_open = f'<div class="{cls}">'
             clickable_close = "</div>"
-        body = f'<span class="card__body">{ic}{tag}<h3 class="card__title">{para(c["title"])}</h3>{text}{link}</span>'
+        body = f'<span class="card__body">{ic}{tag}<h3 class="card__title"{ck(b,f"items.{ci}.title",c["title"])}>{para(c["title"])}</h3>{text}{link}</span>'
         items += f'{clickable_open}{media}{body}{clickable_close}'
     return f'<section class="section"><div class="container">{head}<div class="grid grid--{cols} reveal">{items}</div></div></section>'
 
@@ -368,7 +370,7 @@ def r_cards(b, page):
 def r_stats(b, page):
     head = ""
     if b.get("title"):
-        head = f'<div class="section__head section__head--center reveal"><h2 class="section__title">{para(b["title"])}</h2></div>'
+        head = f'<div class="section__head section__head--center reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     items = ""
     for s in b["items"]:
         suffix = f'<span class="stat__suffix">{e(s.get("suffix",""))}</span>' if s.get("suffix") else ""
@@ -387,14 +389,15 @@ def r_accordion(b, page):
     _ACC_SEQ[0] += 1
     head = ""
     if b.get("title") or b.get("lead"):
-        kicker = f'<span class="section__kicker">{e(b["kicker"])}</span>' if b.get("kicker") else ""
-        title = f'<h2 class="section__title">{para(b["title"])}</h2>' if b.get("title") else ""
-        lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
+        kicker = f'<span class="section__kicker"{ck(b,"kicker",b["kicker"])}>{e(b["kicker"])}</span>' if b.get("kicker") else ""
+        title = f'<h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>' if b.get("title") else ""
+        lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
         head = f'<div class="section__head reveal">{kicker}{title}{lead}</div>'
     items = ""
     for i, it in enumerate(b["items"]):
         ans = it["a"] if isinstance(it["a"], list) else [it["a"]]
-        ans_html = "".join(f"<p>{para(p)}</p>" for p in ans)
+        ans_html = "".join(f'<p{ck(b,f"items.{i}.a.{ai}",p)}>{para(p)}</p>'
+                            for ai, p in enumerate(ans))
         # Identifiants stables : ils relient le bouton à son panneau
         # (aria-controls / aria-labelledby) et permettent de retirer réellement
         # un panneau replié de l'arbre d'accessibilité grâce à `hidden`.
@@ -404,7 +407,7 @@ def r_accordion(b, page):
           <h3 class="accordion__h">
             <button class="accordion__trigger" type="button" id="{aid}-btn"
                     aria-expanded="false" aria-controls="{aid}-panel">
-              <span>{para(it["q"])}</span>
+              <span{ck(b,f"items.{i}.q",it["q"])}>{para(it["q"])}</span>
               <span class="accordion__icon" aria-hidden="true"></span>
             </button>
           </h3>
@@ -417,8 +420,8 @@ def r_accordion(b, page):
 def r_steps(b, page):
     head = ""
     if b.get("title"):
-        lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2>{lead}</div>'
+        lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>{lead}</div>'
     items = ""
     for i, s in enumerate(b["items"], 1):
         items += (
@@ -432,8 +435,8 @@ def r_steps(b, page):
 def r_split(b, page):
     reverse = "split--reverse" if b.get("reverse") else ""
     text = "".join(f"<p>{para(p)}</p>" for p in b.get("text", []))
-    kicker = f'<span class="section__kicker">{e(b["kicker"])}</span>' if b.get("kicker") else ""
-    title = f'<h2 class="section__title">{para(b["title"])}</h2>' if b.get("title") else ""
+    kicker = f'<span class="section__kicker"{ck(b,"kicker",b["kicker"])}>{e(b["kicker"])}</span>' if b.get("kicker") else ""
+    title = f'<h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>' if b.get("title") else ""
     bullets = ""
     if b.get("bullets"):
         lis = "".join(f'<li>{icon("check",18,"li-icon")}<span>{para(x)}</span></li>' for x in b["bullets"])
@@ -469,8 +472,8 @@ def r_callout(b, page):
 def r_checklist(b, page):
     head = ""
     if b.get("title"):
-        lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2>{lead}</div>'
+        lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>{lead}</div>'
     cols = b.get("columns", 2)
     good = b.get("variant", "good")
     ic = "check" if good == "good" else "x-circle"
@@ -500,7 +503,7 @@ def r_cta(b, page):
 def r_table(b, page):
     head = ""
     if b.get("title"):
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2></div>'
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     ths = "".join(f"<th>{para(h)}</th>" for h in b["headers"])
     rows = ""
     for row in b["rows"]:
@@ -513,7 +516,7 @@ def r_table(b, page):
 def r_timeline(b, page):
     head = ""
     if b.get("title"):
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2></div>'
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     items = ""
     for it in b["items"]:
         items += (
@@ -527,8 +530,8 @@ def r_timeline(b, page):
 def r_team(b, page):
     head = ""
     if b.get("title"):
-        lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2>{lead}</div>'
+        lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>{lead}</div>'
     items = ""
     for m in b["items"]:
         initials = "".join(w[0] for w in m["name"].split()[:2]).upper()
@@ -544,8 +547,8 @@ def r_team(b, page):
 def r_posts(b, page):
     head = ""
     if b.get("title"):
-        lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2>{lead}</div>'
+        lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>{lead}</div>'
     items = ""
     for p in b["items"]:
         cat = f'<span class="post__cat">{e(p["category"])}</span>' if p.get("category") else ""
@@ -574,7 +577,7 @@ def r_posts(b, page):
 def r_downloads(b, page):
     head = ""
     if b.get("title"):
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2></div>'
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     items = ""
     for d in b["items"]:
         items += f"""<div class="download reveal"><span class="download__icon">{icon("doc",26)}</span>
@@ -586,7 +589,7 @@ def r_downloads(b, page):
 def r_definitions(b, page):
     head = ""
     if b.get("title"):
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2></div>'
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2></div>'
     items = ""
     for d in b["items"]:
         items += f'<div class="defn reveal"><dt>{para(d["term"])}</dt><dd>{para(d["def"])}</dd></div>'
@@ -667,8 +670,8 @@ def r_image(b, page):
 def r_gallery(b, page):
     head = ""
     if b.get("title"):
-        lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
-        head = f'<div class="section__head reveal"><h2 class="section__title">{para(b["title"])}</h2>{lead}</div>'
+        lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
+        head = f'<div class="section__head reveal"><h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>{lead}</div>'
     cols = b.get("columns", 3)
     items = ""
     for gi, g in enumerate(b["items"]):
@@ -690,9 +693,9 @@ def r_chart(b, page):
     kind = b.get("kind", "bar")
     head = ""
     if b.get("title") or b.get("lead"):
-        kicker = f'<span class="section__kicker">{e(b["kicker"])}</span>' if b.get("kicker") else ""
-        title = f'<h2 class="section__title">{para(b["title"])}</h2>' if b.get("title") else ""
-        lead = f'<p class="section__lead">{para(b["lead"])}</p>' if b.get("lead") else ""
+        kicker = f'<span class="section__kicker"{ck(b,"kicker",b["kicker"])}>{e(b["kicker"])}</span>' if b.get("kicker") else ""
+        title = f'<h2 class="section__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>' if b.get("title") else ""
+        lead = f'<p class="section__lead"{ck(b,"lead",b["lead"])}>{para(b["lead"])}</p>' if b.get("lead") else ""
         head = f'<div class="section__head reveal">{kicker}{title}{lead}</div>'
     source = f'<p class="chart__source">{para(b["source"])}</p>' if b.get("source") else ""
 
@@ -760,9 +763,46 @@ RENDERERS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Repères d'édition du contenu
+# ---------------------------------------------------------------------------
+# Le site est statique : son texte est figé à la compilation. Chaque chaîne
+# affichée reçoit un identifiant stable « slug#bloc.champ », posé en attribut
+# data-ck. assets/js/site-settings.js s'en sert pour appliquer, chez le
+# visiteur, le texte corrigé depuis l'administration.
+#
+# L'inventaire est alimenté par ck() lui-même, au moment du rendu : impossible
+# qu'il annonce une chaîne que le HTML ne porte pas, ou qu'il en oublie une.
+CONTENT_INDEX = []
+
+
+def ck(b, field, value=""):
+    root = b.get("_ck") if isinstance(b, dict) else None
+    if not root:
+        return ""
+    key = f"{root}.{field}"
+    pg = b.get("_pg") or {}
+    CONTENT_INDEX.append({
+        "k": key,
+        "v": value if isinstance(value, str) else str(value),
+        "slug": pg.get("slug", ""),
+        "page": pg.get("title", ""),
+        "type": b.get("type", ""),
+        "f": field,
+    })
+    return f' data-ck="{key}"'
+
+
 def render_blocks(blocks, page):
     out = []
-    for b in blocks:
+    for bi, b in enumerate(blocks):
+        # Position du bloc dans la page : elle donne son identifiant stable aux
+        # textes qu'il contient. Un bloc inséré plus haut décale les suivants —
+        # les corrections enregistrées suivent alors l'ancien emplacement, ce
+        # qui reste préférable à des identifiants tirés du texte lui-même, qui
+        # se perdraient dès la première correction.
+        b["_ck"] = f'{page["slug"]}#{bi}'
+        b["_pg"] = page
         fn = RENDERERS.get(b["type"])
         if not fn:
             raise ValueError(f"Type de bloc inconnu: {b['type']} (page {page['slug']})")
@@ -1269,6 +1309,12 @@ def build():
     print(f"✓ {len(pages)} pages générées dans ./dist")
     print(f"✓ Inventaire images : {len(IMG_MANIFEST)} photos, "
           f"{len(IMG_PLACEMENTS)} emplacements")
+    # Inventaire des textes éditables, consommé par l'administration.
+    with open(os.path.join(DIST, "assets", "content-index.json"), "w", encoding="utf-8") as f:
+        json.dump(CONTENT_INDEX, f, ensure_ascii=False, separators=(",", ":"))
+    with open(os.path.join(DIST, "assets", "icons.json"), "w", encoding="utf-8") as f:
+        json.dump(ICONS, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"✓ Inventaire de contenu : {len(CONTENT_INDEX)} textes éditables")
     print(f"✓ Index de recherche, sitemap.xml et robots.txt créés")
     return pages
 
