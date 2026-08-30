@@ -50,7 +50,13 @@ function tauxTVA(){
   return n;
 }
 function fmtMoney(a){return(Number(a)||0).toLocaleString("fr-FR")+" "+devise();}
-function hash(s){var h=5381,i=s.length;while(i)h=(h*33)^s.charCodeAt(--i);return(h>>>0).toString(16);}
+/* djb2 — conservé pour une seule raison : relire les mots de passe enregistrés
+   avant la migration. Ce n'est pas une fonction de hachage cryptographique. Elle
+   rend 32 bits, sans sel et sans coût de calcul : l'ensemble des empreintes
+   possibles s'énumère en quelques secondes, et deux mots de passe différents
+   partagent régulièrement la même. Aucune empreinte nouvelle n'est produite par
+   ici — voir CRYPTO plus bas, et upgradeLegacyPass(). */
+function legacyHash(s){var h=5381,i=s.length;while(i)h=(h*33)^s.charCodeAt(--i);return(h>>>0).toString(16);}
 function slug(s){return norm(s).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");}
 /* Une valeur enregistrée qui ne figure pas dans la liste (donnée héritée, fiche
    importée) n'était sélectionnée nulle part : le navigateur retombait sur la
@@ -66,12 +72,191 @@ function pctBar(val,max,color){
   return'<span class="cb__track">'+(p>0?'<span class="cb__fill" style="width:'+p+'%;background:'+(color||PAL[0])+'"></span>':"")+'</span>';
 }
 
-/* =========================== APPROVAL CODE ============================== */
-function genCode(){
-  var L="ABCDEFGHIJKLMNOPQRSTUVWXYZ",code="";
-  for(var i=0;i<5;i++)code+=L[Math.floor(Math.random()*26)];
-  for(var i=0;i<3;i++)code+=Math.floor(Math.random()*10);
-  return code;
+/* =========================== IDENTIFIANTS =============================== */
+var CRYPTO=window.ACCI_CRYPTO;
+
+/* Émet un code pour une fiche : l'identifiant public est écrit en clair, le
+   secret n'est conservé que sous forme d'empreinte. Le code complet n'est rendu
+   qu'ici, à l'appelant, qui doit l'afficher une fois puis l'oublier — il ne sera
+   plus jamais relisible depuis le CRM.
+
+   L'ancien schéma faisait l'inverse : cinq lettres et trois chiffres tirés de
+   Math.random, écrits en clair dans la fiche, donc présents dans le fichier des
+   membres, dans chaque export CSV, dans chaque sauvegarde JSON et dans le
+   journal d'audit. Lire l'un quelconque de ces supports donnait de quoi se
+   connecter au portail de n'importe quel membre. */
+function issueCode(rec){
+  var c=CRYPTO.newCode();
+  /* L'identifiant public sert de clé de recherche à la connexion : il doit être
+     unique, sinon une fiche en masquerait une autre et son titulaire ne pourrait
+     plus entrer. Le secret, lui, n'a pas besoin d'être unique. */
+  var used={};
+  S.customers.all().forEach(function(x){if(x.codeId)used[x.codeId]=1;});
+  S.admins.all().forEach(function(x){if(x.codeId)used[x.codeId]=1;});
+  while(used[c.id])c=CRYPTO.newCode();
+  return CRYPTO.hashSecret(c.secret).then(function(h){
+    rec.codeId=c.id;
+    rec.codeSalt=h.salt;
+    rec.codeHash=h.hash;
+    rec.codeAlgo=h.algo;
+    /* Deux derniers caractères, gardés en clair pour que le membre reconnaisse
+       son code dans l'interface sans qu'on ait à le lui redonner en entier. */
+    rec.codeTail=c.secret.slice(-2);
+    rec.approvalCode="";           /* le clair hérité est effacé au passage */
+    return CRYPTO.formatCode(c.id,c.secret);
+  });
+}
+
+/* Représentation affichable d'un code : masquée, jamais complète. Rien dans le
+   CRM ne peut plus reconstituer un code — l'empreinte ne se remonte pas. Un
+   membre qui perd le sien s'en fait réémettre un, il ne se le fait pas relire. */
+function maskedCode(rec){
+  if(!rec)return "—";
+  if(rec.codeHash)return CRYPTO.maskCode(rec.codeId||"",rec.codeTail||"");
+  /* Fiche héritée pas encore convertie : le clair est là, mais on ne l'étale
+     pas pour autant. */
+  if(rec.approvalCode){
+    var v=String(rec.approvalCode);
+    return new Array(Math.max(1,v.length-1)).join("•")+v.slice(-2);
+  }
+  return "—";
+}
+
+/* Retrouve la fiche désignée par une saisie, puis vérifie le secret.
+   Résout avec la fiche, ou null. `extra` filtre au-delà de l'approbation
+   (le portail Artiste y exige premium). */
+function findByCode(input,extra){
+  var typed=CRYPTO.normalizeCode(input);
+  var parts=CRYPTO.splitCode(typed);
+  var pool=S.customers.all().filter(function(c){
+    return c.approved===true&&(!extra||extra(c));
+  });
+  if(parts){
+    var rec=pool.filter(function(c){return c.codeId===parts.id;})[0];
+    if(!rec)return Promise.resolve(null);
+    return CRYPTO.verifySecret(parts.secret,rec.codeSalt,rec.codeHash)
+      .then(function(ok){return ok?rec:null;});
+  }
+  /* Format hérité : huit caractères comparés en clair. Ce chemin ne subsiste que
+     pour ne verrouiller personne dehors le jour de la mise à jour — les fiches
+     créées avant celle-ci ont encore leur code en clair et aucune empreinte. La
+     fiche est convertie dès la première connexion réussie (upgradeLegacyCode),
+     après quoi ce chemin ne la concerne plus. */
+  if(typed.length===8){
+    var legacy=pool.filter(function(c){
+      return c.approvalCode&&String(c.approvalCode).toUpperCase()===typed;
+    })[0];
+    return Promise.resolve(legacy||null);
+  }
+  return Promise.resolve(null);
+}
+
+/* Convertit une fiche héritée en empreinte, en gardant le code que le membre
+   connaît déjà : il continue de fonctionner, mais cesse d'être stocké en clair.
+   Le membre n'a rien à faire et n'a rien à réapprendre. */
+function upgradeLegacyCode(rec){
+  if(!rec||!rec.approvalCode||rec.codeHash)return Promise.resolve(false);
+  var old=String(rec.approvalCode).toUpperCase();
+  return CRYPTO.hashSecret(old).then(function(h){
+    var fresh=S.customers.get(rec.id);
+    if(!fresh)return false;
+    fresh.codeId="";               /* pas d'identifiant public : format hérité  */
+    fresh.codeSalt=h.salt;
+    fresh.codeHash=h.hash;
+    fresh.codeAlgo=h.algo;
+    fresh.codeTail=old.slice(-2);
+    fresh.codeLegacy=true;         /* signale un code court, à renouveler       */
+    fresh.approvalCode="";
+    S.customers.update(fresh);
+    return true;
+  }).catch(function(){return false;});
+}
+
+/* Un code hérité converti n'a pas d'identifiant public : il faut donc encore
+   le chercher par empreinte. Une seule dérivation par fiche héritée, et
+   seulement tant qu'il en reste — d'où l'intérêt de les renouveler. */
+function findLegacyHashed(input,extra){
+  var typed=CRYPTO.normalizeCode(input);
+  if(typed.length!==8)return Promise.resolve(null);
+  var pool=S.customers.all().filter(function(c){
+    return c.approved===true&&c.codeLegacy&&c.codeHash&&!c.codeId&&(!extra||extra(c));
+  });
+  var i=0;
+  function next(){
+    if(i>=pool.length)return Promise.resolve(null);
+    var rec=pool[i++];
+    return CRYPTO.verifySecret(typed,rec.codeSalt,rec.codeHash).then(function(ok){
+      return ok?rec:next();
+    });
+  }
+  return next();
+}
+
+/* Résolution complète d'une saisie, tous formats confondus. */
+function authenticateCode(input,extra){
+  return findByCode(input,extra).then(function(rec){
+    if(rec)return upgradeLegacyCode(rec).then(function(){return S.customers.get(rec.id)||rec;});
+    return findLegacyHashed(input,extra);
+  });
+}
+
+/* =========================== ANTI-MARTELAGE ============================== */
+/* Un frein local, et rien de plus. Il ne prétend pas protéger des données que
+   le visiteur détient déjà dans son propre navigateur : sans serveur, ce n'est
+   pas possible et le prétendre serait mentir. Ce qu'il couvre est le seul cas
+   réel — le poste partagé du secrétariat, où quelqu'un essaie des codes à la
+   main pendant une absence. Il est délibérément modeste. */
+var GUARD_KEY="acci_auth_guard";
+var GUARD_FREE=5;      /* tentatives sans pénalité       */
+var GUARD_MAX=300;     /* plafond du délai, en secondes  */
+
+function guardRead(){
+  try{var g=JSON.parse(localStorage.getItem(GUARD_KEY));return g&&typeof g==="object"?g:{};}
+  catch(e){return{};}
+}
+function guardWait(scope){
+  var g=guardRead()[scope];
+  if(!g||!g.until)return 0;
+  return Math.max(0,Math.ceil((g.until-Date.now())/1000));
+}
+function guardFail(scope){
+  var g=guardRead(),e=g[scope]||{n:0,until:0};
+  e.n=(e.n||0)+1;
+  if(e.n>GUARD_FREE){
+    var delay=Math.min(Math.pow(2,e.n-GUARD_FREE),GUARD_MAX);
+    e.until=Date.now()+delay*1000;
+  }
+  g[scope]=e;
+  try{localStorage.setItem(GUARD_KEY,JSON.stringify(g));}catch(_){}
+}
+function guardReset(scope){
+  var g=guardRead();delete g[scope];
+  try{localStorage.setItem(GUARD_KEY,JSON.stringify(g));}catch(_){}
+}
+
+/* Vérifie un mot de passe administrateur, quel que soit le format enregistré.
+
+   Les comptes créés avant cette mise à jour portent une empreinte djb2 sans sel.
+   Les refuser aurait mis dehors l'administrateur en place, sur sa propre base,
+   sans recours — il n'y a pas de « mot de passe oublié » sans serveur. Ils sont
+   donc acceptés une dernière fois, puis réenregistrés en PBKDF2 dans la foulée :
+   la conversion se fait à la connexion suivante, sans que personne n'ait à
+   changer de mot de passe ni même à savoir que le format a changé. */
+function verifyAdminPass(admin,pw){
+  if(admin.passSalt&&admin.passHash){
+    return CRYPTO.verifySecret(pw,admin.passSalt,admin.passHash);
+  }
+  if(admin.passHash&&legacyHash(pw)===admin.passHash){
+    return CRYPTO.hashSecret(pw).then(function(h){
+      var fresh=S.admins.get(admin.id);
+      if(fresh){
+        fresh.passSalt=h.salt;fresh.passHash=h.hash;fresh.passAlgo=h.algo;
+        S.admins.update(fresh);
+      }
+      return true;
+    }).catch(function(){return true;});
+  }
+  return Promise.resolve(false);
 }
 
 /* Toute écriture du CRM passe par ici. localStorage refuse d'enregistrer dès que le
@@ -236,91 +421,251 @@ function initAuth(){
     });
   });
 
-  /* Member login */
-  $("#member-form").addEventListener("submit",function(e){
-    e.preventDefault();
-    var code=$("#member-code").value.trim().toUpperCase();
-    var err=$("#member-err");
-    if(!code){err.textContent="Veuillez entrer votre code.";err.hidden=false;return;}
-    /* Le fichier des membres n'était rempli que par la session administrateur : sur
-       un poste où le CRM n'a jamais été ouvert, un code valide était rejeté. */
-    migrate();seedMembers();
-    var member=S.customers.all().find(function(c){return c.approved===true&&c.approvalCode===code;});
-    if(!member){err.textContent="Code invalide ou accès non approuvé.";err.hidden=false;return;}
-    err.hidden=true;
-    lEl.hidden=true;aEl.hidden=true;mEl.hidden=false;
-    renderMemberPortal(member);
+  /* Le code est masqué par défaut. Le bouton « Afficher » existe parce qu'un
+     champ masqué se saisit mal sur un téléphone : sans lui, l'utilisateur qui
+     doute de ce qu'il a tapé efface tout et recommence. */
+  $$("[data-reveal]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var el=document.getElementById(btn.getAttribute("data-reveal"));
+      if(!el)return;
+      var shown=el.type==="text";
+      el.type=shown?"password":"text";
+      btn.textContent=shown?"Afficher":"Masquer";
+      btn.setAttribute("aria-label",shown?"Afficher le code":"Masquer le code");
+      el.focus();
+    });
+  });
+
+  /* Vérifier une empreinte prend un instant — et jusqu'à quelques secondes hors
+     contexte sécurisé. Sans retour visible, l'utilisateur appuie une seconde
+     fois et lance une deuxième dérivation par-dessus la première. Le bouton est
+     donc désarmé et renommé le temps du calcul. */
+  function busy(form,on,label){
+    var btn=form.querySelector("button[type=submit]");
+    if(!btn)return;
+    if(on){btn.dataset.label=btn.dataset.label||btn.textContent;btn.disabled=true;btn.textContent=label||"Vérification…";}
+    else{btn.disabled=false;if(btn.dataset.label)btn.textContent=btn.dataset.label;}
+  }
+
+  /* Message unique quel que soit le motif du refus. L'ancien texte distinguait
+     « code invalide » de « statut Premium non activé » : il confirmait donc à
+     qui essayait un code au hasard qu'il venait d'en trouver un valide. */
+  var REFUS="Code non reconnu, ou accès non autorisé.";
+
+  function codeLogin(opts){
+    var form=$(opts.form);
+    if(!form)return;
+    form.addEventListener("submit",function(e){
+      e.preventDefault();
+      var err=$(opts.err),input=$(opts.input);
+      var raw=input.value;
+      if(!CRYPTO.normalizeCode(raw)){err.textContent="Veuillez entrer votre code.";err.hidden=false;return;}
+      var wait=guardWait(opts.scope);
+      if(wait){err.textContent="Trop de tentatives. Réessayez dans "+wait+" s.";err.hidden=false;return;}
+      err.hidden=true;busy(form,true);
+      authenticateCode(raw,opts.extra).then(function(rec){
+        busy(form,false);
+        if(!rec){guardFail(opts.scope);err.textContent=REFUS;err.hidden=false;return;}
+        guardReset(opts.scope);
+        /* Le champ est vidé avant l'ouverture du portail : laissé rempli, le
+           code restait lisible en repassant sur l'écran de connexion. */
+        input.value="";
+        err.hidden=true;
+        opts.open(rec);
+      }).catch(function(){
+        busy(form,false);
+        err.textContent="Vérification impossible sur cet appareil.";err.hidden=false;
+      });
+    });
+  }
+
+  /* Portails Membre et Artiste : même mécanique, deux conditions d'accès.
+     migrate() et seedMembers() ne sont plus appelés ici. Les invoquer avant
+     l'authentification revenait à fabriquer, pour un visiteur non identifié, les
+     fiches et les codes contre lesquels on allait ensuite le valider — la
+     connexion créait sa propre autorisation. L'amorçage appartient à la session
+     administrateur, et à elle seule. */
+  codeLogin({
+    form:"#member-form",input:"#member-code",err:"#member-err",scope:"member",
+    open:function(rec){lEl.hidden=true;aEl.hidden=true;mEl.hidden=false;openMemberSession(rec);}
+  });
+
+  codeLogin({
+    form:"#artiste-form",input:"#artiste-code",err:"#artiste-err",scope:"artiste",
+    extra:function(c){return c.premium===true;},
+    open:function(rec){lEl.hidden=true;aEl.hidden=true;mEl.hidden=true;artEl.hidden=false;openArtisteSession(rec);}
   });
 
   /* Member logout */
-  $("#m-logout").addEventListener("click",function(){
-    mEl.hidden=true;lEl.hidden=false;
-    $("#member-code").value="";
-  });
-
-  /* Artiste Premium login */
-  var artForm=$("#artiste-form");
-  if(artForm)artForm.addEventListener("submit",function(e){
-    e.preventDefault();
-    var code=$("#artiste-code").value.trim().toUpperCase();
-    var err=$("#artiste-err");
-    if(!code){err.textContent="Veuillez entrer votre code.";err.hidden=false;return;}
-    /* Même amorçage que le portail Membre, pour la même raison : le compte Artiste
-       de démonstration n'existe pas tant qu'aucun admin n'est passé sur ce poste. */
-    migrate();seedMembers();
-    var artiste=S.customers.all().find(function(c){return c.approved===true&&c.premium===true&&c.approvalCode===code;});
-    if(!artiste){err.textContent="Code invalide, accès non approuvé, ou statut Premium non activé.";err.hidden=false;return;}
-    err.hidden=true;
-    lEl.hidden=true;aEl.hidden=true;mEl.hidden=true;artEl.hidden=false;
-    /* Rien ne relit une session Artiste au chargement : la conserver ne faisait que
-       laisser derrière elle une fiche périmée, que la sortie seule effaçait. Le
-       portail Membre fonctionne de la même façon, sans trace persistante. */
-    renderArtistePortal(artiste);
-  });
+  $("#m-logout").addEventListener("click",function(){closePortals("Vous êtes déconnecté.");});
 
   /* Artiste logout */
   var artLogout=$("#artiste-logout");
-  if(artLogout)artLogout.addEventListener("click",function(){
-    artEl.hidden=true;lEl.hidden=false;
-    var ac=$("#artiste-code");if(ac)ac.value="";
-  });
+  if(artLogout)artLogout.addEventListener("click",function(){closePortals("Vous êtes déconnecté.");});
 
   /* Artiste burger */
   var artBurger=$("#artiste-burger");
   if(artBurger)artBurger.addEventListener("click",function(){var sb=$("#artiste-sidebar");if(sb)sb.classList.toggle("is-open");});
 
-  /* Ensure ogou super-admin always exists with correct credentials */
-  var ogouExists=S.admins.all().some(function(a){return a.username===SUPER_USER;});
-  if(!ogouExists){
-    S.admins.add({id:"adm_super",username:SUPER_USER,name:"Ogou",passHash:hash("NEWcomm"),role:"super_admin",approved:true,approvalCode:"",allowedModules:["*"],createdAt:new Date().toISOString()});
-  }
-
   /* Resume session */
   if(currentAdmin()){show();return;}
 
-  /* L'indice du champ doit nommer le compte réellement livré : recopié tel quel,
-     un indice fantaisiste renvoyait « Utilisateur introuvable ». */
-  var lu=$("#login-user");if(lu)lu.placeholder=SUPER_USER;
-  var hint=$("#login-hint");if(hint){hint.textContent="Demandez vos identifiants à l'administrateur ogou.";hint.hidden=false;}
+  /* Aucun compte : premier démarrage. Le mot de passe est choisi ici, il n'est
+     pas livré.
+
+     Le CRM créait auparavant « ogou » avec un mot de passe écrit dans le code
+     source — donc publié avec le reste du site, puisque /admin/ est un dossier
+     statique servi tel quel et référencé depuis le pied de page. Le lire ne
+     demandait pas d'outil : il suffisait d'ouvrir /admin/admin.js. */
+  var firstRun=(S.admins.count()===0);
+  var lu=$("#login-user"),lp2=$("#login-pass2"),hint=$("#login-hint");
+  if(firstRun){
+    $("#login-title").textContent="Créer le compte administrateur";
+    $("#login-sub").textContent="Ce poste n'a pas encore d'administrateur. Choisissez vos identifiants : ils ne sont enregistrés que sur cet appareil.";
+    $("#login-label").textContent="Mot de passe (12 caractères minimum)";
+    $("#login-btn").textContent="Créer le compte";
+    if(lp2)lp2.hidden=false;
+    if(lu)lu.placeholder="votre identifiant";
+    if(hint){hint.textContent="Notez ce mot de passe : il ne peut pas être récupéré.";hint.hidden=false;}
+  }else if(lu){
+    /* Plus d'indice nommant le compte livré : il désignait la cible à qui
+       cherchait par où entrer. */
+    lu.placeholder="identifiant";
+  }
 
   /* Admin login form */
   $("#login-form").addEventListener("submit",function(e){
     e.preventDefault();
-    var err=$("#login-err");
+    var err=$("#login-err"),btn=$("#login-btn");
     var usr=$("#login-user").value.trim().toLowerCase();
-    var pw=$("#login-pass").value.trim();
+    var pw=$("#login-pass").value;
+
+    function fail(msg){btn.disabled=false;btn.textContent=firstRun?"Créer le compte":"Se connecter";err.textContent=msg;err.hidden=false;}
+
+    if(firstRun){
+      if(usr.length<3)return fail("Identifiant : 3 caractères minimum.");
+      if(pw.length<12)return fail("Mot de passe : 12 caractères minimum.");
+      if(pw!==$("#login-pass2").value)return fail("Les deux mots de passe ne correspondent pas.");
+      err.hidden=true;btn.disabled=true;btn.textContent="Création…";
+      CRYPTO.hashSecret(pw).then(function(h){
+        var rec={id:"adm_super",username:usr,name:usr,passSalt:h.salt,passHash:h.hash,passAlgo:h.algo,
+                 role:"super_admin",approved:true,codeId:"",codeHash:"",allowedModules:["*"],
+                 createdAt:new Date().toISOString()};
+        S.admins.add(rec);
+        openAdminSession(rec);
+      }).catch(function(){fail("Création impossible sur cet appareil.");});
+      return;
+    }
+
+    var wait=guardWait("admin");
+    if(wait)return fail("Trop de tentatives. Réessayez dans "+wait+" s.");
 
     var admin=S.admins.all().find(function(a){return a.username===usr;});
-    if(!admin){err.textContent="Utilisateur introuvable.";err.hidden=false;return;}
-    if(!admin.approved){err.textContent="Compte non approuvé. Contactez ogou.";err.hidden=false;return;}
-    if(admin.passHash!==hash(pw)){err.textContent="Mot de passe incorrect.";err.hidden=false;return;}
-    err.hidden=true;
-    sessionStorage.setItem("acci_admin",JSON.stringify(admin));
-    show();
+    /* Un seul message pour « utilisateur inconnu », « non approuvé » et « mot de
+       passe faux ». Les distinguer permettait de découvrir les identifiants
+       existants un essai à la fois, sans jamais avoir à deviner un mot de passe. */
+    var REFUS_ADMIN="Identifiants incorrects.";
+    if(!admin||!admin.approved){guardFail("admin");return fail(REFUS_ADMIN);}
+
+    err.hidden=true;btn.disabled=true;btn.textContent="Vérification…";
+    verifyAdminPass(admin,pw).then(function(ok){
+      if(!ok){guardFail("admin");return fail(REFUS_ADMIN);}
+      guardReset("admin");
+      openAdminSession(admin);
+    }).catch(function(){fail("Vérification impossible sur cet appareil.");});
   });
+
+  function openAdminSession(admin){
+    /* La session ne retient qu'un repère. Elle contenait la fiche entière,
+       empreinte du mot de passe comprise : elle se lisait donc dans l'onglet,
+       et une sauvegarde de sessionStorage l'emportait avec elle. */
+    sessionStorage.setItem("acci_admin",JSON.stringify({id:admin.id,username:admin.username}));
+    show();
+  }
 
   function show(){lEl.hidden=true;aEl.hidden=false;mEl.hidden=true;migrate();seedAll();boot();}
 }
+
+/* =========================== SESSIONS PORTAIL =========================== */
+/* Les portails n'avaient pas de session : la fiche du membre restait capturée
+   dans la fermeture du gestionnaire de connexion, et plus rien ne la relisait.
+   Trois conséquences, corrigées ici.
+
+   1. Révoquer un accès, retirer le statut Premium ou supprimer la fiche
+      n'avait aucun effet sur un portail déjà ouvert : l'onglet gardait ses
+      droits jusqu'à sa fermeture.
+   2. Aucune session n'expirait. Un portail ouvert au secrétariat le restait
+      toute la journée, sous les yeux de qui passait.
+   3. « Déconnexion » ne faisait que remettre l'attribut hidden : le contenu du
+      membre précédent — nom, factures, montants — demeurait dans le document,
+      visible au premier coup d'œil aux outils de développement, et réapparaissait
+      tel quel derrière l'écran de connexion. */
+var PORTAL_IDLE_MS=20*60*1000;
+var portalSession=null;
+var portalIdleTimer=null;
+
+function portalTouch(){
+  if(!portalSession)return;
+  if(portalIdleTimer)clearTimeout(portalIdleTimer);
+  portalIdleTimer=setTimeout(function(){
+    closePortals("Session fermée après 20 minutes d'inactivité.");
+  },PORTAL_IDLE_MS);
+}
+
+/* Relit la fiche avant chaque affichage. Rend null si l'accès n'est plus
+   valable — la fiche a disparu, l'approbation est retirée, ou le portail
+   Artiste est demandé par un compte qui n'est plus Premium. */
+function portalRecord(){
+  if(!portalSession)return null;
+  var rec=S.customers.get(portalSession.id);
+  if(!rec||rec.approved!==true)return null;
+  if(portalSession.kind==="artiste"&&rec.premium!==true)return null;
+  return rec;
+}
+
+function closePortals(msg){
+  portalSession=null;
+  if(portalIdleTimer){clearTimeout(portalIdleTimer);portalIdleTimer=null;}
+  var mv=$("#member-view"),av=$("#artiste-view"),an=$("#artiste-nav"),au=$("#artiste-user"),mn=$("#m-name");
+  if(mv)mv.innerHTML="";
+  if(av)av.innerHTML="";
+  if(an)an.innerHTML="";
+  if(au)au.innerHTML="";
+  if(mn)mn.textContent="";
+  artisteState.view="home";
+  var me=$("#member-app"),ae=$("#artiste-app");
+  if(me)me.hidden=true;
+  if(ae)ae.hidden=true;
+  $("#login").hidden=false;
+  ["#member-code","#artiste-code"].forEach(function(s){var el=$(s);if(el)el.value="";});
+  ["#member-err","#artiste-err"].forEach(function(s){
+    var el=$(s);
+    if(!el)return;
+    if(msg){el.textContent=msg;el.hidden=false;}else{el.hidden=true;}
+  });
+}
+
+function openMemberSession(rec){
+  portalSession={id:rec.id,kind:"member"};
+  portalTouch();
+  renderMemberPortal(rec);
+}
+
+function openArtisteSession(rec){
+  portalSession={id:rec.id,kind:"artiste"};
+  artisteState.view="home";
+  portalTouch();
+  renderArtistePortal(rec);
+}
+
+/* Toute interaction dans un portail repousse l'expiration et revalide l'accès. */
+["click","keydown"].forEach(function(evt){
+  document.addEventListener(evt,function(){
+    if(!portalSession)return;
+    if(!portalRecord()){closePortals("Votre accès a été modifié. Reconnectez-vous.");return;}
+    portalTouch();
+  },true);
+});
 
 /* =========================== MEMBER PORTAL ============================== */
 function renderMemberPortal(member){
@@ -340,7 +685,11 @@ function renderMemberPortal(member){
   html+='<h1>Bienvenue, '+esc(member.name)+'</h1>';
   html+='<p>Votre espace personnel au sein de l\'<strong>Association des Créateurs de Contenu Ivoiriens</strong>.<br>';
   html+='Ensemble pour un usage <strong>responsable, sûr et éthique</strong> des réseaux sociaux.</p>';
-  html+='<div class="member-code-display"><span class="member-code-label">Code d\'approbation</span> <strong>'+esc(member.approvalCode)+'</strong></div>';
+  /* Le code est masqué : il s'affichait ici en entier, donc sur toute capture
+     d'écran, toute photo de l'écran et tout partage de session. Les deux derniers
+     caractères suffisent au membre pour reconnaître le sien ; ils ne suffisent à
+     personne pour s'en servir. */
+  html+='<div class="member-code-display"><span class="member-code-label">Votre code</span> <strong>'+esc(maskedCode(member))+'</strong></div>';
   html+='</div>';
 
   /* KPI cards */
@@ -459,7 +808,7 @@ function renderArtistePortal(artiste){
     html+='<div class="artiste-hero"><h1>Bienvenue, '+esc(artiste.name)+'</h1>';
     html+='<p>Votre espace professionnel <strong>Artiste Premium ACCI</strong> — accès complet aux outils, analytiques et services de l\'Association des Créateurs de Contenu Ivoiriens.</p>';
     html+='<span class="artiste-hero__badge"><i data-ic=palette></i> Artiste Premium Certifié</span>';
-    html+='<span class="artiste-hero__code">'+esc(artiste.approvalCode)+'</span>';
+    html+='<span class="artiste-hero__code">'+esc(maskedCode(artiste))+'</span>';
     html+='</div>';
     /* Stats */
     var openT=tks.filter(function(t){return t.status!=="Fermé"&&t.status!=="Résolu";}).length;
@@ -596,7 +945,7 @@ function renderArtistePortal(artiste){
 
   else if(v==="settings"){
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">Mon Compte Artiste Premium</h2></div>';
-    var info=[["Nom",artiste.name],["E-mail",artiste.email||"—"],["Téléphone",artiste.phone||"—"],["Code Premium",artiste.approvalCode],["Statut Premium","<i data-ic=check></i> Actif"],["Ville",artiste.city||"—"],["Membre depuis",fmtDate(artiste.createdAt)]];
+    var info=[["Nom",artiste.name],["E-mail",artiste.email||"—"],["Téléphone",artiste.phone||"—"],["Code Premium",esc(maskedCode(artiste))],["Statut Premium","<i data-ic=check></i> Actif"],["Ville",artiste.city||"—"],["Membre depuis",fmtDate(artiste.createdAt)]];
     info.forEach(function(r){html+='<div class="drow"><span class="dk">'+esc(r[0])+'</span><span class="dv">'+esc(r[1])+'</span></div>';});
     html+='</section>';
     html+='<section class="panel"><div class="panel__head"><h2 class="panel__title">À propos</h2></div><p class="muted">L\'espace Artiste Premium ACCI offre un accès professionnel complet : analytiques financières, gestion de contrats, réseau de créateurs, services prioritaires et ressources exclusives. Géré par l\'Association des Créateurs de Contenu Ivoiriens.</p></section>';
@@ -616,34 +965,44 @@ function migrate(){
 }
 
 /* =========================== SEED DATA ================================== */
-/* Les portails Membre et Artiste interrogent le fichier des membres avant toute
-   connexion admin : sur un poste neuf, les codes valides étaient refusés parce que
-   ce fichier n'était rempli que par la session administrateur. Le jeu de démo
-   complet (demandes, cotisations, projets) reste, lui, réservé à cette session. */
+/* Jeu de démonstration, réservé à la session administrateur.
+
+   Les fiches sont créées SANS accès au portail : approved:false et aucun code.
+   Elles portaient auparavant sept codes d'approbation écrits en clair dans le
+   source — donc livrés au public avec le site, et valides. L'accès au portail se
+   donne désormais fiche par fiche, depuis « Approuver l'accès membre », qui tire
+   un code neuf et ne l'affiche qu'une fois.
+
+   Cette fonction n'est plus appelée depuis les formulaires de connexion : elle
+   y fabriquait, pour un visiteur non identifié, les identifiants contre lesquels
+   on s'apprêtait à le valider. */
 function seedMembers(){
   if(S.customers.count()===0){
     var N=Date.now();
     var cs=[
-      {id:"c1",type:"Individuel",name:"Awa Koné",company:"",email:"awa.kone@exemple.ci",phone:"+225 07 01 02 03",city:"Abidjan",country:"Côte d'Ivoire",tags:["Éducation"],status:"Actif",notes:"Créatrice éducative engagée dans la sensibilisation ACCI.",charter:true,premium:true,approved:true,approvalCode:"FHBXZ294",approvedAt:new Date(N-86400000*30).toISOString()},
-      {id:"c2",type:"Individuel",name:"Yao Brou",company:"",email:"yao.brou@exemple.ci",phone:"+225 05 11 22 33",city:"Bouaké",country:"Côte d'Ivoire",tags:["Humour & divertissement"],status:"Actif",charter:true,premium:true,approved:true,approvalCode:"RXKMT847",approvedAt:new Date(N-86400000*25).toISOString()},
-      {id:"c3",type:"Entreprise",name:"MediaPro CI",company:"MediaPro CI",email:"contact@mediapro.ci",phone:"+225 27 22 33 44",city:"Abidjan",country:"Côte d'Ivoire",tags:["Technologie"],status:"Actif",charter:false,approved:true,approvalCode:"GWPLN512",approvedAt:new Date(N-86400000*20).toISOString()},
+      {id:"c1",type:"Individuel",name:"Awa Koné",company:"",email:"awa.kone@exemple.ci",phone:"+225 07 01 02 03",city:"Abidjan",country:"Côte d'Ivoire",tags:["Éducation"],status:"Actif",notes:"Créatrice éducative engagée dans la sensibilisation ACCI.",charter:true,premium:true,approved:false,approvalCode:"",approvedAt:""},
+      {id:"c2",type:"Individuel",name:"Yao Brou",company:"",email:"yao.brou@exemple.ci",phone:"+225 05 11 22 33",city:"Bouaké",country:"Côte d'Ivoire",tags:["Humour & divertissement"],status:"Actif",charter:true,premium:true,approved:false,approvalCode:"",approvedAt:""},
+      {id:"c3",type:"Entreprise",name:"MediaPro CI",company:"MediaPro CI",email:"contact@mediapro.ci",phone:"+225 27 22 33 44",city:"Abidjan",country:"Côte d'Ivoire",tags:["Technologie"],status:"Actif",charter:false,approved:false,approvalCode:"",approvedAt:""},
       {id:"c4",type:"Individuel",name:"Fatou Diarra",company:"",email:"fatou.d@exemple.ci",phone:"+225 01 44 55 66",city:"Yamoussoukro",country:"Côte d'Ivoire",tags:["Cuisine"],status:"Lead",charter:false,approved:false,approvalCode:"",approvedAt:""},
-      {id:"c5",type:"Individuel",name:"Koffi N'Guessan",company:"",email:"koffi.ng@exemple.ci",phone:"+225 07 77 88 99",city:"San-Pédro",country:"Côte d'Ivoire",tags:["Sport & santé"],status:"Actif",charter:true,approved:true,approvalCode:"TCVNQ683",approvedAt:new Date(N-86400000*15).toISOString()},
+      {id:"c5",type:"Individuel",name:"Koffi N'Guessan",company:"",email:"koffi.ng@exemple.ci",phone:"+225 07 77 88 99",city:"San-Pédro",country:"Côte d'Ivoire",tags:["Sport & santé"],status:"Actif",charter:true,approved:false,approvalCode:"",approvedAt:""},
       {id:"c6",type:"Individuel",name:"Mariam Touré",company:"",email:"mariam.t@exemple.ci",phone:"+225 05 22 33 44",city:"Korhogo",country:"Côte d'Ivoire",tags:["Mode & lifestyle"],status:"Inactif",approved:false,approvalCode:"",approvedAt:""},
-      {id:"c7",type:"Entreprise",name:"Djigui Productions",company:"Djigui Productions",email:"info@djigui.ci",phone:"+225 27 33 44 55",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société"],status:"Actif",charter:true,approved:true,approvalCode:"BQMZR159",approvedAt:new Date(N-86400000*10).toISOString()},
-      {id:"c8",type:"Individuel",name:"Sékou Ouattara",company:"",email:"sekou.o@exemple.ci",phone:"+225 07 55 66 77",city:"Abidjan",country:"Côte d'Ivoire",tags:["Actualité & médias"],status:"Actif",charter:true,premium:true,approved:true,approvalCode:"DVXJY471",approvedAt:new Date(N-86400000*8).toISOString()},
+      {id:"c7",type:"Entreprise",name:"Djigui Productions",company:"Djigui Productions",email:"info@djigui.ci",phone:"+225 27 33 44 55",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société"],status:"Actif",charter:true,approved:false,approvalCode:"",approvedAt:""},
+      {id:"c8",type:"Individuel",name:"Sékou Ouattara",company:"",email:"sekou.o@exemple.ci",phone:"+225 07 55 66 77",city:"Abidjan",country:"Côte d'Ivoire",tags:["Actualité & médias"],status:"Actif",charter:true,premium:true,approved:false,approvalCode:"",approvedAt:""},
       {id:"c9",type:"Individuel",name:"Aminata Coulibaly",company:"",email:"aminata.c@exemple.ci",phone:"+225 01 88 99 00",city:"Daloa",country:"Côte d'Ivoire",tags:["Entrepreneuriat"],status:"Lead",approved:false,approvalCode:"",approvedAt:""},
       {id:"c10",type:"Individuel",name:"Ibrahim Sanogo",company:"",email:"ibrahim.s@exemple.ci",phone:"+225 05 99 00 11",city:"Man",country:"Côte d'Ivoire",tags:["Éducation"],status:"Lead",approved:false,approvalCode:"",approvedAt:""},
-      {id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@acci.ci",phone:"+225 07 00 00 99",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,approved:true,approvalCode:"AAAAAOOO",approvedAt:new Date(N-86400000*5).toISOString()}
+      {id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@acci.ci",phone:"+225 07 00 00 99",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,approved:false,approvalCode:"",approvedAt:""}
     ];
     cs.forEach(function(c,i){c.address="";c.social="";c.notes=c.notes||"";c.charter=c.charter||false;c.createdAt=new Date(N-86400000*(60-i*5)).toISOString();c.updatedAt=todayISO();S.customers.save(S.customers.all().concat([c]));});
   }
-  /* Le compte de démonstration Artiste Premium est garanti à part : il sert de
-     porte d'entrée au portail Artiste et peut manquer d'un import de membres. */
-  var hasArt=S.customers.all().some(function(c){return c.approvalCode==="AAAAAOOO";});
-  if(!hasArt){
-    S.customers.add({id:"c11",type:"Individuel",name:"Artiste ACCI",company:"",email:"artiste@acci.ci",phone:"+225 07 00 00 99",address:"",city:"Abidjan",country:"Côte d'Ivoire",tags:["Culture & société","Mode & lifestyle"],status:"Actif",notes:"Compte Artiste Premium ACCI.",charter:true,premium:true,social:"",approved:true,approvalCode:"AAAAAOOO",approvedAt:new Date().toISOString(),createdAt:new Date().toISOString(),updatedAt:todayISO()});
-  }
+  /* Le compte « Artiste ACCI » n'est plus recréé de force.
+
+     Il l'était à chaque passage, avec le code AAAAAOOO écrit dans le source. Deux
+     effets, tous deux graves. D'une part ce code était public — /admin/admin.js
+     est servi tel quel — donc n'importe quel visiteur ouvrait l'espace Artiste
+     Pro en le recopiant depuis le pied de page du site. D'autre part il
+     ressuscitait le compte : un administrateur qui révoquait cet accès, ou qui
+     supprimait la fiche, la voyait revenir approuvée et Premium à la tentative de
+     connexion suivante — la révocation ne tenait pas. */
 }
 
 function seedAll(){
@@ -756,12 +1115,13 @@ function chartBars(data){
 function backdropClose(e){if(e.target===e.currentTarget)closeModal();}
 function openModal(h,wide){
   var m=$("#modal");
+  document.body.classList.remove("cert-open");
   m.innerHTML='<div class="modal__box'+(wide?" modal__box--wide":"")+'">'+h+'</div>';paintIcons(m);
   m.hidden=false;
   $$("[data-close]",m).forEach(function(b){b.addEventListener("click",closeModal);});
   if(!m.dataset.backdropBound){m.addEventListener("click",backdropClose);m.dataset.backdropBound="1";}
 }
-function closeModal(){var m=$("#modal");m.hidden=true;m.innerHTML="";}
+function closeModal(){var m=$("#modal");m.hidden=true;m.innerHTML="";document.body.classList.remove("cert-open");}
 var _tt;function toast(msg,k){var t=$("#toast");t.textContent=msg;t.className="toast toast--"+(k||"ok");t.hidden=false;clearTimeout(_tt);_tt=setTimeout(function(){t.hidden=true;},2600);}
 function dl(name,content,mime){var b=new Blob([content],{type:mime+";charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},1000);}
 function confirmDel(cb,msg){openModal('<div class="modal__head"><h2>Confirmer</h2><button class="modal__x" data-close>&times;</button></div><div class="modal__body"><p>'+(msg||"Supprimer ? Irréversible.")+'</p></div><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--danger" id="_dy">Supprimer</button></div>');$("#_dy").addEventListener("click",function(){cb();closeModal();});}
@@ -1362,7 +1722,7 @@ RA("admin.admins",function(){
       '<div class="drow"><span class="dk">Utilisateur</span><span class="dv"><b>'+esc(me.username)+'</b></span></div>'+
       '<div class="drow"><span class="dk">Nom</span><span class="dv">'+esc(me.name)+'</span></div>'+
       '<div class="drow"><span class="dk">Rôle</span><span class="dv">'+badge(me.role==="super_admin"?"Super Admin":"Admin")+'</span></div>'+
-      (me.approvalCode?'<div class="drow"><span class="dk">Code d\'approbation</span><span class="dv"><code style="font-size:15px;letter-spacing:2px;font-weight:700;background:var(--green-l);padding:3px 10px;border-radius:6px">'+esc(me.approvalCode)+'</code></span></div>':'')+
+      (me.codeId?'<div class="drow"><span class="dk">Code d\'approbation</span><span class="dv"><code style="font-size:15px;letter-spacing:2px;font-weight:700;background:var(--green-l);padding:3px 10px;border-radius:6px">'+esc(maskedCode(me))+'</code></span></div>':'')+
       '<div class="drow"><span class="dk">Modules autorisés</span><span class="dv">'+(hasAllModules(me)?"Tous":esc((me.allowedModules||[]).join(", ")))+'</span></div>'+
       '</section><p class="muted">Seul l\'administrateur <b>ogou</b> peut modifier les comptes administrateurs.</p>';
   }
@@ -1374,7 +1734,7 @@ RA("admin.admins",function(){
       avatar({name:a.name||a.username},40)+
       '<div class="admin-card__info"><h3>'+esc(a.name||a.username)+'</h3><p>@'+esc(a.username)+' · '+(isS?'<span style="color:var(--orange);font-weight:700"><i data-ic=badge></i> Super Admin</span>':'Admin')+
       ' · Modules : '+modCount+'</p></div>'+
-      (a.approvalCode?'<span class="admin-card__code">'+esc(a.approvalCode)+'</span>':'')+
+      (a.codeId?'<span class="admin-card__code">'+esc(maskedCode(a))+'</span>':'')+
       '<button class="iact adm-edit" data-id="'+a.id+'" title="Modifier"><i data-ic=pencil></i></button>'+
       (isLastSuper(a)?'':'<button class="iact iact--del adm-del" data-id="'+a.id+'" title="Supprimer"><i data-ic=trash></i></button>')+
     '</div>';
@@ -1445,8 +1805,6 @@ function openAdminForm(id){
     if(!isNew&&isLastSuper(a)&&(role!=="super_admin"||!approved)){
       err.textContent="Ce compte est le dernier Super Admin en activité : promouvez d'abord un autre compte, sinon plus personne ne pourra gérer les accès.";
       err.hidden=false;return;}
-    if(isNew&&!pw){err.textContent="Mot de passe obligatoire.";err.hidden=false;return;}
-    if(pw&&pw.length<4){err.textContent="Mot de passe : minimum 4 caractères.";err.hidden=false;return;}
     /* Check username uniqueness */
     if(isNew&&S.admins.all().some(function(x){return x.username===username;})){err.textContent="Ce nom d'utilisateur existe déjà.";err.hidden=false;return;}
 
@@ -1456,25 +1814,46 @@ function openAdminForm(id){
     else{mods=[];$$(".perm-cb").forEach(function(c){if(c.checked)mods.push(c.value);});}
     if(!mods.length&&!allCb.checked){err.textContent="Sélectionnez au moins un module.";err.hidden=false;return;}
 
-    /* Generate approval code for new admins */
-    var code=a.approvalCode;
-    if(isNew){
-      code=genCode();
-      while(S.admins.all().some(function(x){return x.approvalCode===code;})||S.customers.all().some(function(x){return x.approvalCode===code;})){code=genCode();}
-    }
+    /* Un mot de passe neuf exige 12 caractères. L'ancien panneau en acceptait
+       quatre : à ce format, l'ensemble des possibilités se parcourt plus vite
+       que l'on ne relit cette ligne. */
+    if(pw&&pw.length<12){err.textContent="Mot de passe : 12 caractères minimum.";err.hidden=false;return;}
+    if(isNew&&!pw){err.textContent="Mot de passe obligatoire.";err.hidden=false;return;}
 
     var rec={
       id:a.id||uid(),
       username:username,
       name:name,
-      passHash:pw?hash(pw):a.passHash,
+      passSalt:a.passSalt||"",
+      passHash:a.passHash||"",
+      passAlgo:a.passAlgo||"",
       role:role,
       approved:approved,
-      approvalCode:code,
+      codeId:a.codeId||"",
+      codeSalt:a.codeSalt||"",
+      codeHash:a.codeHash||"",
+      codeTail:a.codeTail||"",
       allowedModules:mods,
       createdAt:a.createdAt||new Date().toISOString()
     };
 
+    /* Empreinte du mot de passe puis, pour un compte neuf, code d'identification.
+       Les deux calculs sont asynchrones : l'enregistrement attend leur résultat
+       plutôt que d'écrire une fiche à moitié constituée. */
+    var save=Promise.resolve();
+    if(pw)save=save.then(function(){
+      return CRYPTO.hashSecret(pw).then(function(h){
+        rec.passSalt=h.salt;rec.passHash=h.hash;rec.passAlgo=h.algo;
+      });
+    });
+    if(isNew)save=save.then(function(){return issueCode(rec);}).then(function(full){rec.__code=full;});
+    save.then(function(){finishAdminSave(rec);}).catch(function(){
+      err.textContent="Enregistrement impossible sur cet appareil.";err.hidden=false;
+    });
+  });
+
+  function finishAdminSave(rec){
+    var code=rec.__code;delete rec.__code;
     if(id){S.admins.update(rec);alog("admin",rec.id,"modification",rec.name);toast("Admin mis à jour.");}
     else{S.admins.add(rec);alog("admin",rec.id,"création",rec.name);}
     closeModal();
@@ -1484,18 +1863,18 @@ function openAdminForm(id){
       openModal(
         '<div class="modal__head"><h2><i data-ic=check></i> Administrateur créé</h2><button class="modal__x" data-close>&times;</button></div>'+
         '<div class="modal__body" style="text-align:center">'+
-          '<p>Le compte <b>'+esc(username)+'</b> a été créé avec succès.</p>'+
+          '<p>Le compte <b>'+esc(rec.username)+'</b> a été créé avec succès.</p>'+
           '<p style="margin-top:12px">Code d\'approbation à communiquer :</p>'+
           '<div class="approval-code">'+esc(code)+'</div>'+
-          '<p class="muted" style="margin-top:8px">5 lettres + 3 chiffres — ce code est unique et identifie cet administrateur.</p>'+
+          '<p class="muted" style="margin-top:8px"><b>Notez-le maintenant : il ne sera plus affiché.</b> Le CRM n\'en garde qu\'une empreinte.</p>'+
           '<p style="margin-top:12px"><b>Identifiants de connexion :</b></p>'+
-          '<p>Utilisateur : <code>'+esc(username)+'</code><br>Mot de passe : celui que vous avez défini</p>'+
+          '<p>Utilisateur : <code>'+esc(rec.username)+'</code><br>Mot de passe : celui que vous avez défini</p>'+
         '</div>'+
         '<div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--primary" data-close>Compris</button></div>'
       );
     }
     refresh();
-  });
+  }
 }
 
 /* 95. admin.audit */
@@ -1530,13 +1909,23 @@ RA("admin.backup",function(){
   var ps=$("#pw-save");if(ps)ps.addEventListener("click",function(){var m=$("#pw-msg");try{
     var me=currentAdmin();var rec=me?S.admins.get(me.id):null;
     if(!rec){m.className="ferr";m.textContent="Session expirée — reconnectez-vous.";m.hidden=false;return;}
-    if(hash($("#pw-cur").value)!==rec.passHash){m.className="ferr";m.textContent="Code incorrect.";m.hidden=false;return;}
-    var np=$("#pw-new").value.trim();
-    if(np.length<4){m.className="ferr";m.textContent="Au moins 4 caractères.";m.hidden=false;return;}
-    rec.passHash=hash(np);S.admins.update(rec);sessionStorage.setItem("acci_admin",JSON.stringify(rec));
-    alog("admin",rec.id,"code d'accès",rec.username);
-    $("#pw-cur").value="";$("#pw-new").value="";
-    m.className="ferr okmsg";m.textContent="<i data-ic=check></i> Code admin ACCI modifié.";m.hidden=false;toast("Code modifié.");
+    var np=$("#pw-new").value;
+    if(np.length<12){m.className="ferr";m.textContent="Au moins 12 caractères.";m.hidden=false;return;}
+    m.className="ferr";m.textContent="Vérification…";m.hidden=false;
+    /* L'ancien mot de passe est vérifié par verifyAdminPass, qui accepte aussi
+       le format hérité : sans cela, changer son mot de passe devenait impossible
+       tant qu'on ne s'était pas reconnecté au moins une fois. */
+    verifyAdminPass(rec,$("#pw-cur").value).then(function(ok){
+      if(!ok){m.className="ferr";m.textContent="Mot de passe actuel incorrect.";return;}
+      return CRYPTO.hashSecret(np).then(function(h){
+        var fresh=S.admins.get(rec.id)||rec;
+        fresh.passSalt=h.salt;fresh.passHash=h.hash;fresh.passAlgo=h.algo;
+        S.admins.update(fresh);
+        alog("admin",fresh.id,"mot de passe",fresh.username);
+        $("#pw-cur").value="";$("#pw-new").value="";
+        m.className="ferr okmsg";m.textContent="Mot de passe modifié.";toast("Mot de passe modifié.");
+      });
+    }).catch(function(){m.className="ferr";m.textContent="Vérification impossible sur cet appareil.";});
   }catch(err){m.className="ferr";m.textContent="Échec : "+err.message;m.hidden=false;}});
   if(!isSuperAdmin())return;
   $("#bk-dl").addEventListener("click",exportFullJSON);
@@ -1580,7 +1969,7 @@ SEC["customers.list"]={
     var selN=state.cVisible.filter(function(k){return state.cSel[k];}).length;
     var allVisibleSel=list.length>0&&selN===list.length;
     function srt(key,label){var ar=state.cSort===key?(state.cDir===1?" ▲":" ▼"):"";return'<th class="th-sort" data-sort="'+key+'">'+label+ar+'</th>';}
-    var rows=list.length?list.map(function(x){return'<tr data-id="'+x.id+'" class="rowlink"><td><input type="checkbox" class="rc" data-id="'+x.id+'"'+(state.cSel[x.id]?" checked":"")+'></td><td class="cell-name">'+avatar(x)+'<span><b>'+esc(x.name)+'</b>'+(x.company?'<br><span class="muted">'+esc(x.company)+'</span>':'')+'</span></td><td>'+badge(x.type||"Individuel")+'</td><td>'+esc(x.email||"\u2014")+'</td><td>'+esc(x.city||"\u2014")+'</td><td>'+badge(x.status)+'</td><td>'+(x.approved?'<span style="color:var(--green)" title="'+esc(x.approvalCode||"")+'"><i data-ic=key></i></span>':'<span class="muted">\u2014</span>')+'</td><td>'+(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")+'</td><td class="rowact"><button class="iact ce" data-id="'+x.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+x.id+'"><i data-ic=trash></i></button></td></tr>';}).join(""):'<tr><td colspan="9" class="empty">Aucun membre ACCI trouvé.</td></tr>';
+    var rows=list.length?list.map(function(x){return'<tr data-id="'+x.id+'" class="rowlink"><td><input type="checkbox" class="rc" data-id="'+x.id+'"'+(state.cSel[x.id]?" checked":"")+'></td><td class="cell-name">'+avatar(x)+'<span><b>'+esc(x.name)+'</b>'+(x.company?'<br><span class="muted">'+esc(x.company)+'</span>':'')+'</span></td><td>'+badge(x.type||"Individuel")+'</td><td>'+esc(x.email||"\u2014")+'</td><td>'+esc(x.city||"\u2014")+'</td><td>'+badge(x.status)+'</td><td>'+(x.approved?'<span style="color:var(--green)" title="Accès portail actif"><i data-ic=key></i></span>':'<span class="muted">\u2014</span>')+'</td><td>'+(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")+'</td><td class="rowact"><button class="iact ce" data-id="'+x.id+'"><i data-ic=pencil></i></button><button class="iact iact--del cd" data-id="'+x.id+'"><i data-ic=trash></i></button></td></tr>';}).join(""):'<tr><td colspan="9" class="empty">Aucun membre ACCI trouvé.</td></tr>';
     return'<div class="filterbar"><select id="f-st"><option value="">Tous statuts</option>'+optH(CUSTOMER_STATUSES,state.cFSt)+'</select><select id="f-cat"><option value="">Tous domaines</option>'+optH(CATEGORIES,state.cFCat)+'</select><span class="filterbar__count">'+list.length+' membre(s) ACCI</span><div class="filterbar__right">'+(selN?'<button class="abtn abtn--danger abtn--sm" id="b-del">Suppr. ('+selN+')</button>':'')+'<button class="abtn abtn--ghost abtn--sm" id="x-csv"><i data-ic=download></i> CSV</button></div></div><div class="dtable"><table><thead><tr><th style="width:30px"><input type="checkbox" id="ca"'+(allVisibleSel?" checked":"")+'></th>'+srt("name","Membre")+'<th>Type</th><th>E-mail</th><th>Ville</th>'+srt("status","Statut")+'<th>Portail</th><th>Domaines</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   },
   b:function(){
@@ -1616,6 +2005,40 @@ function openCustomerEdit(id){
   $("#cf-s").addEventListener("click",function(){var f=$("#cf"),nm=f.name.value.trim();if(!nm){var e=$("#cf-e");e.textContent="Nom obligatoire.";e.hidden=false;return;}var r={id:x.id||uid(),type:f.type.value,name:nm,company:f.company.value.trim(),email:f.email.value.trim(),phone:f.phone.value.trim(),address:x.address||"",city:f.city.value.trim(),country:f.country.value.trim(),tags:f.tags.value.split(",").map(function(t){return t.trim();}).filter(Boolean),status:f.status.value,notes:f.notes.value.trim(),charter:f.charter.checked,premium:f.premium.checked,social:x.social||"",approved:x.approved||false,approvalCode:x.approvalCode||"",approvedAt:x.approvedAt||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:todayISO()};if(id){S.customers.update(r);alog("client",r.id,"modification",r.name);toast("Mis à jour.");}else{S.customers.add(r);alog("client",r.id,"création",r.name);toast("Membre ACCI créé.");}closeModal();refresh();});
 }
 
+/* Référence d'attestation : ACCI-<année>-<5 caractères>. Vérifiée unique parmi
+   les membres — deux attestations partageant une référence ne pourraient plus
+   être distinguées l'une de l'autre en cas de contestation. Les caractères
+   ambigus à la lecture manuscrite (0/O, 1/I) sont exclus. */
+function certNumber(){
+  var AL="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",y=new Date().getFullYear(),n,i,tries=0;
+  do{
+    n="ACCI-"+y+"-";
+    for(i=0;i<5;i++)n+=AL.charAt(Math.floor(Math.random()*AL.length));
+    tries++;
+  }while(tries<50&&S.customers.all().some(function(c){return c.certNumber===n;}));
+  return n;
+}
+
+/* L'attestation s'ouvre dans une modale portant modal--cert : la feuille de
+   style d'impression masque toutes les modales, et c'est cette classe qui
+   rend l'exception possible sans découvrir le reste de l'interface. */
+function openCertificate(x){
+  if(!window.ACCI_CERT){toast("Module d'attestation indisponible.","err");return;}
+  openModal(
+    '<div class="modal__head"><h2>Attestation — '+esc(x.name)+'</h2><button class="modal__x" data-close>&times;</button></div>'+
+    '<div class="modal__body">'+window.ACCI_CERT.html({
+      name:x.name,type:x.type,city:x.city,
+      number:x.certNumber,date:x.certDate,expiry:x.certExpiry,
+      president:localStorage.getItem("acci_president")||"Le Président"
+    })+'</div>'+
+    '<div class="modal__foot"><span style="flex:1"></span>'+
+    '<button class="abtn abtn--ghost" data-close>Fermer</button>'+
+    '<button class="abtn abtn--primary" id="cert-print"><i data-ic=doc></i> Imprimer / PDF</button></div>',true);
+  document.body.classList.add("cert-open");
+  var pb=$("#cert-print");
+  if(pb)pb.addEventListener("click",function(){window.print();});
+}
+
 function openCustomerDetail(id){
   var x=S.customers.get(id);if(!x)return;var cts=S.contacts.where(function(c){return c.customerId===id;});var tks=S.tickets.where(function(t){return t.customerId===id;});var dls=S.deals.where(function(d){return d.customerId===id;});var invs=S.invoices.where(function(i){return i.customerId===id;});
   var info=[["Type",badge(x.type||"Individuel")],["E-mail",esc(x.email||"\u2014")],["Téléphone",esc(x.phone||"\u2014")],["Ville",esc(x.city||"\u2014")],["Statut",badge(x.status)],["Charte ACCI",x.charter?'<span style="color:var(--green)"><i data-ic=check></i> Signée</span>':'<span class="muted">Non signée</span>'],["Artiste Premium",x.premium?'<span style="color:var(--purple);font-weight:700"><i data-ic=palette></i> Premium</span>':'<span class="muted">Standard</span>'],["Domaines",(x.tags||[]).map(function(t){return'<span class="tagmini">'+esc(t)+'</span>';}).join(" ")||"\u2014"],["Inscrit le",fmtDate(x.createdAt)]].map(function(r){return'<div class="drow"><span class="dk">'+r[0]+'</span><span class="dv">'+r[1]+'</span></div>';}).join("");
@@ -1623,34 +2046,124 @@ function openCustomerDetail(id){
   /* Approval section */
   var approvalH='<div class="drow" style="margin-top:12px;padding:12px;background:var(--bg);border-radius:10px"><span class="dk">Portail membre</span><span class="dv">';
   if(x.approved){
-    approvalH+='<span style="color:var(--green);font-weight:700"><i data-ic=check></i> Approuvé</span> — Code : <code style="background:var(--orange-l);padding:3px 8px;border-radius:6px;font-weight:700;font-size:15px;letter-spacing:1px">'+esc(x.approvalCode)+'</code><br><span class="muted">Approuvé le '+fmtDate(x.approvedAt)+'</span><br><button class="abtn abtn--danger abtn--sm" id="cd-revoke" style="margin-top:6px"><i data-ic=lock></i> Révoquer l\'accès</button>';
+    approvalH+='<span style="color:var(--green);font-weight:700"><i data-ic=check></i> Approuvé</span>'+
+      ' — Code : <code style="background:var(--orange-l);padding:3px 8px;border-radius:6px;font-weight:700;font-size:15px;letter-spacing:1px">'+esc(maskedCode(x))+'</code>'+
+      '<br><span class="muted">Approuvé le '+fmtDate(x.approvedAt)+'</span>'+
+      /* Une fiche encore au format hérité est signalée : son code fait huit
+         caractères tirés de Math.random, et il a pu circuler en clair dans un
+         export ou une sauvegarde avant cette mise à jour. Le renouveler est le
+         seul moyen de refermer cette exposition. */
+      ((x.codeLegacy||x.approvalCode)?'<br><span style="color:var(--danger);font-weight:600"><i data-ic=alert></i> Code hérité — émis avant le renforcement, à renouveler.</span>':'')+
+      '<br><button class="abtn abtn--ghost abtn--sm" id="cd-renew" style="margin-top:6px"><i data-ic=key></i> Renouveler le code</button>'+
+      ' <button class="abtn abtn--danger abtn--sm" id="cd-revoke" style="margin-top:6px"><i data-ic=lock></i> Révoquer l\'accès</button>';
   }else{
     approvalH+='<span class="muted">Non approuvé</span><br><button class="abtn abtn--success abtn--sm" id="cd-approve" style="margin-top:6px"><i data-ic=key></i> Approuver l\'accès membre</button>';
   }
   approvalH+='</span></div>';
 
+  /* Certification « Créateur responsable ». La charte signée en est le
+     préalable : certifier un membre qui ne l'a pas souscrite reviendrait à
+     attester d'un engagement qu'il n'a jamais pris. */
+  var certH='<div class="drow" style="margin-top:8px;padding:12px;background:var(--bg);border-radius:10px"><span class="dk">Certification</span><span class="dv">';
+  if(x.certified){
+    certH+='<span style="color:var(--green);font-weight:700"><i data-ic=badge></i> Créateur responsable</span>'+
+      ' — Réf. <code style="background:var(--green-l);padding:3px 8px;border-radius:6px;font-weight:700">'+esc(x.certNumber||"")+'</code>'+
+      '<br><span class="muted">Délivrée le '+fmtDate(x.certDate)+(x.certExpiry?' · valable jusqu\'au '+fmtDate(x.certExpiry):'')+'</span>'+
+      '<br><button class="abtn abtn--primary abtn--sm" id="cd-cert-view" style="margin-top:6px"><i data-ic=doc></i> Voir l\'attestation</button>'+
+      ' <button class="abtn abtn--danger abtn--sm" id="cd-cert-revoke" style="margin-top:6px">Révoquer</button>';
+  }else if(!x.charter){
+    certH+='<span class="muted">Non certifié</span><br><span class="muted" style="font-size:11.5px">La charte ACCI doit d\'abord être signée par le membre.</span>';
+  }else{
+    certH+='<span class="muted">Non certifié</span><br><button class="abtn abtn--success abtn--sm" id="cd-cert-issue" style="margin-top:6px"><i data-ic=badge></i> Délivrer la certification</button>';
+  }
+  certH+='</span></div>';
+
   var timeline=[];tks.forEach(function(t){timeline.push({ic:"ticket",txt:'<b>Demande</b> '+esc(t.title)+' — '+badge(t.status),dt:t.createdAt});});dls.forEach(function(d){timeline.push({ic:"money",txt:'<b>Adhésion</b> '+esc(d.title)+' — '+badge(d.stage)+' — '+fmtMoney(d.value),dt:d.createdAt});});invs.forEach(function(i){timeline.push({ic:"invoice",txt:'<b>'+esc(i.type)+'</b> '+esc(i.number)+' — '+fmtMoney(i.total),dt:i.createdAt});});timeline.sort(function(a,b){return new Date(b.dt)-new Date(a.dt);});
   var tlH=timeline.length?'<h3 style="margin-top:12px">Historique ACCI</h3><div class="timeline">'+timeline.map(function(t){return'<div class="timeline__item"><span class="timeline__icon">'+t.ic+'</span><div class="timeline__body">'+t.txt+'<div class="timeline__date">'+fmtDate(t.dt)+'</div></div></div>';}).join("")+'</div>':'';
-  openModal('<div class="modal__head"><div class="dhead">'+avatar(x,40)+'<div><h2>'+esc(x.name)+'</h2><span class="muted">'+esc(x.company||"Membre ACCI")+'</span></div></div><button class="modal__x" data-close>&times;</button></div><div class="modal__body">'+info+approvalH+(x.notes?'<div class="dnotes"><span class="dk">Notes</span><p>'+esc(x.notes)+'</p></div>':'')+tlH+'</div><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Fermer</button><button class="abtn abtn--primary" id="cd-edit">Modifier</button></div>',true);
+  openModal('<div class="modal__head"><div class="dhead">'+avatar(x,40)+'<div><h2>'+esc(x.name)+'</h2><span class="muted">'+esc(x.company||"Membre ACCI")+'</span></div></div><button class="modal__x" data-close>&times;</button></div><div class="modal__body">'+info+approvalH+certH+(x.notes?'<div class="dnotes"><span class="dk">Notes</span><p>'+esc(x.notes)+'</p></div>':'')+tlH+'</div><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Fermer</button><button class="abtn abtn--primary" id="cd-edit">Modifier</button></div>',true);
   $("#cd-edit").addEventListener("click",function(){openCustomerEdit(x.id);});
 
-  /* Approve button */
+  /* Approbation / renouvellement du code portail */
+  function grantCode(rec,titre){
+    issueCode(rec).then(function(full){
+      rec.approved=true;
+      rec.approvedAt=rec.approvedAt||new Date().toISOString();
+      rec.codeLegacy=false;
+      rec.updatedAt=todayISO();
+      S.customers.update(rec);
+      /* Le journal d'audit note qu'un code a été émis, jamais lequel. Il
+         enregistrait « nom → CODE » : le journal devenait alors une liste
+         d'identifiants en clair, conservée sur 500 entrées et emportée par
+         chaque sauvegarde. */
+      alog("client",rec.id,"approbation portail",rec.name);
+      showCodeOnce(rec,full,titre);
+    }).catch(function(){
+      toast("Génération impossible : aucun générateur aléatoire sûr sur cet appareil.");
+    });
+  }
+
+  /* Le code complet n'apparaît qu'ici, une seule fois. Il n'est pas conservé :
+     ni la fiche, ni l'export, ni la sauvegarde, ni le journal ne permettent de
+     le retrouver. Perdu, il se remplace — il ne se relit pas. */
+  function showCodeOnce(rec,full,titre){
+    openModal('<div class="modal__head"><h2>'+esc(titre)+'</h2><button class="modal__x" data-close>&times;</button></div>'+
+      '<div class="modal__body"><p>Code d\'accès de <b>'+esc(rec.name)+'</b> :</p>'+
+      '<div class="approval-code">'+esc(full)+'</div>'+
+      '<p class="muted" style="margin-top:10px">Communiquez-le au membre maintenant. <b>Il ne sera plus affiché.</b> '+
+      'Le CRM n\'en conserve qu\'une empreinte : ni cet écran, ni un export, ni une sauvegarde ne permettront de le relire.</p>'+
+      '<p class="muted">En cas de perte, ouvrez la fiche et choisissez « Renouveler le code ».</p></div>'+
+      '<div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--primary" data-close>J\'ai noté le code</button></div>');
+    var m=$("#modal");
+    if(m)m.addEventListener("click",function(ev){
+      if(ev.target.closest("[data-close]"))openCustomerDetail(id);
+    });
+  }
+
   var approveBtn=$("#cd-approve");
   if(approveBtn){
     approveBtn.addEventListener("click",function(){
-      var code=genCode();
-      /* Make sure code is unique */
-      while(S.customers.all().some(function(c){return c.approvalCode===code;})){code=genCode();}
-      x.approved=true;
-      x.approvalCode=code;
-      x.approvedAt=new Date().toISOString();
-      x.updatedAt=todayISO();
-      S.customers.update(x);
-      alog("client",x.id,"approbation portail",x.name+" → "+code);
-      toast("Accès portail approuvé : "+code);
-      openCustomerDetail(id);
+      approveBtn.disabled=true;approveBtn.textContent="Génération…";
+      grantCode(x,"Accès portail approuvé");
     });
   }
+
+  var renewBtn=$("#cd-renew");
+  if(renewBtn){
+    renewBtn.addEventListener("click",function(){
+      renewBtn.disabled=true;renewBtn.textContent="Génération…";
+      grantCode(x,"Nouveau code d'accès");
+    });
+  }
+
+  /* Certification : délivrance, consultation, révocation */
+  var certIssue=$("#cd-cert-issue");
+  if(certIssue)certIssue.addEventListener("click",function(){
+    var num=certNumber();
+    x.certified=true;x.certNumber=num;x.certDate=todayISO();
+    /* Deux ans : une certification sans terme n'atteste plus rien au bout de
+       quelques années, la charte et les pratiques ayant changé entre-temps. */
+    var d=new Date();d.setFullYear(d.getFullYear()+2);
+    x.certExpiry=d.toISOString().slice(0,10);
+    x.updatedAt=todayISO();
+    S.customers.update(x);
+    alog("client",x.id,"certification",x.name+" \u2192 "+num);
+    toast("Certification délivrée : "+num);
+    openCertificate(x);
+  });
+  var certView=$("#cd-cert-view");
+  if(certView)certView.addEventListener("click",function(){openCertificate(x);});
+  var certRevoke=$("#cd-cert-revoke");
+  if(certRevoke)certRevoke.addEventListener("click",function(){
+    confirmDel(function(){
+      /* La référence est conservée : une attestation déjà remise circule, et
+         savoir laquelle a été révoquée est le seul moyen de la contester. */
+      x.certified=false;x.updatedAt=todayISO();
+      S.customers.update(x);
+      alog("client",x.id,"révocation certification",x.name+" ("+(x.certNumber||"")+")");
+      toast("Certification révoquée.");
+      openCustomerDetail(id);
+    },"Révoquer la certification de "+esc(x.name)+" ? L'attestation déjà remise continuera de circuler : prévenez le membre. La référence "+esc(x.certNumber||"")+" est conservée pour pouvoir la contester.");
+  });
 
   /* Revoke button */
   var revokeBtn=$("#cd-revoke");
@@ -1658,7 +2171,10 @@ function openCustomerDetail(id){
     revokeBtn.addEventListener("click",function(){
       confirmDel(function(){
         x.approved=false;
-        x.approvalCode="";
+        /* Tous les champs d'identification sont effacés. Ne vider que
+           approvalCode laissait l'empreinte en place : le code révoqué
+           continuait d'ouvrir le portail. */
+        x.approvalCode="";x.codeId="";x.codeSalt="";x.codeHash="";x.codeTail="";x.codeAlgo="";x.codeLegacy=false;
         x.approvedAt="";
         x.updatedAt=todayISO();
         S.customers.update(x);
@@ -1844,7 +2360,7 @@ function calendarView(events){
 function csvCell(v){v=String(v==null?"":v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;v=v.replace(/"/g,'""');return /[",\n;]/.test(v)?'"'+v+'"':v;}
 function exportCSV(type){
   var data,fields;
-  if(type==="customers"){data=S.customers.all();/* L'identifiant voyage avec la ligne : sans lui, un fichier retouché puis réimporté ne pouvait que recréer chaque membre, et l'annuaire doublait à chaque aller-retour. */fields=["name","company","type","email","phone","city","country","status","approved","approvalCode","id"];}
+  if(type==="customers"){data=S.customers.all();/* L'identifiant voyage avec la ligne : sans lui, un fichier retouché puis réimporté ne pouvait que recréer chaque membre, et l'annuaire doublait à chaque aller-retour. */fields=["name","company","type","email","phone","city","country","status","approved","id"];/* Le code d'accès ne figure plus dans l'export : un CSV de membres se transmet par courriel, se dépose sur une clé et se garde des années. Il emportait jusqu'ici de quoi ouvrir le portail de chaque membre. */}
   else if(type==="tickets"){data=S.tickets.all();fields=["title","priority","status","dueDate","createdAt"];}
   else if(type==="deals"){data=S.deals.all();fields=["title","value","stage","probability","expectedCloseDate"];}
   else if(type==="invoices"){data=S.invoices.all();fields=["number","type","status","issueDate","dueDate","total"];}
@@ -1900,8 +2416,12 @@ function memberFromImport(x){
     var v=x[k];if(v==null||v==="")return;
     o[k]=(v===true||v===1||/^(true|1|oui)$/i.test(String(v)));
   });
+  /* Un code repris d'un export antérieur arrive en clair. Il est accepté — sans
+     quoi restaurer une ancienne sauvegarde mettrait tous les membres dehors —
+     mais marqué comme hérité : la fiche est convertie en empreinte à la première
+     connexion, et l'interface invite à la renouveler d'ici là. */
   var cd=x.approvalCode!=null?x.approvalCode:x.approvalcode;
-  if(cd!=null&&String(cd).trim()!=="")o.approvalCode=String(cd).trim();
+  if(cd!=null&&String(cd).trim()!==""){o.approvalCode=String(cd).trim();o.codeLegacy=true;}
   var ad=x.approvedAt!=null?x.approvedAt:x.approvedat;
   if(ad!=null&&String(ad).trim()!=="")o.approvedAt=String(ad).trim();
   return o;

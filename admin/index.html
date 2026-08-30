@@ -33,7 +33,7 @@
         <form id="login-form">
           <label class="afield">
             <span>Nom d'utilisateur</span>
-            <input type="text" id="login-user" placeholder="ogouogou" autocomplete="username" required>
+            <input type="text" id="login-user" placeholder="identifiant" autocomplete="username" required>
           </label>
           <label class="afield">
             <span id="login-label">Mot de passe</span>
@@ -49,11 +49,20 @@
       <!-- Member login -->
       <div id="member-login" hidden>
         <h1>Portail Membre</h1>
-        <p class="login__sub">Entrez le code d'approbation fourni par l'ACCI (5 lettres + 3 chiffres).</p>
+        <p class="login__sub">Entrez le code d'accès fourni par l'ACCI, au format <b>XXXX-XXXXXXXX</b>.</p>
         <form id="member-form">
           <label class="afield">
             <span>Code d'approbation</span>
-            <input type="text" id="member-code" placeholder="ABCDE123" maxlength="8" required class="member-code-input">
+            <!-- type="password" : le code est un identifiant. En clair, il restait
+                 lisible par-dessus l'épaule et sur toute capture d'écran. autocomplete,
+                 autocorrect et spellcheck sont coupés pour qu'il ne soit ni enregistré
+                 dans l'historique de formulaire du navigateur ni envoyé à un correcteur. -->
+            <span class="codefield">
+              <input type="password" id="member-code" placeholder="XXXX-XXXXXXXX" maxlength="13" required
+                     class="member-code-input" autocomplete="off" autocapitalize="characters"
+                     autocorrect="off" spellcheck="false" inputmode="latin">
+              <button type="button" class="codefield__eye" data-reveal="member-code" aria-label="Afficher le code">Afficher</button>
+            </span>
           </label>
           <p class="login__err" id="member-err" hidden></p>
           <button class="abtn abtn--success abtn--block" type="submit">Accéder à mon espace</button>
@@ -67,7 +76,16 @@
         <form id="artiste-form">
           <label class="afield">
             <span>Code Artiste Premium</span>
-            <input type="text" id="artiste-code" placeholder="ABCDE123" maxlength="8" required class="member-code-input">
+            <!-- type="password" : le code est un identifiant. En clair, il restait
+                 lisible par-dessus l'épaule et sur toute capture d'écran. autocomplete,
+                 autocorrect et spellcheck sont coupés pour qu'il ne soit ni enregistré
+                 dans l'historique de formulaire du navigateur ni envoyé à un correcteur. -->
+            <span class="codefield">
+              <input type="password" id="artiste-code" placeholder="XXXX-XXXXXXXX" maxlength="13" required
+                     class="member-code-input" autocomplete="off" autocapitalize="characters"
+                     autocorrect="off" spellcheck="false" inputmode="latin">
+              <button type="button" class="codefield__eye" data-reveal="artiste-code" aria-label="Afficher le code">Afficher</button>
+            </span>
           </label>
           <p class="login__err" id="artiste-err" hidden></p>
           <button class="abtn abtn--success abtn--block" type="submit">Accéder à l'espace Pro</button>
@@ -146,8 +164,10 @@
   <div id="modal" class="modal" hidden></div>
   <div id="toast" class="toast" hidden></div>
   <script src="/admin/icons.js"></script>
+  <script src="/admin/crypto.js"></script>
   <script src="/admin/admin.js"></script>
   <script src="/admin/images.js"></script>
   <script src="/admin/site-identity.js"></script>
+  <script src="/admin/certificate.js"></script>
 </body>
 </html>

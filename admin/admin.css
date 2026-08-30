@@ -543,3 +543,106 @@ input,select,textarea{font-family:inherit;font-size:14px;}
   white-space:nowrap;
 }
 td .tagmini{margin:1px 3px 1px 0;}
+
+/* ---------------------------------------------------------------------------
+   Attestation de certification
+   Le tampon et le cadre sont vectoriels : à l'impression, une image bitmap se
+   serait vue. La règle d'impression plus bas doit l'emporter sur celle qui
+   masque .modal — l'attestation s'affiche précisément dans une fenêtre modale,
+   et sans cela la page sortait blanche.
+   --------------------------------------------------------------------------- */
+.cert{background:#fff;color:#14201b;padding:6px;}
+.cert__frame{
+  display:flex;
+  flex-direction:column;
+  border:3px double var(--green,#0B7A3B);
+  padding:34px 40px 26px;
+  text-align:center;
+  position:relative;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(247,127,0,.05), transparent 38%),
+    radial-gradient(circle at 88% 92%, rgba(11,122,59,.05), transparent 38%);
+}
+.cert__head{margin-bottom:14px;}
+.cert__logo{height:52px;width:auto;}
+.cert__org{margin:6px 0 0;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#6b776f;}
+.cert__title{
+  font-family:Georgia,"Times New Roman",serif;font-size:27px;font-weight:700;
+  letter-spacing:.02em;margin:14px 0 2px;color:var(--green-d,#0B3D2E);
+}
+.cert__sub{margin:0 0 18px;font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;color:#A34700;}
+.cert__lead{margin:0;font-size:13px;color:#3d4a44;font-style:italic;}
+.cert__name{
+  font-family:Georgia,"Times New Roman",serif;font-size:31px;font-weight:700;
+  margin:8px 0 2px;color:#14201b;
+}
+.cert__qual{margin:0 0 16px;font-size:12.5px;color:#6b776f;}
+.cert__body{
+  max-width:520px;margin:0 auto;font-size:13px;line-height:1.65;color:#3d4a44;text-align:center;
+}
+.cert__foot{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:18px;
+  margin-top:auto;padding-top:30px;text-align:left;
+}
+.cert__sig{flex:1;}
+.cert__sigline{border-bottom:1px solid #14201b;height:34px;max-width:170px;}
+.cert__signame{margin:5px 0 0;font-size:12.5px;font-weight:700;}
+.cert__sigrole{margin:1px 0 0;font-size:11px;color:#6b776f;}
+.cert__seal{flex:0 0 auto;}
+.cert__meta{flex:1;text-align:right;font-size:10.5px;color:#3d4a44;}
+.cert__meta p{margin:0 0 7px;}
+.cert__meta span{color:#6b776f;letter-spacing:.06em;text-transform:uppercase;font-size:9px;}
+.seal{display:block;}
+
+@media print{
+  /* Le repère est posé sur <body> plutôt que sur la modale : il faut masquer
+     des éléments qui n'en descendent pas — le contenu de la rubrique ouverte
+     derrière sortait sinon en tête de l'attestation. */
+  body.cert-open .main,
+  body.cert-open .sidebar,
+  body.cert-open .member-main,
+  body.cert-open .member-header,
+  body.cert-open .artiste-app{display:none!important;}
+
+  /* Plus spécifique que la règle qui masque .modal : sans cela, l'attestation
+     — qui vit précisément dans une modale — ne s'imprimait pas du tout. */
+  body.cert-open #modal{
+    display:block!important;position:static!important;background:#fff!important;
+    padding:0!important;inset:auto!important;overflow:visible!important;
+  }
+  body.cert-open #modal .modal__box{
+    box-shadow:none!important;max-width:none!important;width:auto!important;
+    border-radius:0!important;margin:0!important;padding:0!important;max-height:none!important;
+  }
+  body.cert-open #modal .modal__head,
+  body.cert-open #modal .modal__foot{display:none!important;}
+  body.cert-open #modal .modal__body{padding:0!important;overflow:visible!important;max-height:none!important;}
+  .cert{padding:0;}
+  .cert__frame{border-color:#0B7A3B;min-height:238mm;}
+  @page{size:A4 portrait;margin:14mm;}
+}
+
+/* ---- Champ de code masqué (portails Membre et Artiste Pro) ---------------
+   Le code d'accès est un identifiant : il se saisit comme un mot de passe.
+   Le bouton « Afficher » est posé DANS le champ plutôt qu'à côté, pour que la
+   largeur de la carte de connexion reste la même sur un téléphone. */
+.codefield{position:relative;display:block;}
+.codefield .member-code-input{width:100%;padding-right:74px!important;}
+.codefield__eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  padding:5px 9px;border-radius:8px;font-size:11px;font-weight:700;
+  color:var(--muted);background:var(--bg);border:1px solid var(--line);cursor:pointer;}
+.codefield__eye:hover{color:var(--ink);border-color:var(--muted);}
+.codefield__eye:focus-visible{outline:2px solid var(--orange);outline-offset:1px;}
+
+/* Champ « confirmez le mot de passe » du premier démarrage : c'est un <input>
+   qui porte lui-même la classe .afield, que le sélecteur `.afield input` ne
+   peut donc pas atteindre. */
+input.afield{padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;
+  background:#fafcfb;color:var(--ink);font-weight:400;width:100%;margin-top:8px;}
+input.afield:focus{outline:none;border-color:var(--orange);
+  box-shadow:0 0 0 3px rgba(247,127,0,.13);background:#fff;}
+
+/* Le code masqué s'affiche en clair sur fond sombre dans les portails : les
+   puces de masquage doivent rester lisibles à côté des deux caractères réels. */
+.member-welcome .member-code-display strong,
+.artiste-hero .artiste-hero__code{letter-spacing:2px;}
