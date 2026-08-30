@@ -1,0 +1,64 @@
+/* =========================================================================
+   ACCI — Photos & pièces d'identité
+   -------------------------------------------------------------------------
+   Chargée par admin/pieces.js lui-même, et non déclarée dans index.html :
+   la rubrique s'ajoute et se retire d'un seul bloc, sans toucher au reste
+   de l'administration. Les variables (--orange, --green, --line…) viennent
+   d'admin.css, déjà chargée.
+   ========================================================================= */
+
+/* Vignette photo. Le CRM affiche partout des pastilles rondes : une photo
+   carrée y est simplement rognée en cercle, pour que rien ne détonne entre
+   un membre photographié et un membre resté aux initiales. */
+.pthumb{border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--line);
+  border:2px solid #fff;box-shadow:0 0 0 1px var(--line);display:block;}
+
+/* Numéro masqué. Chiffre à chasse fixe : sans elle, les points de masquage
+   et les quatre derniers caractères dansent d'une ligne à l'autre et la
+   colonne devient illisible. */
+.pnum{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;
+  letter-spacing:.06em;background:var(--bg);padding:3px 8px;border-radius:6px;
+  border:1px solid var(--line);white-space:nowrap;}
+
+/* Pastilles d'état du dossier. */
+.pstate{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;}
+.pstate--ok{background:var(--green-l);color:var(--green);}
+.pstate--part{background:var(--orange-l);color:var(--orange-text);}
+.pstate--none{background:var(--bg);color:var(--muted);}
+
+.pnote{margin-top:14px;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px;}
+
+/* ---- Dossier d'un membre (modale) ---- */
+.pgrid{display:grid;grid-template-columns:170px 1fr;gap:22px;align-items:start;}
+@media(max-width:640px){.pgrid{grid-template-columns:1fr;}}
+
+.pphoto{text-align:center;}
+.pphoto__box{width:118px;height:118px;margin:0 auto 12px;display:grid;place-items:center;}
+.pphoto__box img{width:118px;height:118px;border-radius:50%;object-fit:cover;
+  border:3px solid #fff;box-shadow:0 0 0 1px var(--line),0 8px 20px -12px rgba(7,48,31,.5);display:block;}
+.pphoto .btnrow{justify-content:center;flex-wrap:wrap;gap:6px;}
+/* Le déclencheur du champ fichier est un <label> : sans cette ligne il perd
+   l'alignement des boutons voisins, le champ lui-même restant masqué. */
+.pphoto label.abtn{display:inline-flex;align-items:center;gap:6px;margin:0;}
+.pphoto__hint{margin-top:10px;font-size:11.5px;line-height:1.5;}
+
+.pform{display:flex;flex-direction:column;gap:2px;}
+.pform__hint{margin:-6px 0 10px;font-size:11.5px;}
+.pform__hint--warn{color:var(--orange-text);font-weight:600;}
+
+/* ---- Contrôles ---- */
+.ppanel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+.ppanel h3{display:flex;align-items:center;gap:8px;font-size:15px;margin:0 0 8px;color:var(--green-d);}
+.ppanel p{font-size:13.5px;line-height:1.65;margin:0 0 8px;}
+.ppanel .btnrow{margin-top:12px;}
+.plist{margin:8px 0 0;padding-left:20px;font-size:13.5px;line-height:1.8;}
+
+/* Jauge de stockage. La barre est un <span> : sans display:block, sa largeur
+   est ignorée — le même piège que les graphiques du site public. */
+.pgauge{height:9px;border-radius:999px;background:var(--line);overflow:hidden;margin:10px 0 8px;}
+.pgauge__fill{display:block;height:100%;background:var(--green);border-radius:999px;transition:width .3s ease;}
+.pgauge__fill--warn{background:var(--orange-solid);}
+
+/* Une photo de membre n'a rien à faire sur une feuille imprimée sortie du
+   CRM : le registre reste à l'écran. */
+@media print{.pthumb,.pphoto{display:none!important;}}

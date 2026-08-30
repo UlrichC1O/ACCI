@@ -21,9 +21,9 @@
 
       <!-- Mode toggle -->
       <div class="login__toggle" id="login-toggle">
-        <button class="ltog is-active" data-mode="admin">🔧 Admin</button>
-        <button class="ltog" data-mode="member">👤 Membre</button>
-        <button class="ltog" data-mode="artiste">🎨 Artiste Pro</button>
+        <button class="ltog is-active" data-mode="admin"><i data-ic=cog></i> Admin</button>
+        <button class="ltog" data-mode="member"><i data-ic=user></i> Membre</button>
+        <button class="ltog" data-mode="artiste"><i data-ic=palette></i> Artiste Pro</button>
       </div>
 
       <!-- Admin login -->
@@ -71,7 +71,7 @@
 
       <!-- Artiste Premium login -->
       <div id="artiste-login" hidden>
-        <h1>🎨 Espace Artiste Premium</h1>
+        <h1><i data-ic=palette></i> Espace Artiste Premium</h1>
         <p class="login__sub">Accès professionnel complet pour les créateurs de contenu certifiés ACCI.</p>
         <form id="artiste-form">
           <label class="afield">
@@ -92,7 +92,7 @@
         </form>
       </div>
 
-      <p class="login__note">🛡️ ACCI — Pour un usage responsable, sûr et éthique des réseaux sociaux en Côte d'Ivoire.</p>
+      <p class="login__note"><i data-ic=shield></i> ACCI — Pour un usage responsable, sûr et éthique des réseaux sociaux en Côte d'Ivoire.</p>
     </div>
   </div>
 
@@ -106,18 +106,18 @@
       <div class="sidebar__user" id="sidebar-user"></div>
       <nav class="sidebar__nav" id="snav"></nav>
       <div class="sidebar__foot">
-        <a href="/index.html">← Retour au site</a>
+        <a href="/index.html"><i data-ic=back data-sz=16></i> Retour au site</a>
         <button id="logout" class="sidebar__logout">Déconnexion</button>
       </div>
     </aside>
 
     <main class="main">
       <header class="atop">
-        <button class="atop__burger" id="atop-burger" aria-label="Menu">☰</button>
+        <button class="atop__burger" id="atop-burger" aria-label="Menu"><i data-ic=menu data-sz=20></i></button>
         <h1 id="view-title">Tableau de bord</h1>
         <div class="atop__actions">
           <div class="asearch">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+            <i data-ic=search></i>
             <input id="search" type="search" placeholder="Rechercher…" autocomplete="off">
           </div>
           <button class="abtn abtn--primary" id="add-btn">+ Ajouter</button>
@@ -143,18 +143,18 @@
     <aside class="artiste-sidebar" id="artiste-sidebar">
       <div class="artiste-sidebar__brand">
         <img src="/assets/img/logo-wordmark-light-240.webp" alt="ACCI" style="height:22px;width:auto">
-        <span>🎨 <b>PRO</b></span>
+        <span><i data-ic=palette></i> <b>PRO</b></span>
       </div>
       <div class="artiste-sidebar__user" id="artiste-user"></div>
       <nav class="artiste-sidebar__nav" id="artiste-nav"></nav>
       <div class="sidebar__foot">
-        <a href="/index.html">← Retour au site</a>
+        <a href="/index.html"><i data-ic=back data-sz=16></i> Retour au site</a>
         <button id="artiste-logout" class="sidebar__logout">Déconnexion</button>
       </div>
     </aside>
     <main class="artiste-main">
       <header class="atop artiste-atop">
-        <button class="atop__burger" id="artiste-burger" aria-label="Menu">☰</button>
+        <button class="atop__burger" id="artiste-burger" aria-label="Menu"><i data-ic=menu data-sz=20></i></button>
         <h1 id="artiste-title">Tableau de bord Artiste</h1>
       </header>
       <div id="artiste-view" class="view"></div>
@@ -169,5 +169,6 @@
   <script src="/admin/images.js"></script>
   <script src="/admin/site-identity.js"></script>
   <script src="/admin/certificate.js"></script>
+  <script src="/admin/pieces.js"></script>
 </body>
 </html>
