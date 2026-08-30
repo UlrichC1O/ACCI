@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="ACCI">
+  <title>ACCI</title>
+  <!-- Marque seule, en blanc sur l'orange de l'application : le logotype
+       complet est illisible à 16 pixels, et deux couleurs de tracé s'y
+       confondent. Produit par tools/make-app-icons.py — ne pas modifier ici. -->
+  <rect width="48" height="48" rx="10" fill="#F77F00"/>
+  <path d="M34.16 11.00A16.5 16.5 0 1 0 34.16 37.00" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <path d="M27.94 18.96A6.4 6.4 0 1 0 27.94 29.04" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+</svg>

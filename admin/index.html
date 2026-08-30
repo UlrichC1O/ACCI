@@ -5,11 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title>ACCI — CRM & Portail Membres</title>
-  <!-- Même jeu d'icônes que le site public (voir PAGE_TEMPLATE dans build.py) :
-       l'administration n'affichait que le PNG, sans la version vectorielle ni
-       l'icône iOS, et son onglet ne portait donc pas la même marque. -->
-  <link rel="icon" type="image/png" href="/assets/img/favicon.png">
-  <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+  <!-- L'administration a sa propre icône d'onglet, distincte de celle du site
+       public, pour deux raisons.
+
+       D'abord parce qu'elle est une application installée : son onglet doit
+       porter la même marque que son icône sur l'écran d'accueil, sur fond
+       orange, sinon les deux se ressemblent sans se répondre.
+
+       Ensuite parce que le jeu d'icônes du site ne convient pas ici. Il porte
+       le logotype complet, illisible à 16 pixels — « ACCI » y devient une
+       tache — et sa version vectorielle et sa version PNG ne montrent pas le
+       même dessin ; le navigateur préférant le SVG, c'est lui qui l'emportait
+       et l'onglet affichait autre chose que la marque.
+
+       Le SVG est déclaré en premier : à qualité égale les navigateurs le
+       préfèrent, et il reste net à toutes les tailles. Les PNG servent de
+       repli pour ceux qui ne le lisent pas. -->
+  <link rel="icon" type="image/svg+xml" href="/assets/img/app-favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/app-favicon-32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/img/app-favicon-48.png">
   <!-- iOS ne lit pas le manifeste pour « Sur l'écran d'accueil » : c'est cette
        balise, et elle seule, qui donne son icône à l'application installée
        depuis un iPhone. Elle pointe vers l'icône de l'application, distincte

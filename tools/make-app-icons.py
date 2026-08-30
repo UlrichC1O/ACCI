@@ -33,6 +33,7 @@ se révèle peu fiable quand une session de navigation est déjà ouverte. Le
 PNG source est donc décodé, réduit et composité par ce fichier, avec zlib
 seul. Le rendu est reproductible et ne dépend d'aucun logiciel du poste.
 """
+import math
 import os
 import struct
 import zlib
@@ -241,6 +242,101 @@ def write_png(path, size, px):
     return len(blob)
 
 
+
+# ------------------------------------------------------------- favicon ----
+# L'onglet est un cas à part. Le logotype complet y est illisible : réduit à
+# 16 pixels, « ACCI » devient une tache. C'est déjà ce qui se voyait sur le
+# site — la favicon PNG livrée portait le logotype et ne se lisait pas.
+#
+# L'onglet reçoit donc la MARQUE seule, les deux C emboîtés, en blanc sur le
+# même orange que l'icône de l'application. Une seule couleur pour le tracé :
+# en vert et orange, à 16 pixels, les deux arcs se confondent avec le fond.
+# La forme reste reconnaissable, et l'onglet s'accorde à l'icône installée.
+
+GAP = math.radians(52.0)                    # jour du C, à droite
+APERTURE = math.pi - GAP
+SC = (math.sin(APERTURE), math.cos(APERTURE))
+MARKS = [(16.5, 3.0), (6.4, 2.5)]           # (rayon, demi-épaisseur), viewBox 48
+
+
+def _sd_arc(px, py, ra, rb):
+    """Distance signée à un arc à bouts ronds, dans un repère centré."""
+    px = abs(px)
+    if SC[1] * px > SC[0] * py:
+        return math.hypot(px - SC[0] * ra, py - SC[1] * ra) - rb
+    return abs(math.hypot(px, py) - ra) - rb
+
+
+def _sd_round_rect(px, py, half, radius):
+    """Distance signée à un carré arrondi centré."""
+    dx = abs(px) - (half - radius)
+    dy = abs(py) - (half - radius)
+    ox, oy = max(dx, 0.0), max(dy, 0.0)
+    return (math.hypot(ox, oy) + min(max(dx, dy), 0.0)) - radius
+
+
+def build_favicon(size):
+    """Carré arrondi orange, marque ACCI blanche. Fond transparent aux angles."""
+    unit = size / 48.0
+    c = size / 2.0
+    aa = 0.5 / unit
+    px = []
+    for y in range(size):
+        uy = (y + 0.5 - c) / unit
+        row = []
+        for x in range(size):
+            ux = (x + 0.5 - c) / unit
+            # Fond : carré arrondi, alpha lissé sur le bord.
+            sd = _sd_round_rect(ux, uy, 24.0, 10.0)
+            a = 1.0 if sd <= -aa else (0.0 if sd >= aa else (aa - sd) / (2.0 * aa))
+            r, g, b = ORANGE
+            # Marque : le repère est pivoté d'un quart de tour, l'arc de
+            # référence étant symétrique autour de +y.
+            qx, qy = uy, -ux
+            for ra, rb in MARKS:
+                d = _sd_arc(qx, qy, ra, rb)
+                if d >= aa:
+                    continue
+                k = 1.0 if d <= -aa else (aa - d) / (2.0 * aa)
+                r = int(r + (255 - r) * k + .5)
+                g = int(g + (255 - g) * k + .5)
+                b = int(b + (255 - b) * k + .5)
+            row.append((r, g, b, int(a * 255 + .5)))
+        px.append(row)
+    return px
+
+
+def write_png_rgba(path, size, px):
+    raw = b"".join(b"\x00" + b"".join(bytes(p) for p in row) for row in px)
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data +
+                struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    blob = (b"\x89PNG\r\n\x1a\n" +
+            chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)) +
+            chunk(b"IDAT", zlib.compress(raw, 9)) +
+            chunk(b"IEND", b""))
+    with open(path, "wb") as fh:
+        fh.write(blob)
+    return len(blob)
+
+
+FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" \
+width="48" height="48" role="img" aria-label="ACCI">
+  <title>ACCI</title>
+  <!-- Marque seule, en blanc sur l'orange de l'application : le logotype
+       complet est illisible à 16 pixels, et deux couleurs de tracé s'y
+       confondent. Produit par tools/make-app-icons.py — ne pas modifier ici. -->
+  <rect width="48" height="48" rx="10" fill="#F77F00"/>
+  <path d="M34.16 11.00A16.5 16.5 0 1 0 34.16 37.00" fill="none" stroke="#fff" \
+stroke-width="6" stroke-linecap="round"/>
+  <path d="M27.94 18.96A6.4 6.4 0 1 0 27.94 29.04" fill="none" stroke="#fff" \
+stroke-width="5" stroke-linecap="round"/>
+</svg>
+"""
+
+
 def main():
     print("Icônes de l'application ACCI — logotype sur fond orange")
     # 0.62 : le logotype occupe l'icône sans toucher les bords.
@@ -259,6 +355,16 @@ def main():
         out = os.path.join(IMG, name)
         n = write_png(out, size, build(size, frac, True))
         print("  ✓ %-28s %d×%d  %.1f Ko" % (name, size, size, n / 1024.0))
+
+    # Favicon de l'application : l'onglet, pas l'écran d'accueil.
+    for size, name in ((48, "app-favicon-48.png"), (32, "app-favicon-32.png")):
+        out = os.path.join(IMG, name)
+        n = write_png_rgba(out, size, build_favicon(size))
+        print("  ✓ %-28s %d×%d  %.1f Ko" % (name, size, size, n / 1024.0))
+    svg = os.path.join(IMG, "app-favicon.svg")
+    with open(svg, "w", encoding="utf-8") as fh:
+        fh.write(FAVICON_SVG.replace("\\\n", ""))
+    print("  ✓ %-28s vectoriel  %.1f Ko" % ("app-favicon.svg", os.path.getsize(svg) / 1024.0))
     print("Terminé.")
 
 
