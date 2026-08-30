@@ -254,7 +254,7 @@ create table if not exists public.crm_member_ids (
   constraint crm_member_ids_len check (
     length(doc_number) <= 32 and length(doc_type) <= 60 and
     length(verified_by) <= 120 and length(note) <= 2000
-  ),
+  )
 );
 
 -- Une pièce ne vaut que pour une adhésion : le contrôle de doublon que le CRM

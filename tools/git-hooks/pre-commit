@@ -17,6 +17,25 @@ motifs='sb_secret_|service_role|SUPABASE_SECRET_KEY'
 
 # Le fichier de contrôle lui-même et la documentation citent forcément ces
 # motifs : les exclure, sinon le garde-fou s'interdirait d'être installé.
+# ---------------------------------------------------------------------------
+# Contrôle des migrations SQL.
+#
+# Une migration livrée portait une virgule en trop avant une parenthèse
+# fermante. Le fichier avait été relu ; l'erreur n'est apparue qu'au moment de
+# la coller dans l'éditeur SQL de Supabase. Une migration ne se teste pas en
+# la lisant, et une migration fausse bloque celui qui l'applique.
+# ---------------------------------------------------------------------------
+sql=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.sql$' || true)
+if [ -n "$sql" ]; then
+  if ! printf '%s\n' "$sql" | xargs -r python3 "$(git rev-parse --show-toplevel)/tools/check-sql.py"; then
+    echo ""
+    echo "✗ Commit refusé : une migration SQL comporte une erreur."
+    echo "  Corrigez-la, ou relancez : python3 tools/check-sql.py"
+    echo ""
+    exit 1
+  fi
+fi
+
 fichiers=$(git diff --cached --name-only \
            | grep -vE '^(tools/git-hooks/|README\.md$|.*\.example$)' || true)
 [ -z "$fichiers" ] && exit 0
