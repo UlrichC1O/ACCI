@@ -8,12 +8,24 @@
   "start_url": "/admin/index.html",
   "scope": "/admin/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#07301F",
   "theme_color": "#07301F",
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "icons": [
+    {
+      "src": "/assets/img/app-icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/assets/img/app-icon-192.png",
       "sizes": "192x192",
@@ -38,13 +50,23 @@
       "name": "Membres & Partenaires",
       "short_name": "Membres",
       "url": "/admin/index.html#customers",
-      "icons": [{ "src": "/assets/img/app-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/assets/img/app-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Réception",
       "short_name": "Réception",
       "url": "/admin/index.html#inbox",
-      "icons": [{ "src": "/assets/img/app-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/assets/img/app-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

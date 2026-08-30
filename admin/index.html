@@ -10,7 +10,11 @@
        l'icône iOS, et son onglet ne portait donc pas la même marque. -->
   <link rel="icon" type="image/png" href="/assets/img/favicon.png">
   <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
-  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+  <!-- iOS ne lit pas le manifeste pour « Sur l'écran d'accueil » : c'est cette
+       balise, et elle seule, qui donne son icône à l'application installée
+       depuis un iPhone. Elle pointe vers l'icône de l'application, distincte
+       de celle du site public. -->
+  <link rel="apple-touch-icon" href="/assets/img/app-icon-180.png">
   <!-- Application installable. Le manifeste décrit l'icône, le nom et la
        fenêtre ; admin/pwa.js l'installe et admin/sw.js la fait fonctionner
        hors connexion. theme-color teinte la barre d'état une fois installée :
