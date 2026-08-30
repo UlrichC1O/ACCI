@@ -36,7 +36,12 @@ function fmtDate(d){if(!d)return"\u2014";var x=new Date(d);/* Une date illisible
 function fmtMoney(a){return(Number(a)||0).toLocaleString("fr-FR")+" "+(localStorage.getItem("acci_currency")||"FCFA");}
 function hash(s){var h=5381,i=s.length;while(i)h=(h*33)^s.charCodeAt(--i);return(h>>>0).toString(16);}
 function slug(s){return norm(s).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");}
-function optH(arr,v){return arr.map(function(o){return"<option"+(o===v?" selected":"")+">"+o+"</option>";}).join("");}
+/* Une valeur enregistrée qui ne figure pas dans la liste (donnée héritée, fiche
+   importée) n'était sélectionnée nulle part : le navigateur retombait sur la
+   première option et l'enregistrement suivant remplaçait la catégorie du membre
+   sans que personne n'ait touché au champ. Elle est donc ajoutée en tête, et le
+   texte est échappé puisqu'il est injecté en HTML — comme dans custOpt. */
+function optH(arr,v){var extra=(v!=null&&v!==""&&arr.indexOf(v)===-1)?"<option selected>"+esc(v)+"</option>":"";return extra+arr.map(function(o){return"<option"+(o===v?" selected":"")+">"+esc(o)+"</option>";}).join("");}
 function custOpt(sel){return'<option value="">\u2014 Choisir \u2014</option>'+S.customers.all().map(function(c){return'<option value="'+c.id+'"'+(c.id===sel?" selected":"")+'>'+esc(c.name)+'</option>';}).join("");}
 function pctBar(val,max,color){var p=max?Math.round(val/max*100):0;return'<span class="cb__track"><span class="cb__fill" style="width:'+p+'%;background:'+(color||PAL[0])+'"></span></span>';}
 
@@ -48,15 +53,41 @@ function genCode(){
   return code;
 }
 
+/* Toute écriture du CRM passe par ici. localStorage refuse d'enregistrer dès que le
+   quota du navigateur est atteint (ou en navigation privée) : l'exception remontait
+   sans que rien ne l'attrape, le gestionnaire de clic s'interrompait avant son
+   message, la fenêtre restait ouverte telle quelle et la saisie était perdue sans
+   un mot d'explication. L'échec est maintenant annoncé et reste à l'écran, et
+   l'exception est relancée par save() pour qu'aucun appelant n'annonce un
+   enregistrement qui n'a pas eu lieu. Les données déjà en place sont intactes :
+   un setItem refusé laisse l'ancienne valeur en l'état. */
+function storageWrite(key,val){
+  try{localStorage.setItem(key,val);return true;}
+  catch(e){
+    try{openModal('<div class="modal__head"><h2>Enregistrement impossible</h2><button class="modal__x" data-close>&times;</button></div><div class="modal__body"><p><b>La derni\u00e8re modification n\u2019a pas \u00e9t\u00e9 enregistr\u00e9e.</b></p><p class="muted">L\u2019espace de stockage du navigateur est plein ou indisponible (navigation priv\u00e9e). Les donn\u00e9es d\u00e9j\u00e0 enregistr\u00e9es sont intactes.</p><p class="muted">T\u00e9l\u00e9chargez une sauvegarde depuis Administration \u25b8 Sauvegarde, puis lib\u00e9rez de l\u2019espace avant de recommencer.</p></div><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--primary" data-close>J\u2019ai compris</button></div>');}catch(_){}
+    try{console.error("[ACCI CRM] \u00e9criture refus\u00e9e pour",key,e);}catch(_){}
+    return false;
+  }
+}
+
 /* =========================== STORE FACTORY ============================== */
 function Store(key){
   return{
-    all:function(){try{return JSON.parse(localStorage.getItem(key))||[];}catch(e){return[];}},
-    save:function(a){localStorage.setItem(key,JSON.stringify(a));},
+    /* Une valeur non tableau (import mal formé, clé retouchée à la main) faisait
+       échouer tous les .filter/.map des vues : le module restait blanc et rien ne
+       permettait d'y revenir, la seule copie des données étant locale. */
+    all:function(){try{var v=JSON.parse(localStorage.getItem(key));return Array.isArray(v)?v:[];}catch(e){return[];}},
+    save:function(a){if(!storageWrite(key,JSON.stringify(a)))throw new Error("acci-storage-full");},
     get:function(id){return this.all().find(function(x){return x.id===id;});},
-    add:function(r){r.id=r.id||uid();r.createdAt=r.createdAt||new Date().toISOString();var a=this.all();a.unshift(r);this.save(a);return r;},
-    update:function(r){this.save(this.all().map(function(x){return x.id===r.id?r:x;}));},
-    remove:function(id){this.save(this.all().filter(function(x){return x.id!==id;}));},
+    /* L'identifiant fourni n'est repris que s'il est encore libre : un fichier
+       importé deux fois créait deux fiches de même id, et get() ne rendant que la
+       première, modifier ou supprimer l'une atteignait aussi l'autre. */
+    add:function(r){if(!r.id||this.get(r.id))r.id=uid();r.createdAt=r.createdAt||new Date().toISOString();var a=this.all();a.unshift(r);this.save(a);return r;},
+    /* Écriture et suppression ne portent que sur la première fiche trouvée :
+       sur une base déjà dupliquée, un seul enregistrement écrasait des membres
+       sans rapport et une seule corbeille en effaçait plusieurs. */
+    update:function(r){var a=this.all(),i=a.findIndex(function(x){return x.id===r.id;});if(i<0)return;a[i]=r;this.save(a);},
+    remove:function(id){var a=this.all(),i=a.findIndex(function(x){return x.id===id;});if(i<0)return;a.splice(i,1);this.save(a);},
     count:function(){return this.all().length;},
     where:function(fn){return this.all().filter(fn);}
   };
@@ -657,7 +688,7 @@ function seedAll(){
       {id:uid(),name:"Agent Commercial ACCI",role:"Agent",email:"commercial@acci.ci",phone:"+225 05 00 00 02",department:"Commercial",status:"Actif",createdAt:new Date(N-86400000*45).toISOString()}
     ]);
   }
-  localStorage.setItem("acci_seeded_v5","1");
+  storageWrite("acci_seeded_v5","1");
 }
 
 /* =========================== UI COMPONENTS ============================== */
@@ -689,7 +720,11 @@ function crudHTML(store,cfg){
   var q=norm(state.query);
   var list=store.all();
   if(q){list=list.filter(function(x){return norm((cfg.sk||["name","title"]).map(function(k){return x[k]||"";}).join(" ")).indexOf(q)!==-1;});}
-  if(!list.length)return emptyHTML(cfg.ic,cfg.em);
+  /* Une liste vidée par la recherche n'est pas un module vide : l'écran « ajoutez
+     votre premier enregistrement » masquait des fiches bien présentes et invitait
+     à ressaisir ce qui existait déjà. Le compte total et le retrait du filtre
+     restent donc affichés. */
+  if(!list.length)return q?'<div class="filterbar"><span class="filterbar__count">0 / '+store.count()+' enreg. — aucun résultat pour « '+esc(state.query)+' »</span><button class="abtn abtn--ghost abtn--sm" id="clrq">Effacer la recherche</button></div>':emptyHTML(cfg.ic,cfg.em);
   var ths=cfg.cs.map(function(c){return'<th>'+c.l+'</th>';}).join("")+'<th></th>';
   var trs=list.map(function(x){
     var tds=cfg.cs.map(function(c){
@@ -704,6 +739,9 @@ function crudHTML(store,cfg){
 }
 function crudBind(store,cfg){
   $$(".crud-add,.empty-state .abtn").forEach(function(b){b.addEventListener("click",function(){crudForm(store,cfg,null);});});
+  /* Le champ de recherche vit dans le bandeau, hors de #view : sans ce bouton,
+     retrouver les fiches masquées supposait de deviner qu'un filtre est actif. */
+  var cq=$("#clrq");if(cq)cq.addEventListener("click",function(){state.query="";var sq=$("#search");if(sq)sq.value="";refresh();});
   $$(".ce").forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();crudForm(store,cfg,b.getAttribute("data-id"));});});
   $$(".cd").forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();var id=b.getAttribute("data-id");confirmDel(function(){store.remove(id);toast("Supprimé.");refresh();});});});
 }
@@ -721,7 +759,10 @@ function crudForm(store,cfg,id){
   }).join("");
   openModal('<div class="modal__head"><h2>'+(id?"Modifier":"Nouveau")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="crf" class="modal__body"><div class="fgrid">'+flds+'</div><p class="ferr" id="crf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="crf-s">'+(id?"Enregistrer":"Créer")+'</button></div>');
   $("#crf-s").addEventListener("click",function(){
-    var form=$("#crf");var rec={id:item.id||uid(),createdAt:item.createdAt||new Date().toISOString(),updatedAt:todayISO()};
+    /* La fiche est recopiée avant d'être complétée par le formulaire : reconstruite
+       à partir des seuls champs déclarés, elle perdait tout ce que le formulaire
+       n'affiche pas (indicateurs internes, clés arrivées par import). */
+    var form=$("#crf");var rec=Object.assign({},item,{id:item.id||uid(),createdAt:item.createdAt||new Date().toISOString(),updatedAt:todayISO()});
     (cfg.fs||[]).forEach(function(f){var el=form.querySelector('[name="'+f.n+'"]');if(el)rec[f.n]=f.t==="number"?parseInt(el.value,10)||0:el.value.trim();});
     var miss=(cfg.fs||[]).filter(function(f){return f.rq&&!rec[f.n];});
     if(miss.length){var er=$("#crf-e");er.textContent=miss[0].l+" obligatoire.";er.hidden=false;return;}
@@ -889,12 +930,27 @@ RA("contacts.import",function(){
 
 /* 17. contacts.dedup */
 RA("contacts.dedup",function(){
-  var all=S.contacts.all(),dupes=[],seen={};
-  all.forEach(function(c){var key=norm(c.name+c.email);if(seen[key])dupes.push({a:seen[key],b:c});else seen[key]=c;});
+  /* Nom et e-mail sont rapprochés séparément : collés bout à bout ils formaient une
+     seule chaîne, où « Marc » + « adiouf@… » et « Marca » + « diouf@… » devenaient
+     identiques — deux personnes distinctes signalées comme doublon, puis l'une
+     effacée sans retour. Une fiche sans nom ni e-mail n'est comparée à rien. */
+  var all=S.contacts.all(),dupes=[],byMail={},byName={};
+  all.forEach(function(c){
+    var em=norm(c.email),nm=norm(c.name);
+    var pm=em?byMail[em]:null,pn=nm?byName[nm]:null;
+    if(pm||pn)dupes.push({a:pm||pn,b:c,on:pm?"le même e-mail":"le même nom"});
+    else{if(em)byMail[em]=c;if(nm)byName[nm]=c;}
+  });
   if(!dupes.length)return'<div class="empty-state"><div class="empty-state__ic">✅</div><h2>Aucun doublon détecté</h2><p class="muted">Tous les contacts ACCI semblent uniques.</p></div>';
-  var rows=dupes.map(function(d){return'<tr><td><b>'+esc(d.a.name)+'</b><br><span class="muted">'+esc(d.a.email)+'</span></td><td><b>'+esc(d.b.name)+'</b><br><span class="muted">'+esc(d.b.email)+'</span></td><td><button class="abtn abtn--danger abtn--sm dup-del" data-id="'+d.b.id+'">Supprimer doublon</button></td></tr>';}).join("");
+  var rows=dupes.map(function(d){return'<tr><td><b>'+esc(d.a.name)+'</b><br><span class="muted">'+esc(d.a.email)+'</span></td><td><b>'+esc(d.b.name)+'</b><br><span class="muted">'+esc(d.b.email)+'</span></td><td><button class="abtn abtn--danger abtn--sm dup-del" data-id="'+d.b.id+'" data-nm="'+esc(d.b.name)+'" data-em="'+esc(d.b.email)+'" data-on="'+esc(d.on)+'">Supprimer doublon</button></td></tr>';}).join("");
   return'<section class="panel"><div class="panel__head"><h2 class="panel__title">Doublons potentiels ('+dupes.length+')</h2></div><div class="dtable"><table><thead><tr><th>Contact A</th><th>Contact B (doublon)</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></section>';
-},function(){$$(".dup-del").forEach(function(b){b.addEventListener("click",function(){S.contacts.remove(b.getAttribute("data-id"));toast("Doublon supprimé.");refresh();});});});
+},function(){$$(".dup-del").forEach(function(b){b.addEventListener("click",function(){
+  var id=b.getAttribute("data-id");
+  /* Seule suppression du CRM qui se passait de confirmation, alors qu'elle porte
+     sur un rapprochement approximatif : la fiche visée et le critère retenu sont
+     rappelés pour laisser rattraper un faux doublon avant l'effacement. */
+  confirmDel(function(){S.contacts.remove(id);toast("Doublon supprimé.");refresh();},"Supprimer "+esc(b.getAttribute("data-nm")||"ce contact")+" ("+esc(b.getAttribute("data-em")||"sans e-mail")+") ? Rapproché sur "+esc(b.getAttribute("data-on"))+". Irréversible.");
+});});});
 
 /* ---- TICKETS (9 sections) ---- */
 /* 18. tickets.list — complex, defined later */
@@ -1424,8 +1480,13 @@ RA("admin.backup",function(){
      graine ne les recrée (seul ogou l'est), leur effacement fermait donc le CRM
      aux autres administrateurs, sans que rien à l'écran ne le signale. Le
      rechargement évite de continuer à afficher des données supprimées. */
-  $("#bk-wipe").addEventListener("click",function(){confirmDel(function(){Object.keys(localStorage).filter(function(k){return k.startsWith("acci")&&k!=="acci_admins";}).forEach(function(k){localStorage.removeItem(k);});localStorage.removeItem("acci_crm_members");localStorage.removeItem("acci_crm_seeded");location.reload();},"Effacer toutes les données ACCI — membres, contacts, demandes, adhésions, cotisations, projets, documents et configuration ? Les comptes administrateurs sont conservés. Irréversible.");});
-  var cs=$("#cfg-save");if(cs)cs.addEventListener("click",function(){localStorage.setItem("acci_currency",$("#cfg-cur").value.trim()||"FCFA");localStorage.setItem("acci_tax",$("#cfg-tax").value||"18");var m=$("#cfg-msg");m.className="ferr okmsg";m.textContent="✓ Configuration ACCI sauvegardée.";m.hidden=false;toast("Config mise à jour.");});
+  /* Remettre à zéro rend une base vide, pas la base de démonstration : le drapeau
+     d'amorçage commence lui aussi par « acci » et disparaissait avec le reste, si
+     bien que le rechargement réinstallait onze membres fictifs et leurs codes
+     d'accès par-dessus le vide attendu. Devise et taux de TVA sont des réglages de
+     l'association, non des données : tous les montants auraient changé d'unité. */
+  $("#bk-wipe").addEventListener("click",function(){confirmDel(function(){var cur=localStorage.getItem("acci_currency"),tax=localStorage.getItem("acci_tax");Object.keys(localStorage).filter(function(k){return k.startsWith("acci")&&k!=="acci_admins";}).forEach(function(k){localStorage.removeItem(k);});localStorage.removeItem("acci_crm_members");localStorage.removeItem("acci_crm_seeded");if(cur)storageWrite("acci_currency",cur);if(tax)storageWrite("acci_tax",tax);storageWrite("acci_seeded_v5","1");location.reload();},"Effacer toutes les données ACCI — membres, contacts, demandes, adhésions, cotisations, projets et documents ? Les comptes administrateurs, la devise et le taux de TVA sont conservés, et les données de démonstration ne reviendront pas. Irréversible — téléchargez d'abord une sauvegarde.");});
+  var cs=$("#cfg-save");if(cs)cs.addEventListener("click",function(){storageWrite("acci_currency",$("#cfg-cur").value.trim()||"FCFA");storageWrite("acci_tax",$("#cfg-tax").value||"18");var m=$("#cfg-msg");m.className="ferr okmsg";m.textContent="✓ Configuration ACCI sauvegardée.";m.hidden=false;toast("Config mise à jour.");});
 });
 
 /* 98. admin.integrations */
@@ -1649,15 +1710,20 @@ SEC["invoices.list"]={
   a:function(){openInvoiceBuilder(null);}
 };
 function openInvoiceBuilder(id){
-  var taxRate=parseInt(localStorage.getItem("acci_tax")||"18",10);
-  var inv=id?S.invoices.get(id):{id:"",customerId:"",number:nextInvNum(),type:"Facture",status:"Brouillon",issueDate:todayISO(),dueDate:"",items:[{description:"",serviceId:"",qty:1,unitPrice:0,lineTotal:0}],subtotal:0,taxRate:taxRate,tax:0,total:0,notes:"",createdAt:""};
-  if(!inv)return;if(!inv.items||!inv.items.length)inv.items=[{description:"",serviceId:"",qty:1,unitPrice:0,lineTotal:0}];
+  var gTax=parseInt(localStorage.getItem("acci_tax")||"18",10);
+  var inv=id?S.invoices.get(id):{id:"",customerId:"",number:nextInvNum(),type:"Facture",status:"Brouillon",issueDate:todayISO(),dueDate:"",items:[{description:"",serviceId:"",qty:1,unitPrice:0,lineTotal:0}],subtotal:0,taxRate:gTax,tax:0,total:0,notes:"",createdAt:""};
+  if(!inv)return;
+  /* Un document garde le taux sous lequel il a été émis ; le réglage général ne
+     sert que de valeur de départ aux nouveaux. Recalculé au taux courant, la
+     moindre retouche d'une facture déjà réglée en réécrivait le total, et les
+     encaissements affichés s'en trouvaient faussés rétroactivement. */
+  var taxRate=(inv.taxRate!=null&&inv.taxRate!==""&&!isNaN(parseInt(inv.taxRate,10)))?parseInt(inv.taxRate,10):gTax;if(!inv.items||!inv.items.length)inv.items=[{description:"",serviceId:"",qty:1,unitPrice:0,lineTotal:0}];
   var svcs=S.services.where(function(s){return s.active;});var curItems=inv.items.map(function(it){return{description:it.description,serviceId:it.serviceId,qty:it.qty||1,unitPrice:it.unitPrice||0};});
   function lineH(){return curItems.map(function(it,i){var so='<option value="">\u2014</option>'+svcs.map(function(s){return'<option value="'+s.id+'"'+(s.id===it.serviceId?" selected":"")+'>'+esc(s.name)+'</option>';}).join("");return'<tr class="il" data-i="'+i+'"><td><select class="is">'+so+'</select></td><td><input class="id" value="'+esc(it.description)+'"></td><td><input class="iq" type="number" min="1" value="'+(it.qty||1)+'" style="width:55px"></td><td><input class="ip" type="number" min="0" value="'+(it.unitPrice||0)+'" style="width:90px"></td><td class="inv-line-total">'+fmtMoney(it.qty*it.unitPrice)+'</td><td><button class="iact iact--del ix" type="button">✕</button></td></tr>';}).join("");}
   function calc(){var s=curItems.reduce(function(a,it){return a+(it.qty||0)*(it.unitPrice||0);},0);var tx=Math.round(s*taxRate/100);return{sub:s,tax:tx,tot:s+tx};}
   var t=calc();
-  openModal('<div class="modal__head"><h2>'+(id?"Modifier "+esc(inv.number):"Nouvelle cotisation / facture ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="ivf" class="modal__body"><div class="fgrid">'+ffield("N°",'<input name="number" value="'+esc(inv.number)+'">')+ffield("Type",'<select name="type">'+optH(INVOICE_TYPES,inv.type)+'</select>')+ffield("Membre",'<select name="customerId">'+custOpt(inv.customerId)+'</select>')+ffield("Statut",'<select name="status">'+optH(INVOICE_STATUSES,inv.status)+'</select>')+ffield("Émission",'<input name="issueDate" type="date" value="'+inv.issueDate+'">')+ffield("Échéance",'<input name="dueDate" type="date" value="'+(inv.dueDate||"")+'">')+'</div><h3>Services ACCI</h3><div style="overflow-x:auto"><table class="inv-lines"><thead><tr><th>Service</th><th>Description</th><th>Qté</th><th>P.U.</th><th>Total</th><th></th></tr></thead><tbody id="iv-items">'+lineH()+'</tbody></table></div><button type="button" class="abtn abtn--ghost abtn--sm" id="iv-add">+ Ligne</button><div class="inv-totals"><div class="inv-total-row"><span>Sous-total</span><span id="iv-sub">'+fmtMoney(t.sub)+'</span></div><div class="inv-total-row"><span>TVA ('+taxRate+'%)</span><span id="iv-tax">'+fmtMoney(t.tax)+'</span></div><div class="inv-total-row inv-total-row--grand"><span>Total</span><span id="iv-tot">'+fmtMoney(t.tot)+'</span></div></div>'+ffield("Notes",'<textarea name="notes" rows="2">'+esc(inv.notes)+'</textarea>')+'<p class="ferr" id="ivf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="ivf-s">'+(id?"Enregistrer":"Créer")+'</button></div>',true);
-  function recalc(){var c=calc();var es=$("#iv-sub");if(es)es.textContent=fmtMoney(c.sub);var et=$("#iv-tax");if(et)et.textContent=fmtMoney(c.tax);var eto=$("#iv-tot");if(eto)eto.textContent=fmtMoney(c.tot);$$(".il").forEach(function(r,i){if(curItems[i]){var lt=r.querySelector(".inv-line-total");if(lt)lt.textContent=fmtMoney(curItems[i].qty*curItems[i].unitPrice);}});}
+  openModal('<div class="modal__head"><h2>'+(id?"Modifier "+esc(inv.number):"Nouvelle cotisation / facture ACCI")+'</h2><button class="modal__x" data-close>&times;</button></div><form id="ivf" class="modal__body"><div class="fgrid">'+ffield("N°",'<input name="number" value="'+esc(inv.number)+'">')+ffield("Type",'<select name="type">'+optH(INVOICE_TYPES,inv.type)+'</select>')+ffield("Membre",'<select name="customerId">'+custOpt(inv.customerId)+'</select>')+ffield("Statut",'<select name="status">'+optH(INVOICE_STATUSES,inv.status)+'</select>')+ffield("Émission",'<input name="issueDate" type="date" value="'+inv.issueDate+'">')+ffield("Échéance",'<input name="dueDate" type="date" value="'+(inv.dueDate||"")+'">')+ffield("TVA (%)",'<input name="taxRate" id="iv-rate" type="number" min="0" max="100" value="'+taxRate+'">')+'</div><h3>Services ACCI</h3><div style="overflow-x:auto"><table class="inv-lines"><thead><tr><th>Service</th><th>Description</th><th>Qté</th><th>P.U.</th><th>Total</th><th></th></tr></thead><tbody id="iv-items">'+lineH()+'</tbody></table></div><button type="button" class="abtn abtn--ghost abtn--sm" id="iv-add">+ Ligne</button><div class="inv-totals"><div class="inv-total-row"><span>Sous-total</span><span id="iv-sub">'+fmtMoney(t.sub)+'</span></div><div class="inv-total-row"><span id="iv-taxlbl">TVA ('+taxRate+'%)</span><span id="iv-tax">'+fmtMoney(t.tax)+'</span></div><div class="inv-total-row inv-total-row--grand"><span>Total</span><span id="iv-tot">'+fmtMoney(t.tot)+'</span></div></div>'+ffield("Notes",'<textarea name="notes" rows="2">'+esc(inv.notes)+'</textarea>')+'<p class="ferr" id="ivf-e" hidden></p></form><div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--ghost" data-close>Annuler</button><button class="abtn abtn--primary" id="ivf-s">'+(id?"Enregistrer":"Créer")+'</button></div>',true);
+  function recalc(){var c=calc();var tl=$("#iv-taxlbl");if(tl)tl.textContent="TVA ("+taxRate+"%)";var es=$("#iv-sub");if(es)es.textContent=fmtMoney(c.sub);var et=$("#iv-tax");if(et)et.textContent=fmtMoney(c.tax);var eto=$("#iv-tot");if(eto)eto.textContent=fmtMoney(c.tot);$$(".il").forEach(function(r,i){if(curItems[i]){var lt=r.querySelector(".inv-line-total");if(lt)lt.textContent=fmtMoney(curItems[i].qty*curItems[i].unitPrice);}});}
   function bindLines(){$$(".il").forEach(function(row,i){
     var is=row.querySelector(".is"),id=row.querySelector(".id"),iq=row.querySelector(".iq"),ip=row.querySelector(".ip"),ix=row.querySelector(".ix");
     if(is)is.addEventListener("change",function(){curItems[i].serviceId=is.value;var sv=S.services.get(is.value);if(sv){id.value=sv.name;ip.value=sv.defaultPrice;curItems[i].description=sv.name;curItems[i].unitPrice=sv.defaultPrice;}recalc();});
@@ -1667,6 +1733,7 @@ function openInvoiceBuilder(id){
     if(ix)ix.addEventListener("click",function(){if(curItems.length<=1)return;curItems.splice(i,1);$("#iv-items").innerHTML=lineH();bindLines();recalc();});
   });}
   bindLines();
+  var ivr=$("#iv-rate");if(ivr)ivr.addEventListener("input",function(){taxRate=parseInt(ivr.value,10)||0;recalc();});
   $("#iv-add").addEventListener("click",function(){curItems.push({description:"",serviceId:"",qty:1,unitPrice:0});$("#iv-items").innerHTML=lineH();bindLines();});
   $("#ivf-s").addEventListener("click",function(){var f=$("#ivf"),c=calc();var r={id:inv.id||uid(),customerId:f.customerId.value,number:f.number.value.trim()||nextInvNum(),type:f.type.value,status:f.status.value,issueDate:f.issueDate.value,dueDate:f.dueDate.value,items:curItems.map(function(it){return{description:it.description,serviceId:it.serviceId,qty:it.qty,unitPrice:it.unitPrice,lineTotal:it.qty*it.unitPrice};}),subtotal:c.sub,taxRate:taxRate,tax:c.tax,total:c.tot,notes:f.notes.value.trim(),createdAt:inv.createdAt||new Date().toISOString()};if(id){S.invoices.update(r);alog("cotisation",r.id,"modification",r.number);toast("Mis à jour.");}else{S.invoices.add(r);alog("cotisation",r.id,"création",r.number);toast("Document ACCI créé.");}closeModal();refresh();});
 }
@@ -1712,7 +1779,7 @@ function calendarView(events){
 function csvCell(v){v=String(v==null?"":v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;v=v.replace(/"/g,'""');return /[",\n;]/.test(v)?'"'+v+'"':v;}
 function exportCSV(type){
   var data,fields;
-  if(type==="customers"){data=S.customers.all();fields=["name","company","type","email","phone","city","country","status","approved","approvalCode"];}
+  if(type==="customers"){data=S.customers.all();/* L'identifiant voyage avec la ligne : sans lui, un fichier retouché puis réimporté ne pouvait que recréer chaque membre, et l'annuaire doublait à chaque aller-retour. */fields=["name","company","type","email","phone","city","country","status","approved","approvalCode","id"];}
   else if(type==="tickets"){data=S.tickets.all();fields=["title","priority","status","dueDate","createdAt"];}
   else if(type==="deals"){data=S.deals.all();fields=["title","value","stage","probability","expectedCloseDate"];}
   else if(type==="invoices"){data=S.invoices.all();fields=["number","type","status","issueDate","dueDate","total"];}
@@ -1723,29 +1790,131 @@ function exportCSV(type){
 /* Une restauration ne réécrit jamais les comptes : le fichier JSON se retouche à
    la main, et un administrateur ordinaire pouvait s'y attribuer le rôle
    super_admin puis reprendre la main sur tout le CRM à la connexion suivante. */
-function restoreStores(d){Object.keys(d).forEach(function(k){if(k==="admins")return;if(S[k]&&S[k].save)S[k].save(d[k]);});}
+/* Rien n'est écrit sans avoir été vérifié : le contenu du fichier atterrissait tel
+   quel dans les fiches, et une clé qui n'était pas un tableau (ou un « tags » resté
+   en texte) suffisait à faire échouer le rendu du module — écran vide, sans retour
+   possible puisque le navigateur détient la seule copie des données. */
+function restoreStores(d){
+  var n=0;
+  Object.keys(d).forEach(function(k){
+    if(k==="admins")return;
+    if(!S[k]||!S[k].save||!Array.isArray(d[k]))return;
+    S[k].save(d[k].filter(function(r){return r&&typeof r==="object"&&!Array.isArray(r);}).map(function(r){
+      if(r.tags!==undefined&&!Array.isArray(r.tags))r.tags=typeof r.tags==="string"?r.tags.split(/[;,]/).map(function(t){return t.trim();}).filter(Boolean):[];
+      return r;
+    }));
+    n++;
+  });
+  return n;
+}
 function exportFullJSON(){
   var data={},su=isSuperAdmin();
   /* La sauvegarde transporte empreintes de mots de passe et codes d'approbation :
      un administrateur ordinaire ne repart pas avec les identifiants de ses pairs. */
   Object.keys(S).forEach(function(k){if(k==="admins"&&!su)return;if(S[k].all)data[k]=S[k].all();});
+  /* Devise et taux de TVA sont effacés par la remise à zéro au même titre que les
+     fiches : hors de la sauvegarde, la restauration les laissait aux valeurs par
+     défaut et tous les montants réaffichés changeaient d'unité. */
+  data._settings={currency:localStorage.getItem("acci_currency"),tax:localStorage.getItem("acci_tax")};
   dl("acci-crm-backup-"+todayISO()+".json",JSON.stringify(data,null,2),"application/json");toast("Backup ACCI téléchargé.");
+}
+/* Seuls les champs réellement présents dans le fichier sont retenus : l'export CSV
+   ne transporte ni la charte, ni le statut Premium, ni les notes, et recopier une
+   fiche complète depuis un aller-retour les remettait toutes à zéro. */
+function memberFromImport(x){
+  var o={};
+  ["id","name","company","type","email","phone","address","city","country","notes","social"].forEach(function(k){
+    var v=x[k];if(v!=null&&String(v).trim()!=="")o[k]=String(v).trim();
+  });
+  var st=x.status!=null?String(x.status).trim():"";
+  if(st&&CUSTOMER_STATUSES.indexOf(st)!==-1)o.status=st;
+  var tg=x.tags;
+  if(typeof tg==="string")tg=tg.split(/[;,]/);
+  if(Array.isArray(tg)){tg=tg.map(function(t){return String(t).trim();}).filter(Boolean);if(tg.length)o.tags=tg;}
+  ["charter","premium","approved"].forEach(function(k){
+    var v=x[k];if(v==null||v==="")return;
+    o[k]=(v===true||v===1||/^(true|1|oui)$/i.test(String(v)));
+  });
+  var cd=x.approvalCode!=null?x.approvalCode:x.approvalcode;
+  if(cd!=null&&String(cd).trim()!=="")o.approvalCode=String(cd).trim();
+  var ad=x.approvedAt!=null?x.approvedAt:x.approvedat;
+  if(ad!=null&&String(ad).trim()!=="")o.approvedAt=String(ad).trim();
+  return o;
+}
+/* Un membre déjà connu est mis à jour, pas recréé : rapproché d'abord par
+   identifiant puis par e-mail, faute de quoi réimporter un fichier retouché
+   dupliquait tout l'annuaire, l'ancienne fiche gardant seule le code d'accès. */
+function importMembers(list){
+  var added=0,updated=0;
+  list.forEach(function(x){
+    if(!x||typeof x!=="object")return;
+    var row=memberFromImport(x);
+    if(!row.name&&!row.email)return;
+    var ex=(row.id&&S.customers.get(row.id))||(row.email&&S.customers.all().find(function(c){return c.email&&c.email.toLowerCase()===row.email.toLowerCase();}));
+    if(ex){
+      Object.keys(row).forEach(function(k){if(k!=="id")ex[k]=row[k];});
+      ex.updatedAt=todayISO();S.customers.update(ex);updated++;
+    }else{
+      S.customers.add(Object.assign({type:"Individuel",name:"",company:"",email:"",phone:"",address:"",city:"",country:"Côte d'Ivoire",tags:[],status:"Lead",notes:"",charter:false,premium:false,social:"",approved:false,approvalCode:"",approvedAt:"",updatedAt:todayISO()},row));
+      added++;
+    }
+  });
+  return{added:added,updated:updated};
 }
 function importFile(e){
   var file=e.target.files[0];if(!file)return;var msg=$("#imp-m");if(msg)msg.hidden=true;
-  var r=new FileReader();r.onload=function(){try{var added=0,txt=r.result;
-    if(/\.json$/i.test(file.name)){var d=JSON.parse(txt);if(d.customers){restoreStores(d);added=d.customers.length;}else if(Array.isArray(d)){d.forEach(function(x){if(x.name||x.email){x.id=x.id||uid();x.approved=x.approved||false;x.approvalCode=x.approvalCode||"";x.approvedAt=x.approvedAt||"";S.customers.add(x);added++;}});}
-    }else{var rows=parseCSV(txt);rows.forEach(function(x){if(!x.name&&!x.email)return;S.customers.add({type:x.type||"Individuel",name:x.name||"",company:x.company||"",email:x.email||"",phone:x.phone||"",address:"",city:x.city||"",country:x.country||"Côte d'Ivoire",tags:(x.tags||"").split(/[;,]/).map(function(t){return t.trim();}).filter(Boolean),status:CUSTOMER_STATUSES.indexOf(x.status)!==-1?x.status:"Lead",notes:x.notes||"",charter:false,social:"",approved:false,approvalCode:"",approvedAt:""});added++;});}
-    if(msg){msg.className="ferr okmsg";msg.textContent="✓ "+added+" importé(s).";msg.hidden=false;}toast(added+" importé(s).");setTimeout(function(){go("customers");},500);
-  }catch(err){if(msg){msg.className="ferr";msg.textContent="Fichier illisible.";msg.hidden=false;}}};
+  function fail(t){if(msg){msg.className="ferr";msg.textContent=t;msg.hidden=false;}toast(t,"err");}
+  var r=new FileReader();r.onload=function(){try{
+    var list,cols="";
+    if(/\.json$/i.test(file.name)){
+      var d=JSON.parse(r.result);
+      /* Ce panneau ajoute des membres ; une sauvegarde complète y remplaçait en
+         silence les soixante-trois fichiers de données — comptes, demandes et
+         cotisations compris — sous un message annonçant un simple ajout. */
+      if(!Array.isArray(d))return fail("Ce fichier est une sauvegarde complète — utilisez Administration ▸ Sauvegarde ▸ Restaurer.");
+      list=d;
+    }else{
+      var rows=parseCSV(r.result);
+      if(!rows.length)return fail("Aucune ligne exploitable dans ce fichier.");
+      cols=Object.keys(rows[0]).join(" | ");list=rows;
+    }
+    var res=importMembers(list);
+    /* Zéro ligne retenue n'est pas une réussite : annoncé en vert, un fichier au
+       mauvais séparateur ou aux mauvaises colonnes passait pour importé. */
+    if(!res.added&&!res.updated)return fail("Aucun membre importé — colonnes « name » ou « email » introuvables."+(cols?" Colonnes lues : "+cols:""));
+    if(msg){msg.className="ferr okmsg";msg.textContent="✓ "+res.added+" ajouté(s), "+res.updated+" mis à jour.";msg.hidden=false;}
+    toast(res.added+" ajouté(s), "+res.updated+" mis à jour.");setTimeout(function(){go("customers");},500);
+  }catch(err){fail("Fichier illisible.");}};
   r.readAsText(file,"utf-8");e.target.value="";
 }
 function importFullJSON(e){
-  var file=e.target.files[0];if(!file)return;var msg=$("#bk-msg");
-  var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);restoreStores(d);if(msg){msg.className="ferr okmsg";msg.textContent="✓ Données ACCI restaurées.";msg.hidden=false;}toast("Restauré.");refresh();}catch(err){if(msg){msg.className="ferr";msg.textContent="Erreur.";msg.hidden=false;}}};
+  var file=e.target.files[0];if(!file)return;var msg=$("#bk-msg");if(msg)msg.hidden=true;
+  function fail(t){if(msg){msg.className="ferr";msg.textContent=t;msg.hidden=false;}toast(t,"err");}
+  var r=new FileReader();r.onload=function(){
+    var d;try{d=JSON.parse(r.result);}catch(err){return fail("Fichier illisible.");}
+    if(!d||typeof d!=="object"||Array.isArray(d))return fail("Ce fichier n'est pas une sauvegarde ACCI.");
+    if(!Object.keys(d).some(function(k){return S[k]&&S[k].save&&Array.isArray(d[k]);}))return fail("Aucune donnée ACCI exploitable dans ce fichier.");
+    /* Restaurer remplace, cela n'ajoute pas : sans cette confirmation, tout ce qui
+       avait été saisi depuis la sauvegarde disparaissait au choix du fichier. */
+    confirmDel(function(){
+      var n=restoreStores(d);
+      var st=d._settings;
+      if(st&&typeof st==="object"){if(st.currency)storageWrite("acci_currency",String(st.currency));if(st.tax)storageWrite("acci_tax",String(st.tax));}
+      toast("Restauré.");refresh();
+      /* Le compte-rendu est écrit après le réaffichage : posé avant, il partait avec
+         le panneau reconstruit et le remplacement passait pour n'avoir rien fait. */
+      var nm=$("#bk-msg");if(nm){nm.className="ferr okmsg";nm.textContent="✓ "+n+" ensemble(s) de données remplacé(s).";nm.hidden=false;}
+    },"Remplacer les données ACCI par le contenu de « "+esc(file.name)+" » ? Tout ce qui a été saisi depuis cette sauvegarde sera perdu. Les comptes administrateurs sont conservés.");
+  };
   r.readAsText(file,"utf-8");e.target.value="";
 }
-function parseCSV(text){text=text.replace(/^\uFEFF/,"");var rows=[],row=[],val="",q=false;for(var i=0;i<text.length;i++){var c=text[i];if(q){if(c==='"'&&text[i+1]==='"'){val+='"';i++;}else if(c==='"')q=false;else val+=c;}else{if(c==='"')q=true;else if(c===","){row.push(val);val="";}else if(c==="\n"||c==="\r"){if(val!==""||row.length){row.push(val);rows.push(row);row=[];val="";}if(c==="\r"&&text[i+1]==="\n")i++;}else val+=c;}}if(val!==""||row.length){row.push(val);rows.push(row);}if(!rows.length)return[];var head=rows.shift().map(function(h){return h.trim().toLowerCase();});return rows.filter(function(r){return r.some(function(c){return c.trim();});}).map(function(r){var o={};head.forEach(function(h,i){o[h]=(r[i]||"").trim();});return o;});}
+/* Le séparateur est déduit de la ligne d'en-tête : un tableur en français
+   enregistre en point-virgule, et tout le fichier se réduisait alors à une seule
+   colonne — aucune ligne retenue, sous un message de réussite. Les en-têtes
+   attendus (name, email, phone…) ne comportent jamais de guillemets, ce comptage
+   brut suffit donc. Le préfixe apostrophe posé par csvCell contre l'injection de
+   formules est retiré ici, sinon chaque numéro ivoirien revenait en « '+225 … ». */
+function parseCSV(text){text=text.replace(/^\uFEFF/,"");var h0=text.split(/\r?\n/)[0]||"";var SEP=(h0.split(";").length>h0.split(",").length)?";":",";var rows=[],row=[],val="",q=false;for(var i=0;i<text.length;i++){var c=text[i];if(q){if(c==='"'&&text[i+1]==='"'){val+='"';i++;}else if(c==='"')q=false;else val+=c;}else{if(c==='"')q=true;else if(c===SEP){row.push(val);val="";}else if(c==="\n"||c==="\r"){if(val!==""||row.length){row.push(val);rows.push(row);row=[];val="";}if(c==="\r"&&text[i+1]==="\n")i++;}else val+=c;}}if(val!==""||row.length){row.push(val);rows.push(row);}if(!rows.length)return[];var head=rows.shift().map(function(h){return h.trim().toLowerCase();});return rows.filter(function(r){return r.some(function(c){return c.trim();});}).map(function(r){var o={};head.forEach(function(h,i){var v=(r[i]||"").trim();o[h]=/^'[=+\-@\t\r]/.test(v)?v.slice(1):v;});return o;});}
 function showReport(type){
   var out=$("#rpt-out");if(!out)return;
   if(type==="revenue"){var inv=S.invoices.where(function(i){return i.status==="Payé";});var bm={};inv.forEach(function(i){var m=(i.issueDate||"").slice(0,7);bm[m]=(bm[m]||0)+(i.total||0);});var ms=Object.keys(bm).sort();out.innerHTML='<section class="panel"><h2 class="panel__title" style="margin-bottom:10px">Revenu mensuel ACCI</h2>'+(ms.length?chartBars(ms.map(function(m){return{label:m,val:bm[m],fmt:fmtMoney(bm[m])};})):'<p class="muted">Aucune donnée de cotisation ACCI.</p>')+'</section>';}
@@ -1758,6 +1927,12 @@ function showReport(type){
 
 /* =========================== ROUTER ====================================== */
 function go(view){
+  /* Changer de module repart d'une liste complète : la recherche du bandeau
+     survivait au passage d'une section à l'autre et y filtrait des champs qui
+     n'existent pas, si bien que la suivante s'ouvrait vide. Le filtre n'est
+     conservé que pour la vue courante — refresh() et les onglets repassent ici
+     avec la même vue, une frappe dans le champ ne s'efface donc pas. */
+  if(state.view!==view){state.query="";var sq=$("#search");if(sq)sq.value="";}
   state.view=view;
   /* Access control */
   if(!canAccess(view)){
