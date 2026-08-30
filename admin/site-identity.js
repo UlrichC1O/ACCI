@@ -59,6 +59,25 @@
     { k: "social.linkedin",  l: "LinkedIn",    ph: "https://www.linkedin.com/company/…" }
   ];
 
+  /* Mesure d'audience et publicité.
+
+     Ces identifiants ne sont pas des secrets : ils sont lisibles dans le code
+     de toute page qui les emploie. Ce qu'ils engagent l'est davantage — chacun
+     fait charger chez le visiteur un script d'un tiers qui l'observe. Un champ
+     vide n'active rien du tout : aucune requête n'est faite. */
+  var MEASURE = [
+    { on: "actif", off: "inactif", k: "analytics.ga4", l: "Google Analytics 4", ph: "G-XXXXXXXXXX",
+      note: "Identifiant de flux de données, visible dans Administration → Flux de données." },
+    { on: "actif", off: "inactif", k: "analytics.gtm", l: "Google Tag Manager", ph: "GTM-XXXXXXX",
+      note: "Conteneur GTM. Attention : une balise GTM qui injecte du code en clair, ou qui charge un script d'un domaine non autorisé, sera bloquée par la politique de sécurité du site." },
+    { on: "actif", off: "inactif", k: "analytics.gads", l: "Google Ads", ph: "AW-123456789",
+      note: "Identifiant de conversion. Publicité : le consentement du visiteur est requis." },
+    { on: "actif", off: "inactif", k: "analytics.meta_pixel", l: "Meta Pixel (Facebook, Instagram)", ph: "123456789012345",
+      note: "Identifiant numérique du pixel. Publicité ciblée : le consentement du visiteur est requis." },
+    { on: "actif", off: "inactif", k: "analytics.gsc", l: "Google Search Console", ph: "jeton de vérification",
+      note: "Collez le jeton ou la balise entière. Google vérifie la propriété en lisant le code source servi : ce réglage, posé par script, ne suffira pas — utilisez l'enregistrement DNS proposé par Search Console, ou la variable d'environnement SITE_GSC." }
+  ];
+
   var BRAND = [
     { k: "brand.logo_header", l: "Logo — en-tête",
       note: "Affiché sur fond clair, en haut de chaque page." },
@@ -215,6 +234,44 @@
 
   /* ----------------------------- Validation ------------------------------ */
 
+  var MEASURE_RULES = {
+    "analytics.ga4":  [/^G-[A-Z0-9]{4,15}$/i,
+      "Identifiant GA4 attendu, de la forme G-XXXXXXXXXX."],
+    "analytics.gtm":  [/^GTM-[A-Z0-9]{4,12}$/i,
+      "Identifiant de conteneur attendu, de la forme GTM-XXXXXXX."],
+    "analytics.gads": [/^AW-[0-9]{6,15}$/i,
+      "Identifiant Google Ads attendu, de la forme AW-123456789."],
+    "analytics.meta_pixel": [/^[0-9]{8,20}$/,
+      "Le pixel Meta est un nombre, d'une quinzaine de chiffres."],
+    "analytics.gsc":  [/^[A-Za-z0-9_-]{20,120}$/,
+      "Jeton de vérification attendu : lettres, chiffres, tirets et soulignés."]
+  };
+
+  /* On colle rarement un identifiant seul : Google et Meta livrent un extrait
+     de code entier. Plutôt que de le refuser, on y retrouve l'identifiant et
+     on le réécrit dans le champ, pour que l'opérateur voie ce qui sera
+     enregistré. */
+  function normalise(key, v) {
+    if (!v || key.indexOf("analytics.") !== 0) return v;
+    var m;
+    if (key === "analytics.ga4")  { m = v.match(/G-[A-Z0-9]{4,15}/i);   return m ? m[0].toUpperCase() : v; }
+    if (key === "analytics.gtm")  { m = v.match(/GTM-[A-Z0-9]{4,12}/i); return m ? m[0].toUpperCase() : v; }
+    if (key === "analytics.gads") { m = v.match(/AW-[0-9]{6,15}/i);     return m ? m[0].toUpperCase() : v; }
+    if (key === "analytics.meta_pixel") {
+      /* L'extrait de Meta contient plusieurs nombres : celui de fbq('init')
+         est le bon, la version du pixel et l'année ne le sont pas. */
+      m = v.match(/fbq\s*\(\s*['"]init['"]\s*,\s*['"]?([0-9]{8,20})/i);
+      if (m) return m[1];
+      m = v.match(/^[^0-9]*([0-9]{8,20})/);
+      return m ? m[1] : v;
+    }
+    if (key === "analytics.gsc") {
+      m = v.match(/content\s*=\s*["']([A-Za-z0-9_-]{20,120})["']/);
+      return m ? m[1] : v;
+    }
+    return v;
+  }
+
   function invalid(key, v) {
     if (!v) return null;                       // vide = valeur compilée, et aucune icône pour un réseau
     if (key === "site.email" && !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(v))
@@ -237,6 +294,13 @@
          une adresse incomplète serait enregistrée ici et resterait invisible. */
       if (!/^https:\/\/\S+$/.test(v))
         return "L'adresse du compte doit être complète et commencer par https:// — par exemple https://www.facebook.com/votre-page.";
+    }
+    if (key.indexOf("analytics.") === 0) {
+      /* Le site public applique exactement les mêmes motifs : un identifiant
+         accepté ici mais non reconnu là-bas resterait sans effet, sans que
+         rien ne le signale. */
+      var m = MEASURE_RULES[key];
+      if (m && !m[0].test(v)) return m[1];
     }
     if (key.indexOf("brand.") === 0) {
       if (!/^https:\/\/\S+$/.test(v))
@@ -566,6 +630,26 @@
     });
   }
 
+  var measureHTML = guard(function () {
+    return '<section class="panel" style="border-left:3px solid #A34700">' +
+        '<div class="panel__head"><h2 class="panel__title">Ce que ces balises déclenchent</h2></div>' +
+        '<p class="muted">Renseigner un identifiant ne suffit pas à charger la balise : le site ' +
+          'demande d\'abord son accord au visiteur, par finalité. La mesure d\'audience ' +
+          '(Analytics, Tag Manager) et la publicité (Google Ads, pixel Meta) s\'acceptent ' +
+          'séparément, et tant que le visiteur n\'a pas répondu, rien n\'est chargé — ' +
+          'l\'absence de réponse vaut refus.</p>' +
+        '<p class="muted">Un navigateur qui émet un signal de refus (Global Privacy Control) ' +
+          'est respecté sans qu\'on lui pose la question. Le nombre de visites mesurées sera ' +
+          'donc inférieur au nombre réel : c\'est le prix d\'un consentement honnête, et non ' +
+          'un défaut de la mesure.</p>' +
+      '</section>' +
+      panel("Mesure d'audience", MEASURE,
+        "Un champ vide n'active rien : aucune requête n'est faite vers le tiers concerné. " +
+        "Ces identifiants ne sont pas des secrets — ils sont lisibles dans le code de toute " +
+        "page qui les emploie.",
+        "Un champ vidé retire la balise du site.");
+  });
+
   /* ------------------------------ Marque --------------------------------- */
 
   function brandRow(f) {
@@ -636,7 +720,8 @@
 
         inputs.forEach(function (el) {
           var k = el.getAttribute("data-k");
-          var v = el.value.trim();
+          var v = normalise(k, el.value.trim());
+          if (v !== el.value) el.value = v;   // ce qui est montré est ce qui sera écrit
           var msg = invalid(k, v);
           if (msg) { if (!bad) bad = msg; return; }
           var was = state.map[k] || "";
@@ -928,6 +1013,7 @@
       { id: "brand",   l: "Logo & favicon" },
       { id: "content", l: "Textes du site" },
       { id: "theme",   l: "Couleurs & polices" },
+      { id: "measure", l: "Mesure d'audience" },
       { id: "credits", l: "Crédits & partenaires" }
     ] },
     lazy({
@@ -936,6 +1022,7 @@
       "identity.brand":   { r: brandHTML,   b: bindBrand },
       "identity.content": { r: contentHTML, b: bindContent },
       "identity.theme":   { r: themeHTML,   b: bindTheme },
+      "identity.measure": { r: measureHTML, b: bindForm },
       "identity.credits": { r: creditsHTML, b: bindCredits }
     })
   );

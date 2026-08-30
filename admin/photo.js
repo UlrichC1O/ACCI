@@ -24,8 +24,14 @@
   function fail(msg) { var e = new Error(msg); e.photo = true; return e; }
 
   /* Réduction par canvas. Le rapport est conservé : une photo déformée sur une
-     fiche de membre se remarque immédiatement. */
-  function shrink(file) {
+     fiche de membre se remarque immédiatement.
+
+     `max` est facultatif et vaut MAX (400 px) par défaut, ce qui laisse les
+     appels existants inchangés. Il est paramétrable parce que la photothèque
+     de la galerie a besoin d'un côté bien plus long qu'une vignette de fiche :
+     une photo de galerie réduite à 400 px serait floue en pleine largeur. */
+  function shrink(file, max) {
+    var M = max || MAX;
     return new Promise(function (resolve, reject) {
       if (!/^image\//.test(file.type)) return reject(fail("Ce fichier n'est pas une image."));
       var url = URL.createObjectURL(file);
@@ -34,7 +40,7 @@
         URL.revokeObjectURL(url);
         var w = img.naturalWidth, h = img.naturalHeight;
         if (!w || !h) return reject(fail("Image illisible."));
-        var scale = Math.min(1, MAX / Math.max(w, h));
+        var scale = Math.min(1, M / Math.max(w, h));
         var cw = Math.round(w * scale), ch = Math.round(h * scale);
         var cv = document.createElement("canvas");
         cv.width = cw; cv.height = ch;

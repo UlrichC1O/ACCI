@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#F77F00"/>
-      <stop offset="1" stop-color="#009A44"/>
-    </linearGradient>
-  </defs>
-  <rect width="48" height="48" rx="11" fill="#07301F"/>
-  <path d="M24 7l13 5v9c0 8.2-5.5 14.4-13 16.4C16.5 35.4 11 29.2 11 21v-9l13-5z" fill="url(#g)"/>
-  <circle cx="24" cy="26" r="2.2" fill="#fff"/>
-  <path d="M19.5 21.5a6.5 6.5 0 0 1 9 0M16.5 18a11 11 0 0 1 15 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="ACCI">
+  <title>ACCI</title>
+  <!-- Marque de l'ACCI : les deux « C » emboîtés du logo, dans ses couleurs
+       exactes (relevées sur logo-wordmark-480.png : orange #FF7105, vert
+       #03976B). Le « A » et le « I » du logotype sont écartés : à 16 px ils
+       se confondent avec le reste, alors que les deux C restent lisibles.
+       Fond transparent — les deux couleurs tiennent sur un onglet clair
+       comme sur un onglet sombre, là où un aplat vert foncé effaçait le C
+       vert de la marque. -->
+  <path d="M34.16 11.00A16.5 16.5 0 1 0 34.16 37.00" fill="none" stroke="#03976B" stroke-width="6"/>
+  <path d="M27.94 18.96A6.4 6.4 0 1 0 27.94 29.04" fill="none" stroke="#FF7105" stroke-width="5"/>
 </svg>

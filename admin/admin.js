@@ -1142,8 +1142,17 @@ function paintIcons(root){
 }
 function emptyHTML(icon,msg){return'<div class="empty-state"><div class="empty-state__ic">'+ICO(icon||"doc",34)+'</div><h2>'+(msg||"Vide.")+'</h2><button class="abtn abtn--primary crud-add">+ Ajouter</button></div>';}
 function kpiCard(icon,val,label,cls,title){
+  /* `icon` accepte indifféremment un nom de glyphe ("users") ou le balisage
+     complet ("<i data-ic=users></i>"). Les deux conventions coexistaient : ce
+     rendu-ci attendait du balisage, emptyHTML() juste au-dessus attend un nom.
+     L'onglet « Widgets » du tableau de bord passait des noms : les huit cartes
+     affichaient « users », « ticket », « money »… en toutes lettres, dans une
+     pastille prévue pour une icône — et en anglais dans une interface française.
+     Reconnaître les deux formes ici corrige l'appel fautif et retire le piège
+     pour les modules chargés après ce fichier. */
+  var ic=(typeof icon==="string"&&icon.charAt(0)!=="<")?'<i data-ic="'+esc(icon)+'"></i>':(icon||"");
   return'<div class="kpi"'+(title?' title="'+esc(title)+'"':"")+'>'+
-    '<span class="kpi__icon kpi__icon--'+(cls||"n")+'">'+icon+'</span>'+
+    '<span class="kpi__icon kpi__icon--'+(cls||"n")+'">'+ic+'</span>'+
     '<span class="kpi__val">'+val+'</span>'+
     '<span class="kpi__label">'+label+'</span></div>';
 }

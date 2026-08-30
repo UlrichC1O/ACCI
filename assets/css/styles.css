@@ -981,3 +981,58 @@ a.partner:hover, a.partner:focus-visible {
 @media (max-width: 560px) {
   .partners__grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
 }
+
+/* ---------------------------------------------------------------------------
+   Bandeau de consentement
+   Posé en bas plutôt qu'en plein écran : il doit se voir et se décider, non
+   prendre la page en otage. Les deux réponses ont le même poids visuel — un
+   refus rendu plus laborieux que l'accord ne recueille pas un consentement.
+   --------------------------------------------------------------------------- */
+.consent {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+  background: var(--green-deep); color: #dbe8e1;
+  border-top: 3px solid var(--orange);
+  box-shadow: 0 -12px 34px -18px rgba(0, 0, 0, .55);
+  animation: consent-in .28s ease-out both;
+}
+@keyframes consent-in { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .consent { animation: none; } }
+
+.consent__inner {
+  display: flex; align-items: flex-start; gap: 30px;
+  padding-top: 18px; padding-bottom: 18px;
+}
+.consent__text { flex: 1; min-width: 0; }
+.consent__title { font-size: 15px; color: #fff; margin: 0 0 5px; }
+.consent__text p { margin: 0; font-size: 13.5px; line-height: 1.6; max-width: 68ch; }
+.consent__text a { color: #ffd7ab; text-decoration: underline; }
+.consent__text a:hover { color: #fff; }
+
+.consent__opts { display: grid; gap: 10px; margin-top: 14px; }
+.consent__opt { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.consent__opt input { margin: 2px 0 0; width: 16px; height: 16px; accent-color: var(--orange); flex: none; }
+.consent__opt span { font-size: 12.5px; line-height: 1.5; }
+.consent__opt b { display: block; color: #fff; font-size: 13px; }
+
+.consent__acts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: none; }
+.consent__acts .btn { padding: 10px 18px; font-size: 13.5px; }
+.consent__more {
+  background: none; border: 1px solid rgba(255, 255, 255, .3); color: #dbe8e1;
+  border-radius: var(--radius-sm); padding: 10px 16px; font: inherit; font-size: 13.5px;
+  cursor: pointer;
+}
+.consent__more:hover { border-color: #fff; color: #fff; }
+.consent :focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* Le lien du pied de page qui rouvre le choix : il doit ressembler aux autres
+   liens légaux, pas à un bouton. */
+.footer__legal button {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: inherit; text-decoration: underline;
+}
+
+@media (max-width: 860px) {
+  .consent__inner { flex-direction: column; gap: 16px; }
+  .consent__acts { width: 100%; }
+  .consent__acts .btn, .consent__more { flex: 1 1 auto; justify-content: center; }
+}

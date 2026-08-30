@@ -518,6 +518,16 @@
     }
 
     applyCredits(map);
+
+    /* Les balises de mesure sont montées par site-analytics.js : ce fichier
+       applique l'identité du site, pas le suivi des visiteurs. Les réglages
+       lui sont passés plutôt que d'être cherchés une seconde fois. La valeur
+       est aussi posée sur window : site-analytics.js peut être évalué après
+       ce fichier, et l'événement serait alors déjà passé. */
+    window.ACCI_SETTINGS = map;
+    try {
+      document.dispatchEvent(new CustomEvent("acci:settings", { detail: map }));
+    } catch (e) { /* CustomEvent indisponible : le relais par window suffit */ }
   }
 
   /* ---- Crédits : réalisation du site et partenaires ---- */

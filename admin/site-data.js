@@ -346,7 +346,12 @@
   /* Même grammaire d'adresse que chat.js : une page du site, une adresse
      électronique ou un numéro. Refusée ici avec un message, plutôt que
      silencieusement écartée à l'affichage. */
-  var SAFE_HREF = /^(?!\/\/)[A-Za-z0-9._~\/-]+\.html(?:#[\w-]*)?$|^mailto:[^\s:]+$|^tel:\+?[0-9 ]+$/;
+  /* Les liens internes n'ont plus d'extension (« /contact » et non
+     « contact.html »). Le motif accepte donc les deux : une base de
+     connaissances rédigée avant ce changement continue de fonctionner, et
+     « / » seul désigne l'accueil. Ce qui reste refusé est l'essentiel —
+     « javascript: », « data: » et tout hôte extérieur. */
+  var SAFE_HREF = /^\/$|^(?!\/\/)[A-Za-z0-9._~\/-]+(?:\.html)?(?:#[\w-]*)?$|^mailto:[^\s:]+$|^tel:\+?[0-9 ]+$/;
 
   var CHAT_FALLBACK = { intents: [], quick: [] };
 

@@ -123,6 +123,30 @@ def brand_icon(name, size=18, cls="brandicon"):
     )
 
 
+def _gsc_meta():
+    """Balise de vérification Google Search Console.
+
+    Google contrôle la propriété du domaine en lisant le code source servi : il
+    n'exécute pas les scripts du site pour cela. Le jeton saisi dans
+    l'administration est bien posé chez le visiteur par site-analytics.js, mais
+    cela ne suffit pas à la vérification — c'est cette variable, lue à la
+    compilation, qui l'assure. Vercel : Settings → Environment Variables.
+
+    Un jeton mal formé est ignoré plutôt qu'inséré : une balise de vérification
+    fausse échoue exactement comme une balise absente, mais donne à croire que
+    la question est réglée.
+    """
+    token = (os.environ.get("SITE_GSC") or "").strip()
+    # Le motif n'admet ni guillemet ni chevron : la valeur peut être insérée
+    # telle quelle, et e() n'est de toute façon pas encore défini ici.
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,120}", token):
+        return ""
+    return f'  <meta name="google-site-verification" content="{token}">\n'
+
+
+GSC_META = _gsc_meta()
+
+
 def render_socials(family, size):
     """Emplacements des réseaux sociaux (barre supérieure ou pied de page).
 
@@ -238,12 +262,46 @@ def rel_prefix(slug):
     return ""  # toutes les pages sont à la racine de /dist
 
 
+# Les liens internes ne portent plus « .html ».
+#
+# Vercel sert « /contact » depuis contact.html grâce à cleanUrls (vercel.json),
+# et redirige « /contact.html » vers « /contact » en 301 : les adresses déjà
+# partagées ou indexées continuent donc de fonctionner, elles ne se dupliquent
+# pas. Le serveur local de --serve fait la même résolution, sans quoi la
+# prévisualisation renverrait 404 sur chaque lien.
+#
+# L'accueil devient « / » plutôt que « /index » : c'est l'adresse que les
+# visiteurs partagent, et la seule que le canonique doit désigner.
 def url(slug):
     if slug in ("", "index", "/"):
-        return "index.html"
-    if slug.startswith("http") or slug.endswith(".html") or slug.startswith("#") or slug.startswith("mailto"):
+        return "/"
+    if slug.startswith("http") or slug.startswith("#") or slug.startswith("mailto") or slug.startswith("tel:"):
         return slug
+    # Un lien écrit « contact.html » dans content/ est nettoyé plutôt que laissé
+    # tel quel : sinon la même page existerait sous deux adresses selon l'endroit
+    # où le lien a été rédigé.
+    if slug.endswith(".html"):
+        slug = slug[:-5]
+        if slug in ("", "index"):
+            return "/"
+    return slug
+
+
+# Nom du fichier écrit dans dist/. Il garde « .html » : c'est le fichier que
+# Vercel sert derrière l'adresse propre. Séparé de url(), qui ne décrit plus
+# qu'un lien — les confondre revenait à tenter d'écrire la page d'accueil
+# dans « / ».
+def filename(slug):
+    if slug in ("", "index", "/"):
+        return "index.html"
     return f"{slug}.html"
+
+
+# Adresse absolue d'une page — canonique, og:url, sitemap. Construite à part de
+# url() parce que l'accueil y vaut « <site>/ » et non « <site>//ise ».
+def abs_url(slug):
+    path = url(slug)
+    return SITE["url"] + ("/" if path == "/" else "/" + path)
 
 
 # ---------------------------------------------------------------------------
@@ -1095,13 +1153,13 @@ def render_header(page):
   <header class="header" id="header">
     <div class="header__bar">
       <div class="container header__bar-inner">
-        <a class="brand" href="index.html" aria-label="Accueil — {e(SITE['long_name'])}">
+        <a class="brand" href="/" aria-label="Accueil — {e(SITE['long_name'])}">
           <img class="brand__logo" data-site-logo="header" src="assets/img/logo-wordmark-240.webp" alt="ACCI" width="118" height="72" fetchpriority="high">
           <span class="brand__full">{e(SITE['long_name'])}</span>
         </a>
         <div class="header__actions">
           <button class="iconbtn search-toggle" type="button" aria-label="Rechercher" aria-expanded="false" aria-controls="searchbar">{icon("search",20)}</button>
-          <a class="btn btn--primary btn--sm header__cta" href="adhesion.html">Adhérer</a>
+          <a class="btn btn--primary btn--sm header__cta" href="adhesion">Adhérer</a>
           <button class="burger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobile-nav">
             <span></span><span></span><span></span>
           </button>
@@ -1146,14 +1204,14 @@ def render_mobile_nav(active_slug):
               <div class="mnav__sub">{sub}</div></div>"""
         else:
             out += f'<a class="mnav__link" href="{url(n["slug"])}">{e(n["label"])}</a>'
-    out += '<a class="btn btn--primary mnav__cta" href="adhesion.html">Devenir membre</a>'
+    out += '<a class="btn btn--primary mnav__cta" href="adhesion">Devenir membre</a>'
     return out
 
 
 def render_breadcrumb(page):
     if page.get("slug") == "index":
         return ""
-    crumbs = ['<a href="index.html">Accueil</a>']
+    crumbs = ['<a href="/">Accueil</a>']
     if page.get("section"):
         crumbs.append(f'<span>{e(page["section"])}</span>')
     crumbs.append(f'<span class="crumb--current" aria-current="page">{e(page["title"])}</span>')
@@ -1168,6 +1226,10 @@ def render_footer(page):
         cols += f'<div class="footer__col"><h3 class="footer__title">{e(col["title"])}</h3><ul>{links}</ul></div>'
     socials = render_socials("footer", 18)
     legal = "".join(f'<a href="{url(l["slug"])}">{e(l["label"])}</a>' for l in FOOTER["legal"])
+    # Rouvrir le choix relatif aux cookies. C'est un bouton et non un lien : il
+    # n'y a pas de page à ouvrir, et sans JavaScript il n'y a pas non plus de
+    # bandeau à reprendre — un lien mort serait pire que rien.
+    legal += '<button type="button" data-consent-open>Cookies</button>'
     # Coordonnées de l'association. Elles existaient déjà dans SITE mais
     # n'étaient rendues que pour les moteurs (JSON-LD) et sur la page Contact :
     # aucun visiteur ne pouvait joindre l'ACCI depuis le pied de page.
@@ -1192,7 +1254,7 @@ def render_footer(page):
         <button class="btn btn--light" type="submit">S'abonner</button>
         <p class="newsletter__note" id="newsletter-note" role="status" hidden></p>
         <p class="newsletter__legal">Vos données servent uniquement à l'envoi de notre lettre d'information.
-          Désabonnement possible à tout moment. <a href="confidentialite.html">Politique de confidentialité</a>.</p>
+          Désabonnement possible à tout moment. <a href="confidentialite">Politique de confidentialité</a>.</p>
       </form>
     </div>
   </section>
@@ -1200,7 +1262,7 @@ def render_footer(page):
     <div class="container">
       <div class="footer__top">
         <div class="footer__brand">
-          <a class="brand brand--footer" href="index.html" aria-label="Accueil — {e(SITE['long_name'])}">
+          <a class="brand brand--footer" href="/" aria-label="Accueil — {e(SITE['long_name'])}">
             <img class="brand__logo brand__logo--footer" data-site-logo="footer" src="assets/img/logo-wordmark-light-240.webp" alt="ACCI" width="118" height="72" loading="lazy" decoding="async">
           </a>
           <p class="footer__about"><span data-site="long_name">{e(SITE['long_name'])}</span>. {e(FOOTER['about'])}</p>
@@ -1242,7 +1304,7 @@ def render_chat():
         <input id="chat-input" type="text" placeholder="Posez votre question…" aria-label="Votre message">
         <button type="submit" class="chat__send" aria-label="Envoyer">{icon("send",20)}</button>
       </form>
-      <p class="chat__legal">Assistant automatique · pour une urgence, voir <a href="cellule-ecoute.html">la cellule d'écoute</a>.</p>
+      <p class="chat__legal">Assistant automatique · pour une urgence, voir <a href="cellule-ecoute">la cellule d'écoute</a>.</p>
     </section>
   </div>"""
 
@@ -1273,7 +1335,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <meta name="theme-color" content="#0b3d2e">
   <meta name="author" content="Association des Créateurs de Contenu Ivoiriens">
   <link rel="canonical" href="{canonical}">
-{robots_meta}
+{gsc_meta}{robots_meta}
   <meta property="og:type" content="website">
   <meta property="og:title" content="{title} — ACCI">
   <meta property="og:description" content="{description}">
@@ -1310,7 +1372,9 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <script src="{js_main}" defer></script>
   <script src="{js_chat}" defer></script>
   <script src="{js_images}" defer></script>
+  <script src="{js_consent}" defer></script>
   <script src="{js_settings}" defer></script>
+  <script src="{js_analytics}" defer></script>
   <script src="{js_partners}" defer></script>
   <script src="{js_gallery}" defer></script>
 </body>
@@ -1376,7 +1440,7 @@ def render_jsonld(page):
     # Fil d'Ariane : Accueil › Rubrique › Page
     crumbs = [{"name": "Accueil", "item": _abs("index.html")}]
     if page["slug"] != "index":
-        crumbs.append({"name": page["title"], "item": _abs(url(page["slug"]))})
+        crumbs.append({"name": page["title"], "item": abs_url(page["slug"])})
     if len(crumbs) > 1:
         graph.append({
             "@type": "BreadcrumbList",
@@ -1416,7 +1480,9 @@ ASSET_URLS = {
     "js_main":   "assets/js/main.js",
     "js_chat":   "assets/js/chat.js",
     "js_images": "assets/js/site-images.js",
+    "js_consent": "assets/js/site-consent.js",
     "js_settings": "assets/js/site-settings.js",
+    "js_analytics": "assets/js/site-analytics.js",
     "js_partners": "assets/js/site-partners.js",
     "js_gallery": "assets/js/site-gallery.js",
 }
@@ -1428,7 +1494,8 @@ def render_page(page):
         **ASSET_URLS,
         title=e(page["title"]),
         description=e(page.get("description", SITE["tagline"])),
-        canonical=SITE["url"] + "/" + url(page["slug"]),
+        canonical=abs_url(page["slug"]),
+        gsc_meta=GSC_META,
         robots_meta=('  <meta name="robots" content="noindex, follow">'
                      if page["slug"] in NOINDEX else ""),
         og_image=_abs("assets/img/og-card.png"),
@@ -1479,7 +1546,7 @@ def build_sitemap(pages):
             freq, prio = "weekly", "1.0"
         else:
             freq, prio = SITEMAP_RULES.get(p.get("section", ""), ("monthly", "0.6"))
-        urls += (f"  <url><loc>{SITE['url']}/{url(p['slug'])}</loc>"
+        urls += (f"  <url><loc>{abs_url(p['slug'])}</loc>"
                  f"<lastmod>{today}</lastmod>"
                  f"<changefreq>{freq}</changefreq>"
                  f"<priority>{prio}</priority></url>\n")
@@ -1541,7 +1608,7 @@ def build():
     # Pages
     for p in pages:
         out = render_page(p)
-        with open(os.path.join(DIST, url(p["slug"])), "w", encoding="utf-8") as f:
+        with open(os.path.join(DIST, filename(p["slug"])), "w", encoding="utf-8") as f:
             f.write(out)
 
     # Inventaire des images : lu par l'espace d'administration pour proposer
@@ -1651,8 +1718,23 @@ def fingerprint_assets():
 
 def serve(port=8000):
     os.chdir(DIST)
-    handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", port), handler) as httpd:
+
+    # Reproduit le « cleanUrls » de Vercel : sans cette résolution, la
+    # prévisualisation locale renverrait 404 sur tous les liens du site, qui ne
+    # portent plus l'extension.
+    class CleanUrlHandler(http.server.SimpleHTTPRequestHandler):
+        def translate_path(self, path):
+            local = super().translate_path(path)
+            if os.path.isdir(local) or os.path.exists(local):
+                return local
+            if not os.path.splitext(local)[1] and os.path.exists(local + ".html"):
+                return local + ".html"
+            return local
+
+        def log_message(self, fmt, *args):
+            pass
+
+    with socketserver.TCPServer(("", port), CleanUrlHandler) as httpd:
         print(f"➜ Serveur local : http://localhost:{port}")
         httpd.serve_forever()
 

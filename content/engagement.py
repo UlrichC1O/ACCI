@@ -232,8 +232,16 @@ PAGES = [
       <h2>Sécurité</h2>
       <p>Nous mettons en œuvre des mesures techniques et organisationnelles raisonnables pour protéger vos données contre tout accès non autorisé, perte ou divulgation.</p>
 
-      <h2>Cookies</h2>
-      <p>Ce site limite l’usage des cookies au strict nécessaire à son bon fonctionnement et, le cas échéant, à la mesure d’audience anonyme. Votre navigateur peut être configuré pour les refuser.</p>
+      <h2>Cookies et mesure d’audience</h2>
+      <p>Ce site fonctionne sans aucun cookie de suivi. Rien de ce qui sert à mesurer l’audience ou à diffuser nos campagnes n’est nécessaire à sa consultation : vous pouvez tout refuser, le site est identique.</p>
+      <p>Nous distinguons deux finalités, que vous acceptez ou refusez séparément :</p>
+      <ul>
+        <li><b>Mesure d’audience</b> — nombre de visites, pages consultées, provenance. Ces informations nous disent quels contenus de prévention atteignent réellement leur public. Outil utilisé : Google Analytics.</li>
+        <li><b>Publicité</b> — suivi d’un site à l’autre, afin de cibler nos campagnes de sensibilisation. Outils utilisés : Google Ads et le pixel Meta.</li>
+      </ul>
+      <p><b>Aucun de ces outils n’est chargé avant votre accord.</b> Tant que vous n’avez pas répondu, rien n’est déposé et aucune requête n’est envoyée à ces tiers. L’absence de réponse vaut refus.</p>
+      <p>Vous pouvez revenir sur votre choix à tout moment : le lien <b>« Cookies »</b>, en bas de chaque page, rouvre la fenêtre de choix. Un refus prend effet au chargement de page suivant, le temps que les outils déjà chargés cessent de l’être.</p>
+      <p>Si votre navigateur émet un signal de refus du suivi (<i>Global Privacy Control</i>), nous le traitons comme un refus déjà exprimé : la fenêtre ne vous est pas présentée et rien n’est déposé.</p>
 
       <h2>Contact</h2>
       <p>Pour toute question relative à cette politique de confidentialité, contactez-nous à contact@ivoiriens.ac.ci.</p>

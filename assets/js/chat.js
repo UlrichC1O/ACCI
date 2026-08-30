@@ -28,67 +28,67 @@
     {
       keys: ["adher", "membre", "rejoindre", "inscri", "adhesion", "cotisation"],
       reply: "Super ! Pour rejoindre l’ACCI, il suffit de lire la charte du créateur responsable puis de remplir le formulaire d’adhésion. C’est ouvert à tous les créateurs, débutants comme confirmés.",
-      links: [["Devenir membre", "adhesion.html"], ["Lire la charte", "charte.html"]]
+      links: [["Devenir membre", "adhesion"], ["Lire la charte", "charte"]]
     },
     {
       keys: ["harcel", "harcele", "insult", "menace", "intimid", "raid", "attaque"],
       reply: "Je suis désolé que vous viviez cela. En cas de cyberharcèlement : ne répondez pas à l’agresseur, conservez les preuves (captures d’écran), bloquez et signalez. Vous n’êtes pas seul(e) — notre cellule d’écoute est confidentielle.",
-      links: [["Cyberharcèlement", "cyberharcelement.html"], ["Cellule d’écoute", "cellule-ecoute.html"], ["Signaler", "signaler-abus.html"]]
+      links: [["Cyberharcèlement", "cyberharcelement"], ["Cellule d’écoute", "cellule-ecoute"], ["Signaler", "signaler-abus"]]
     },
     {
       keys: ["signal", "denonc", "abus", "plainte", "contenu choquant"],
       reply: "Pour signaler un contenu ou un comportement abusif : conservez les preuves, signalez à la plateforme concernée, puis transmettez-nous la situation. Chaque signalement protège d’autres personnes.",
-      links: [["Signaler un abus", "signaler-abus.html"]]
+      links: [["Signaler un abus", "signaler-abus"]]
     },
     {
       keys: ["arnaq", "escroq", "fraude", "broute", "faux investiss", "argent facile", "phishing", "hameconn"],
       reply: "Méfiance : si une offre paraît trop belle pour être vraie, c’en est presque toujours une arnaque. Ne payez jamais d’avance et ne communiquez pas vos codes. Découvrez comment reconnaître et déjouer les escroqueries.",
-      links: [["Arnaques en ligne", "cyber-escroquerie.html"], ["Signaler", "signaler-abus.html"]]
+      links: [["Arnaques en ligne", "cyber-escroquerie"], ["Signaler", "signaler-abus"]]
     },
     {
       keys: ["fake", "fausse", "rumeur", "desinform", "intox", "verifier", "verification", "fact"],
       reply: "Avant de partager : marquez une pause, vérifiez la source, recoupez l’information et vérifiez les images. Le doute ? On s’abstient. Voici nos guides anti fausses nouvelles.",
-      links: [["Désinformation", "desinformation.html"], ["Vérifier l’information", "verification-information.html"]]
+      links: [["Désinformation", "desinformation"], ["Vérifier l’information", "verification-information"]]
     },
     {
       keys: ["formation", "atelier", "apprendre", "former", "cours", "webinaire"],
       reply: "L’ACCI propose des formations pour les créateurs, les jeunes et le grand public : esprit critique, sécurité numérique, création responsable, parentalité numérique…",
-      links: [["Nos formations", "formations.html"], ["Guide du débutant", "guide-debutant.html"]]
+      links: [["Nos formations", "formations"], ["Guide du débutant", "guide-debutant"]]
     },
     {
       keys: ["don", "donner", "soutenir", "financer", "contribuer", "aider l’acci"],
       reply: "Merci pour votre élan ! Vos dons financent nos campagnes, nos formations et la cellule d’écoute. Don ponctuel ou régulier, chaque contribution compte.",
-      links: [["Faire un don", "faire-un-don.html"], ["Devenir partenaire", "partenaires.html"]]
+      links: [["Faire un don", "faire-un-don"], ["Devenir partenaire", "partenaires"]]
     },
     {
       keys: ["enfant", "mineur", "ado", "parent", "ecole", "jeune"],
       reply: "La protection des plus jeunes est une priorité. Dialogue, contrôle parental, réglages de confidentialité et écoute sont vos meilleurs alliés. Nous proposons aussi des ressources pour les parents et les écoles.",
-      links: [["Protection des mineurs", "protection-mineurs.html"], ["Ressources", "ressources.html"]]
+      links: [["Protection des mineurs", "protection-mineurs"], ["Ressources", "ressources"]]
     },
     {
       keys: ["sextorsion", "chantage", "photo intime", "nude", "image intime"],
       reply: "Si vous êtes victime de chantage à l’image : ne payez pas, ne renvoyez rien, conservez les preuves, bloquez et demandez de l’aide. Vous n’êtes pas coupable, et notre cellule d’écoute est là, en toute confidentialité.",
-      links: [["Chantage & sextorsion", "sextorsion.html"], ["Cellule d’écoute", "cellule-ecoute.html"]]
+      links: [["Chantage & sextorsion", "sextorsion"], ["Cellule d’écoute", "cellule-ecoute"]]
     },
     {
       keys: ["securit", "mot de passe", "pirat", "hack", "compte vole", "2fa", "double authent", "proteger mon compte"],
       reply: "Pour sécuriser vos comptes : mots de passe longs et uniques, double authentification (2FA) partout, et méfiance face aux liens suspects. Voici notre guide de cybersécurité.",
-      links: [["Sécurité numérique", "securite-numerique.html"], ["Vie privée", "vie-privee.html"]]
+      links: [["Sécurité numérique", "securite-numerique"], ["Vie privée", "vie-privee"]]
     },
     {
       keys: ["charte", "engagement", "deontolog", "ethique", "regles"],
       reply: "La Charte du créateur responsable, ce sont 10 engagements simples pour créer de façon éthique. Les signataires reçoivent le badge « Créateur responsable ACCI ».",
-      links: [["La charte", "charte.html"], ["Code de déontologie", "deontologie.html"]]
+      links: [["La charte", "charte"], ["Code de déontologie", "deontologie"]]
     },
     {
       keys: ["qui", "acci", "association", "mission", "a propos", "presentation"],
       reply: "L’ACCI est l’Association des Créateurs de Contenu Ivoiriens : une initiative citoyenne et indépendante qui promeut un usage responsable des réseaux sociaux et agit pour prévenir les dérives en ligne.",
-      links: [["Qui sommes-nous", "a-propos.html"], ["Nos champs d’action", "notre-combat.html"]]
+      links: [["Qui sommes-nous", "a-propos"], ["Nos champs d’action", "notre-combat"]]
     },
     {
       keys: ["contact", "joindre", "telephone", "email", "mail", "adresse", "ecrire"],
       reply: "Vous pouvez nous écrire via le formulaire de contact, par e-mail à contact@ivoiriens.ac.ci ou nous appeler au +225 27 22 00 00 00.",
-      links: [["Nous contacter", "contact.html"]]
+      links: [["Nous contacter", "contact"]]
     },
     {
       keys: ["merci", "thanks", "super", "parfait", "ok"],
@@ -173,7 +173,12 @@
      boîte aux lettres ou à un numéro. Une base de connaissances modifiable
      pourrait sinon transformer l'assistant anti-arnaque de l'association en
      redirection vers la page de paiement de quelqu'un d'autre. */
-  var SAFE_HREF = /^(?!\/\/)[A-Za-z0-9._~\/-]+\.html(?:#[\w-]*)?$|^mailto:[^\s:]+$|^tel:\+?[0-9 ]+$/;
+  /* Les liens internes n'ont plus d'extension (« /contact » et non
+     « contact.html »). Le motif accepte donc les deux : une base de
+     connaissances rédigée avant ce changement continue de fonctionner, et
+     « / » seul désigne l'accueil. Ce qui reste refusé est l'essentiel —
+     « javascript: », « data: » et tout hôte extérieur. */
+  var SAFE_HREF = /^\/$|^(?!\/\/)[A-Za-z0-9._~\/-]+(?:\.html)?(?:#[\w-]*)?$|^mailto:[^\s:]+$|^tel:\+?[0-9 ]+$/;
 
   function safeHref(h) {
     h = String(h == null ? "" : h).trim();
@@ -222,7 +227,7 @@
           addMsg("Voici des pages qui pourraient répondre à votre question :", "bot", hits);
         } else {
           addMsg("Je n’ai pas trouvé de réponse précise. Vous pouvez consulter le plan du site ou nous écrire directement — notre équipe vous répondra.", "bot",
-            [["Plan du site", "plan-du-site.html"], ["Nous contacter", "contact.html"]]);
+            [["Plan du site", "plan-du-site"], ["Nous contacter", "contact"]]);
         }
       }
     }, 650);

@@ -210,6 +210,18 @@
   /* --------------------------------------------------------------------- */
   /* Formulaires                                                           */
   /* --------------------------------------------------------------------- */
+  /* Le sélecteur d'image est partagé (admin/image-picker.js). S'il manque,
+     on retombe sur un champ texte : la rubrique reste utilisable par une
+     personne qui connaît les clés, plutôt que de perdre le formulaire. */
+  function imageField(id, value, label, hint) {
+    if (window.ACCI_PICK) return window.ACCI_PICK.fieldHTML(id, value, label, hint);
+    return field(label, id, value,
+      "Clé de la photothèque (ex. <b>formation.jpg</b>) ou adresse https complète.");
+  }
+  function bindImageField(id, folder) {
+    if (window.ACCI_PICK) window.ACCI_PICK.bindField(id, folder);
+  }
+
   function field(label, id, value, hint, type) {
     return '<label class="afield"><span>' + esc(label) + "</span>" +
       (type === "textarea"
@@ -224,9 +236,10 @@
       '<div class="modal__head"><h2>' + (row ? "Modifier la photo" : "Ajouter une photo") +
         '</h2><button class="modal__x" data-close>&times;</button></div>' +
       '<div class="modal__body">' +
-        field("Image *", "gp-image", r.image,
-          "Clé de la photothèque (ex. <b>formation.jpg</b>) ou adresse https complète. " +
-          "Les déclinaisons responsives d’une clé existent déjà — inutile de les indiquer.") +
+        imageField("gp-image", r.image, "Photo *",
+          "Choisissez une image déjà livrée avec le site, ou envoyez-en une : " +
+          "elle est réduite à " + (window.ACCI_PICK ? window.ACCI_PICK.MAX_SIDE : 1600) +
+          " px avant l’envoi. Vous pouvez aussi coller une adresse https.") +
         field("Légende", "gp-caption", r.caption, "Affichée sous la photo.") +
         field("Description (alt)", "gp-alt", r.alt,
           "Lue par les lecteurs d’écran. Décrivez ce que montre la photo ; laissez vide si elle est purement décorative.") +
@@ -237,6 +250,8 @@
       "</div>" +
       '<div class="modal__foot"><button class="abtn abtn--ghost" data-close>Annuler</button>' +
         '<button class="abtn abtn--primary" id="gp-save">Enregistrer</button></div>');
+
+    bindImageField("gp-image", "gallery");
 
     $("#gp-save").addEventListener("click", function () {
       var image = $("#gp-image").value.trim();
@@ -269,8 +284,11 @@
       '<div class="modal__body">' +
         field("Titre *", "ga-title", r.title) +
         field("Texte", "ga-text", r.text, "Une phrase de présentation.", "textarea") +
+        imageField("ga-image", r.image, "Vignette (facultative)",
+          "Une carte porte soit une vignette, soit une icône — jamais les deux, " +
+          "comme sur le reste du site. Laissez vide pour garder l’icône ci-dessous.") +
         '<label class="afield"><span>Icône</span><select id="ga-icon">' + opts + "</select>" +
-          '<small class="muted">Jeu d’icônes du site.</small></label>' +
+          '<small class="muted">Jeu d’icônes du site. Ignorée si une vignette est choisie.</small></label>' +
         field("Lien", "ga-href", r.href,
           "Page du site (ex. <b>evenements</b>) ou adresse https. Laissez vide pour une carte non cliquable.") +
         field("Position", "ga-position", r.position, "Ordre croissant.") +
@@ -281,15 +299,19 @@
       '<div class="modal__foot"><button class="abtn abtn--ghost" data-close>Annuler</button>' +
         '<button class="abtn abtn--primary" id="ga-save">Enregistrer</button></div>');
 
+    bindImageField("ga-image", "gallery");
+
     $("#ga-save").addEventListener("click", function () {
       var title = $("#ga-title").value.trim();
       var err = $("#ga-err");
       if (!title) { err.textContent = "Le titre est obligatoire."; err.hidden = false; return; }
       var href = $("#ga-href").value.trim();
+      var image = $("#ga-image").value.trim();
       var body = {
         title: title,
         text: $("#ga-text").value.trim(),
         icon: $("#ga-icon").value,
+        image: image || null,
         href: href || null,
         position: parseInt($("#ga-position").value, 10) || 0,
         active: $("#ga-active").checked

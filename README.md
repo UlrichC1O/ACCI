@@ -277,6 +277,51 @@ Seules les adresses complètes en `https://` sont acceptées, à l'enregistremen
 comme à l'affichage : un réglage détourné ne peut pas devenir un lien piégé sur
 les cinquante pages.
 
+## Mesure d'audience et publicité
+
+Les identifiants de **Google Analytics 4**, **Google Tag Manager**, **Google Ads**,
+du **pixel Meta** et de **Google Search Console** se renseignent dans
+**`/admin/` → « Identité du site » → « Mesure d'audience »**. Ils sont stockés
+dans la table Supabase `site_settings` (clés `analytics.ga4`, `analytics.gtm`,
+`analytics.gads`, `analytics.meta_pixel`, `analytics.gsc`) et appliqués chez le
+visiteur par `assets/js/site-analytics.js`.
+
+**Un champ vide n'active rien** : aucune requête n'est émise vers le tiers
+concerné. Vider un champ retire la balise du site sous 5 minutes (durée du cache
+navigateur). On peut coller l'extrait de code complet fourni par Google ou par
+Meta : l'identifiant en est extrait et réécrit dans le champ.
+
+### Ce qu'il faut savoir avant d'activer
+
+- **Rien ne se charge sans le consentement du visiteur.** `assets/js/site-consent.js`
+  demande son accord au premier passage, par finalité : *mesure d'audience*
+  (Analytics, Tag Manager) et *publicité* (Google Ads, pixel Meta) s'acceptent
+  séparément. Tant qu'il n'a pas répondu, aucune balise n'est montée — l'absence
+  de réponse vaut refus, et si `site-consent.js` ne se charge pas, rien ne se
+  charge non plus. Le choix est conservé dans le navigateur du visiteur et se
+  reprend par le lien **« Cookies »** du pied de page. Un navigateur qui émet un
+  signal de refus (`navigator.globalPrivacyControl`) est respecté sans qu'on lui
+  pose la question. Conséquence à connaître : **le nombre de visites mesurées
+  sera inférieur au nombre réel.** C'est le prix d'un consentement honnête, pas
+  un défaut de la mesure.
+- **La politique de sécurité a été élargie.** `vercel.json` autorise désormais
+  `googletagmanager.com`, `googleadservices.com`, `doubleclick.net`,
+  `google-analytics.com`, `facebook.com` et `connect.facebook.net`. C'est la
+  condition pour que ces balises fonctionnent : sans cela elles étaient bloquées
+  sans le moindre message. Si l'association renonce au suivi, ces domaines
+  peuvent être retirés. `'unsafe-inline'` n'a **pas** été ajouté : les amorces de
+  `gtag` et de `fbq` sont écrites dans `site-analytics.js`, servi par le site.
+- **Google Tag Manager est bridé par cette même politique.** Une balise GTM qui
+  injecte du code en clair, ou qui charge un script depuis un domaine non
+  autorisé, sera bloquée. GTM ne sert donc ici qu'aux balises dont le domaine est
+  déclaré ci-dessus.
+- **Search Console ne se vérifie pas par ce réglage.** Google contrôle la
+  propriété du domaine en lisant le code source servi ; il n'exécute pas les
+  scripts du site pour cela. Le jeton saisi dans l'administration est bien posé
+  chez le visiteur, mais la vérification passe par l'enregistrement DNS proposé
+  par Search Console, ou par la variable d'environnement **`SITE_GSC`**, lue par
+  `build.py` et inscrite dans les 52 pages à la compilation.
+
 ## Formulaires (contact & newsletter)
 
 Les formulaires sont **fonctionnels** : validation en temps réel (champs
