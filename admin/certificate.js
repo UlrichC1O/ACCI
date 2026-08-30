@@ -28,11 +28,18 @@
   /* --------------------------------------------------------------------- */
   /* Tampon                                                                */
   /* --------------------------------------------------------------------- */
-  /* Le texte circulaire n'est posé qu'en haut. En bas, il est écrit droit :
-     un textPath suivant l'arc inférieur rend les lettres à l'envers sauf à
-     inverser le sens du tracé, subtilité qui se voit immédiatement sur un
-     document officiel et que rien ici ne permettrait de vérifier avant
-     impression. Deux étoiles ferment la couronne, comme sur un sceau. */
+  /* Un sceau officiel se lit sur deux arcs : la raison sociale en couronne
+     haute, le pays en couronne basse. L'arc bas est tracé dans le sens
+     inverse (drapeau de balayage 0, de 9 h vers 3 h en passant par 6 h) sans
+     quoi les lettres sortent la tête en bas — le défaut qui trahit
+     immédiatement un faux tampon. Deux étoiles ferment la couronne à 9 h et
+     3 h, et l'emblème de l'ACCI occupe le cœur.
+
+     L'emblème est repris tel quel de assets/img/favicon.svg, mais redessiné
+     d'un seul trait : un tampon s'encre d'une seule couleur, et le dégradé
+     orange-vert de l'original n'aurait aucun sens sur un document tamponné.
+     Il reste vectoriel, donc net à l'impression, là où le logo en PNG se
+     serait vu pixelisé au format du sceau. */
   function seal(opts) {
     opts = opts || {};
     var size = opts.size || 190;
@@ -40,55 +47,77 @@
     var date = opts.date || "";
     var rot = opts.rotate === undefined ? -7 : opts.rotate;
 
-    /* La couronne est contrainte par textLength : le libellé complet dépasse
-       naturellement la longueur de l'arc et se retrouvait tronqué en son
-       milieu, « ASSOCIATION » et « IVOIRIENS » passant sous les étoiles.
-       L'arc d'un demi-cercle de rayon 84 mesure environ 264 unités ; le texte
-       est ramené à 250 pour laisser respirer les deux extrémités. */
+    /* La couronne haute est contrainte par textLength : le libellé complet
+       dépasse la longueur de l'arc et se retrouvait tronqué en son milieu.
+       Le demi-arc de rayon 87 mesure environ 273 unités ; le texte est ramené
+       à 248 pour laisser respirer les deux extrémités. */
     return '' +
-    '<svg class="seal" viewBox="0 0 220 220" width="' + size + '" height="' + size + '" ' +
+    '<svg class="seal" viewBox="0 0 240 240" width="' + size + '" height="' + size + '" ' +
         'role="img" aria-label="Tampon officiel de l\'ACCI" ' +
         'style="transform:rotate(' + rot + 'deg)">' +
       '<defs>' +
-        '<path id="seal-arc" d="M 110,110 m -84,0 a 84,84 0 1,1 168,0" fill="none"/>' +
+        /* Couronne haute : 9 h vers 3 h par le haut. */
+        '<path id="seal-top" d="M 120,120 m -87,0 a 87,87 0 1,1 174,0" fill="none"/>' +
+        /* Couronne basse : 9 h vers 3 h par le bas, lettres à l\'endroit. */
+        '<path id="seal-bot" d="M 120,120 m -96,0 a 96,96 0 1,0 192,0" fill="none"/>' +
       '</defs>' +
+
+      /* Trois filets : le trait fort porte le sceau, les deux fins encadrent
+         la couronne et isolent le cœur. */
       '<g fill="none" stroke="' + INK + '">' +
-        '<circle cx="110" cy="110" r="105" stroke-width="3.5"/>' +
-        '<circle cx="110" cy="110" r="96"  stroke-width="1.1"/>' +
-        '<circle cx="110" cy="110" r="64"  stroke-width="1.1"/>' +
+        '<circle cx="120" cy="120" r="116" stroke-width="4.5"/>' +
+        '<circle cx="120" cy="120" r="107" stroke-width="1.3"/>' +
+        '<circle cx="120" cy="120" r="74"  stroke-width="1.6"/>' +
       '</g>' +
 
-      /* Couronne : raison sociale complète, ajustée à l'arc */
-      '<text font-family="Georgia,serif" font-size="8.4" font-weight="700" ' +
-            'fill="' + INK + '" textLength="252" lengthAdjust="spacing">' +
-        '<textPath href="#seal-arc" startOffset="50%" text-anchor="middle">' +
-          'ASSOCIATION DES CRÉATEURS DE CONTENU IVOIRIENS' +
-        '</textPath>' +
-      '</text>' +
+      '<g font-family="Georgia,&quot;Times New Roman&quot;,serif" fill="' + INK + '">' +
+        /* La couronne haute est calée à la main plutôt que centrée par
+           text-anchor : WebKit combine mal « startOffset 50 % + text-anchor
+           middle + textLength » et décalait le texte d'un caractère vers la
+           gauche, le « A » d'ASSOCIATION disparaissant sous l'étoile de 9 h.
+           L'arc mesure π × 87 ≈ 273 unités ; pour un texte ramené à 250, il
+           reste 23 unités à répartir, soit 4,3 % de part et d'autre.
+           textLength est porté par le textPath, pas par le text : sur le
+           parent, WebKit l'ignore aussi. */
+        '<text font-size="9.4" font-weight="700">' +
+          '<textPath href="#seal-top" startOffset="4.3%" ' +
+              'textLength="250" lengthAdjust="spacing">' +
+            'ASSOCIATION DES CRÉATEURS DE CONTENU IVOIRIENS' +
+          '</textPath>' +
+        '</text>' +
+        '<text font-size="10" font-weight="700" letter-spacing="3">' +
+          '<textPath href="#seal-bot" startOffset="50%" text-anchor="middle">' +
+            'CÔTE D\'IVOIRE' +
+          '</textPath>' +
+        '</text>' +
+      '</g>' +
 
-      /* Étoiles de fermeture de la couronne, à 9 h et 3 h */
-      star(24, 112, 6) + star(196, 112, 6) +
+      /* Étoiles de fermeture, au milieu de la bande des couronnes */
+      star(29, 120, 6.5) + star(211, 120, 6.5) +
+
+      /* Emblème de l\'ACCI : bouclier, ondes et point, d\'un seul trait */
+      '<g transform="translate(92.4,52.5) scale(1.15)" fill="none" stroke="' + INK + '" ' +
+          'stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M24 7l13 5v9c0 8.2-5.5 14.4-13 16.4C16.5 35.4 11 29.2 11 21v-9l13-5z"/>' +
+        '<path d="M16.5 18a11 11 0 0 1 15 0"/>' +
+        '<path d="M19.5 21.5a6.5 6.5 0 0 1 9 0"/>' +
+        '<circle cx="24" cy="26" r="2.2" fill="' + INK + '" stroke="none"/>' +
+      '</g>' +
 
       /* Cœur du tampon */
-      '<g text-anchor="middle" fill="' + INK + '" font-family="Georgia,serif">' +
-        star(110, 70, 7) +
-        '<text x="110" y="99" font-size="15.5" font-weight="700" letter-spacing="3.4">CERTIFIÉ</text>' +
-        '<text x="110" y="120" font-size="13" font-weight="700" letter-spacing="0.6">CRÉATEUR</text>' +
-        '<text x="110" y="135" font-size="13" font-weight="700" letter-spacing="0.6">RESPONSABLE</text>' +
+      '<g text-anchor="middle" fill="' + INK + '" ' +
+          'font-family="Georgia,&quot;Times New Roman&quot;,serif">' +
+        '<text x="120" y="117" font-size="16.5" font-weight="700" letter-spacing="4">CERTIFIÉ</text>' +
+        '<text x="120" y="140" font-size="9.2" font-weight="700" letter-spacing="0.9">' +
+          'CRÉATEUR RESPONSABLE</text>' +
+        (number
+          ? '<text x="120" y="157" font-size="8" letter-spacing="0.4" opacity=".85">' +
+            'N° ' + esc(number) + '</text>' : '') +
+        (date
+          ? '<text x="120" y="170" font-size="7.4" letter-spacing="0.3" opacity=".72">' +
+            esc(date) + '</text>' : '') +
       '</g>' +
-      '<line x1="78" y1="142" x2="142" y2="142" stroke="' + INK + '" stroke-width="1.1"/>' +
-      (number
-        ? '<text x="110" y="156" text-anchor="middle" font-family="Georgia,serif" font-size="7.6" ' +
-          'letter-spacing="0.3" fill="' + INK + '" opacity=".85">N° ' + esc(number) + '</text>' : '') +
-
-      /* Pied, dans la bande entre les deux cercles : à l'intérieur du cercle
-         central il chevauchait le tracé. */
-      '<text x="110" y="182" text-anchor="middle" font-family="Georgia,serif" ' +
-            'font-size="11.5" font-weight="700" letter-spacing="2.2" fill="' + INK + '">' +
-        'CÔTE D\'IVOIRE</text>' +
-      (date
-        ? '<text x="110" y="196" text-anchor="middle" font-family="Georgia,serif" font-size="8" ' +
-          'letter-spacing="0.5" fill="' + INK + '" opacity=".7">' + esc(date) + '</text>' : '') +
+      '<line x1="84" y1="125" x2="156" y2="125" stroke="' + INK + '" stroke-width="1.1"/>' +
     '</svg>';
   }
 
