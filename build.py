@@ -118,17 +118,42 @@ def brand_icon(name, size=18, cls="brandicon"):
     )
 
 
-def social_attrs(href):
-    """Attributs pour un lien social (nouvel onglet si lien externe)."""
-    return ' target="_blank" rel="noopener noreferrer"' if str(href).startswith("http") else ""
+def render_socials(family, size):
+    """Emplacements des réseaux sociaux (barre supérieure ou pied de page).
+
+    Les adresses ne sont pas connues à la compilation : elles sont renseignées
+    dans l'administration. Chaque réseau est donc compilé comme un emplacement
+    masqué et sans href — donc ni cliquable ni atteignable au clavier — que
+    assets/js/site-settings.js révèle si, et seulement si, une adresse existe.
+
+    Compiler l'icône déjà masquée plutôt que de la masquer après coup évite
+    qu'elle apparaisse brièvement au chargement : les scripts sont différés.
+
+    target et rel sont posés dès ici. Ils sont sans effet sur une ancre sans
+    href, et évitent au script d'avoir à les rétablir : un compte de réseau
+    social est toujours sur un autre domaine.
+    """
+    links = "".join(
+        f'<a class="{family}__social" data-site-social="{e(s["icon"])}" hidden '
+        f'target="_blank" rel="noopener noreferrer" '
+        f'aria-label="{e(s["label"])}" title="{e(s["label"])}">'
+        f'{brand_icon(s["icon"], size)}</a>'
+        for s in SOCIAL
+    )
+    # Le conteneur est masqué lui aussi : vide, il laisserait un espace mort
+    # dans la barre supérieure et sous le logo du pied de page.
+    return f'<div class="{family}__socials" data-site-socials hidden>{links}</div>'
 
 
 def ci_flag(h=14):
     """Drapeau de la Côte d'Ivoire (orange · blanc · vert)."""
     w = round(h * 1.5)
     return (
+        # Décoratif : le texte voisin nomme déjà le pays. Annoncé, le drapeau
+        # faisait lire « Drapeau de la Côte d'Ivoire République de Côte
+        # d'Ivoire — Initiative citoyenne » sur chacune des 50 pages.
         f'<svg class="ci-flag" viewBox="0 0 9 6" width="{w}" height="{h}" '
-        f'role="img" aria-label="Drapeau de la Côte d\'Ivoire">'
+        f'aria-hidden="true" focusable="false">'
         f'<rect width="9" height="6" fill="#ffffff"/>'
         f'<rect width="3" height="6" x="0" fill="#F77F00"/>'
         f'<rect width="3" height="6" x="6" fill="#009A44"/>'
@@ -462,8 +487,9 @@ def r_split(b, page):
 def r_callout(b, page):
     variant = b.get("variant", "info")
     ico = {"info": "lightbulb", "warning": "warning", "danger": "alert", "success": "check"}.get(variant, "lightbulb")
-    title = f'<h3 class="callout__title">{para(b["title"])}</h3>' if b.get("title") else ""
-    text = "".join(f"<p>{para(p)}</p>" for p in (b["text"] if isinstance(b.get("text"), list) else [b.get("text","")]))
+    title = f'<h3 class="callout__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h3>' if b.get("title") else ""
+    text = "".join(f'<p{ck(b,f"text.{i}",p)}>{para(p)}</p>'
+                   for i, p in enumerate(b["text"] if isinstance(b.get("text"), list) else [b.get("text","")]))
     return f"""<section class="section section--tight"><div class="container container--narrow">
       <div class="callout callout--{variant} reveal"><span class="callout__icon">{icon(ico,24)}</span>
       <div class="callout__body">{title}{text}</div></div></div></section>"""
@@ -482,21 +508,23 @@ def r_checklist(b, page):
 
 
 def r_quote(b, page):
-    author = f'<cite class="quote__author">{e(b["author"])}</cite>' if b.get("author") else ""
-    role = f'<span class="quote__role">{e(b["role"])}</span>' if b.get("role") else ""
+    author = f'<cite class="quote__author"{ck(b,"author",b["author"])}>{e(b["author"])}</cite>' if b.get("author") else ""
+    role = f'<span class="quote__role"{ck(b,"role",b["role"])}>{e(b["role"])}</span>' if b.get("role") else ""
     return f"""<section class="section"><div class="container container--narrow">
       <figure class="quote reveal"><span class="quote__mark">{icon("quote",40)}</span>
-      <blockquote>{para(b["text"])}</blockquote>
+      <blockquote{ck(b,"text",b["text"])}>{para(b["text"])}</blockquote>
       <figcaption>{author}{role}</figcaption></figure></div></section>"""
 
 
 def r_cta(b, page):
     btns = ""
-    for c in b.get("buttons", []):
-        btns += f'<a class="btn {c.get("style","btn--light")}" href="{url(c["href"])}">{e(c["label"])}{icon("arrow",18,"btn__icon") if c.get("arrow") else ""}</a>'
-    text = f'<p class="ctaband__text">{para(b["text"])}</p>' if b.get("text") else ""
+    for ci, c in enumerate(b.get("buttons", [])):
+        btns += (f'<a class="btn {c.get("style","btn--light")}" href="{url(c["href"])}"'
+                 f'{ck(b,f"buttons.{ci}.label",c["label"])}>{e(c["label"])}'
+                 f'{icon("arrow",18,"btn__icon") if c.get("arrow") else ""}</a>')
+    text = f'<p class="ctaband__text"{ck(b,"text",b["text"])}>{para(b["text"])}</p>' if b.get("text") else ""
     return f"""<section class="ctaband reveal"><div class="ctaband__pattern" aria-hidden="true"></div>
-      <div class="container ctaband__inner"><div><h2 class="ctaband__title">{para(b["title"])}</h2>{text}</div>
+      <div class="container ctaband__inner"><div><h2 class="ctaband__title"{ck(b,"title",b["title"])}>{para(b["title"])}</h2>{text}</div>
       <div class="ctaband__actions">{btns}</div></div></section>"""
 
 
@@ -606,7 +634,7 @@ def r_contact(b, page):
         marker = f' data-site="{e(it["field"])}"' if it.get("field") else ""
         info += (
             f'<div class="cinfo"><span class="cinfo__icon">{icon(it.get("icon","map"),22)}</span>'
-            f'<div><span class="cinfo__label">{e(it["label"])}</span>'
+            f'<div><span class="cinfo__label"{ck(b,f"info.{len(info)}.label",it["label"])}>{e(it["label"])}</span>'
             f'<span class="cinfo__value"{marker}>{para(it["value"])}</span></div></div>'
         )
     form = """
@@ -652,7 +680,10 @@ def r_contact(b, page):
 
 
 def r_richtext(b, page):
-    return f'<section class="section"><div class="container container--narrow"><div class="prose reveal">{b["html"]}</div></div></section>'
+    # Le contenu est du HTML rédigé : il est modifiable d'un bloc, pas champ à
+    # champ, sans quoi la structure des mentions légales serait à recomposer.
+    return (f'<section class="section"><div class="container container--narrow">'
+            f'<div class="prose reveal"{ck(b,"html",b["html"])}>{b["html"]}</div></div></section>')
 
 
 def r_image(b, page):
@@ -814,6 +845,13 @@ def render_blocks(blocks, page):
 # Navigation, en-tête, pied de page
 # ---------------------------------------------------------------------------
 def render_nav(active_slug):
+    """Barre de navigation principale.
+
+    Une entrée est signalée « courante » aussi quand c'est l'une de ses pages
+    filles qui est ouverte : sans cela, naviguer dans un méga-menu n'allumait
+    aucun repère, et 44 des 50 pages du site s'affichaient sans indiquer où
+    l'on se trouvait.
+    """
     items = ""
     for n in NAV:
         if n.get("children"):
@@ -821,19 +859,23 @@ def render_nav(active_slug):
             for c in n["children"]:
                 desc = f'<span class="megamenu__desc">{e(c["desc"])}</span>' if c.get("desc") else ""
                 ic = icon(c.get("icon", "arrow"), 20, "megamenu__icon")
+                cur = ' aria-current="page"' if c.get("slug") == active_slug else ""
                 sub += (
-                    f'<a class="megamenu__link" href="{url(c["slug"])}">{ic}'
+                    f'<a class="megamenu__link" href="{url(c["slug"])}"{cur}>{ic}'
                     f'<span class="megamenu__text"><span class="megamenu__label">{e(c["label"])}</span>{desc}</span></a>'
                 )
+            here = " is-current" if any(c.get("slug") == active_slug for c in n["children"]) else ""
             items += f"""
             <li class="nav__item nav__item--has-children">
-              <button class="nav__link nav__toggle" aria-expanded="false">{e(n["label"])}
+              <button class="nav__link nav__toggle{here}" type="button" aria-expanded="false">{e(n["label"])}
                 <span class="nav__caret" aria-hidden="true"></span></button>
               <div class="megamenu"><div class="megamenu__inner">{sub}</div></div>
             </li>"""
         else:
-            active = " is-active" if n.get("slug") == active_slug else ""
-            items += f'<li class="nav__item"><a class="nav__link{active}" href="{url(n["slug"])}">{e(n["label"])}</a></li>'
+            is_here = n.get("slug") == active_slug
+            active = " is-current" if is_here else ""
+            cur = ' aria-current="page"' if is_here else ""
+            items += f'<li class="nav__item"><a class="nav__link{active}" href="{url(n["slug"])}"{cur}>{e(n["label"])}</a></li>'
     return items
 
 
@@ -842,10 +884,7 @@ def render_header(page):
     util = ""
     for u in UTILITY:
         util += f'<a href="{url(u["href"])}" class="util__link">{icon(u.get("icon","arrow"),15)}{e(u["label"])}</a>'
-    socials = "".join(
-        f'<a href="{s["href"]}" class="util__social" data-site-social="{e(s["icon"])}"{social_attrs(s["href"])} aria-label="{e(s["label"])}" title="{e(s["label"])}">{brand_icon(s["icon"],15)}</a>'
-        for s in SOCIAL
-    )
+    socials = render_socials("util", 15)
     return f"""
   <a class="skip-link" href="#main">Aller au contenu principal</a>
   <div class="topbar">
@@ -853,25 +892,31 @@ def render_header(page):
       <span class="topbar__tag">{ci_flag(14)} République de Côte d'Ivoire — Initiative citoyenne</span>
       <div class="topbar__right">
         <div class="util">{util}</div>
-        <div class="util__socials">{socials}</div>
+        {socials}
       </div>
     </div>
   </div>
   <header class="header" id="header">
-    <div class="container header__inner">
-      <a class="brand" href="index.html" aria-label="Accueil — {e(SITE['long_name'])}">
-        <img class="brand__logo" data-site-logo="header" src="assets/img/logo-wordmark-240.webp" alt="ACCI" width="118" height="72" fetchpriority="high">
-        <span class="brand__full">{e(SITE['long_name'])}</span>
-      </a>
-      <nav class="nav" aria-label="Navigation principale">
-        <ul class="nav__list">{nav}</ul>
-      </nav>
-      <div class="header__actions">
-        <button class="iconbtn search-toggle" aria-label="Rechercher" aria-expanded="false" aria-controls="searchbar">{icon("search",20)}</button>
-        <a class="btn btn--primary btn--sm header__cta" href="adhesion.html">Adhérer</a>
-        <button class="burger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobile-nav">
-          <span></span><span></span><span></span>
-        </button>
+    <div class="header__bar">
+      <div class="container header__bar-inner">
+        <a class="brand" href="index.html" aria-label="Accueil — {e(SITE['long_name'])}">
+          <img class="brand__logo" data-site-logo="header" src="assets/img/logo-wordmark-240.webp" alt="ACCI" width="118" height="72" fetchpriority="high">
+          <span class="brand__full">{e(SITE['long_name'])}</span>
+        </a>
+        <div class="header__actions">
+          <button class="iconbtn search-toggle" type="button" aria-label="Rechercher" aria-expanded="false" aria-controls="searchbar">{icon("search",20)}</button>
+          <a class="btn btn--primary btn--sm header__cta" href="adhesion.html">Adhérer</a>
+          <button class="burger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobile-nav">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="header__navrow">
+      <div class="container">
+        <nav class="nav" aria-label="Navigation principale">
+          <ul class="nav__list">{nav}</ul>
+        </nav>
       </div>
     </div>
     <div class="searchbar" id="searchbar" hidden>
@@ -887,8 +932,10 @@ def render_header(page):
       </div>
     </div>
   </header>
-  <div class="mobile-nav" id="mobile-nav" hidden>
-    <div class="mobile-nav__inner">{render_mobile_nav(page.get('slug'))}</div>
+  <div class="mobile-nav" id="mobile-nav" role="dialog" aria-modal="true" aria-label="Menu principal" hidden>
+    <div class="mobile-nav__inner">
+      <nav aria-label="Navigation principale">{render_mobile_nav(page.get('slug'))}</nav>
+    </div>
   </div>
   <div class="overlay" id="overlay" hidden></div>"""
 
@@ -923,11 +970,22 @@ def render_footer(page):
     for col in FOOTER["columns"]:
         links = "".join(f'<li><a href="{url(l["slug"])}">{e(l["label"])}</a></li>' for l in col["links"])
         cols += f'<div class="footer__col"><h3 class="footer__title">{e(col["title"])}</h3><ul>{links}</ul></div>'
-    socials = "".join(
-        f'<a href="{s["href"]}" class="footer__social" data-site-social="{e(s["icon"])}"{social_attrs(s["href"])} aria-label="{e(s["label"])}" title="{e(s["label"])}">{brand_icon(s["icon"],18)}</a>'
-        for s in SOCIAL
-    )
+    socials = render_socials("footer", 18)
     legal = "".join(f'<a href="{url(l["slug"])}">{e(l["label"])}</a>' for l in FOOTER["legal"])
+    # Coordonnées de l'association. Elles existaient déjà dans SITE mais
+    # n'étaient rendues que pour les moteurs (JSON-LD) et sur la page Contact :
+    # aucun visiteur ne pouvait joindre l'ACCI depuis le pied de page.
+    # Les repères data-site et les href mailto:/tel: sont ceux que
+    # assets/js/site-settings.js réécrit depuis l'administration.
+    tel_href = "".join(ch for ch in SITE["phone"] if ch.isdigit() or ch == "+")
+    contact = f'''<div class="footer__contact">
+            <h3 class="footer__title">Nous joindre</h3>
+            <address>
+              <span class="fcontact">{icon("map", 17, "fcontact__ic")}<span data-site="address">{e(SITE["address"])}</span></span>
+              <a class="fcontact" href="mailto:{e(SITE["email"])}">{icon("mail", 17, "fcontact__ic")}<span data-site="email">{e(SITE["email"])}</span></a>
+              <a class="fcontact" href="tel:{e(tel_href)}">{icon("phone", 17, "fcontact__ic")}<span data-site="phone">{e(SITE["phone"])}</span></a>
+            </address>
+          </div>'''
     return f"""
   <section class="newsletter">
     <div class="container newsletter__inner reveal">
@@ -937,6 +995,8 @@ def render_footer(page):
         <input type="email" name="email" placeholder="Votre adresse e-mail" required aria-label="Adresse e-mail">
         <button class="btn btn--light" type="submit">S'abonner</button>
         <p class="newsletter__note" id="newsletter-note" role="status" hidden></p>
+        <p class="newsletter__legal">Vos données servent uniquement à l'envoi de notre lettre d'information.
+          Désabonnement possible à tout moment. <a href="confidentialite.html">Politique de confidentialité</a>.</p>
       </form>
     </div>
   </section>
@@ -948,9 +1008,10 @@ def render_footer(page):
             <img class="brand__logo brand__logo--footer" data-site-logo="footer" src="assets/img/logo-wordmark-light-240.webp" alt="ACCI" width="118" height="72" loading="lazy" decoding="async">
           </a>
           <p class="footer__about"><span data-site="long_name">{e(SITE['long_name'])}</span>. {e(FOOTER['about'])}</p>
-          <div class="footer__socials">{socials}</div>
+          {contact}
+          {socials}
         </div>
-        <div class="footer__cols">{cols}</div>
+        <nav class="footer__cols" aria-label="Plan du site">{cols}</nav>
       </div>
       <div class="footer__bottom">
         <p>© {YEAR} ACCI — {e(SITE['long_name'])}. Tous droits réservés.</p>
@@ -1068,8 +1129,8 @@ def _abs(path):
 def render_jsonld(page):
     """Balises JSON-LD : identité de l'organisation, site, fil d'Ariane, FAQ.
 
-    Permet aux moteurs de recherche d'afficher le nom, le logo, les contacts et
-    les liens sociaux de l'ACCI, et de comprendre l'arborescence du site.
+    Permet aux moteurs de recherche d'afficher le nom, le logo et les contacts
+    de l'ACCI, et de comprendre l'arborescence du site.
     """
     graph = []
 
@@ -1091,7 +1152,9 @@ def render_jsonld(page):
             "addressCountry": "CI",
         },
         "areaServed": {"@type": "Country", "name": "Côte d'Ivoire"},
-        "sameAs": [x["href"] for x in SOCIAL if str(x.get("href", "")).startswith("http")],
+        # Pas de "sameAs" : les comptes sociaux sont renseignés dans
+        # l'administration, que la compilation ne consulte pas. Annoncer aux
+        # moteurs des comptes inventés serait pire que ne rien annoncer.
         "contactPoint": [{
             "@type": "ContactPoint",
             "contactType": "customer support",

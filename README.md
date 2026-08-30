@@ -150,6 +150,38 @@ git config core.hooksPath tools/git-hooks
 Si une clé secrète a été exposée (collée dans une conversation, un ticket, une
 capture d'écran), révoquez-la : *Supabase → Settings → API keys → Rotate*.
 
+## Réseaux sociaux — renseignés depuis l'administration
+
+Les icônes de réseaux sociaux (barre supérieure et pied de page) **ne sont pas
+écrites dans le code**. `content/site.py` déclare seulement quels réseaux le
+site sait afficher et dans quel ordre ; les adresses des comptes se renseignent
+dans **`/admin/` → « Identité du site » → « Réseaux sociaux »**, et sont
+stockées dans la table Supabase `site_settings` (clés `social.facebook`,
+`social.x`, `social.instagram`, `social.tiktok`, `social.youtube`,
+`social.linkedin`).
+
+**Un réseau sans adresse n'affiche aucune icône.** Les six emplacements sont
+compilés masqués et sans lien ; `assets/js/site-settings.js` révèle chez le
+visiteur les seules icônes dont l'adresse est renseignée, et masque le bloc
+entier tant qu'il n'y en a aucune. Un champ vidé puis enregistré retire
+l'icône du site sous 5 minutes (durée du cache navigateur).
+
+C'est la seule rubrique du site où une valeur manquante **fait disparaître**
+quelque chose au lieu de conserver ce qui a été compilé — contrairement aux
+photos et aux coordonnées. Le choix est délibéré : une icône menant au compte
+d'un inconnu est plus dommageable pour l'association qu'une icône absente. Deux
+conséquences à connaître :
+
+- si Supabase est injoignable chez le visiteur, aucune icône ne s'affiche ;
+- les données structurées (`schema.org`) ne déclarent plus de `sameAs`, car la
+  compilation ne consulte pas l'administration. Les moteurs de recherche ne se
+  voient donc plus annoncer de comptes officiels — mieux vaut cela que de leur
+  annoncer des comptes inventés.
+
+Seules les adresses complètes en `https://` sont acceptées, à l'enregistrement
+comme à l'affichage : un réglage détourné ne peut pas devenir un lien piégé sur
+les cinquante pages.
+
 ## Formulaires (contact & newsletter)
 
 Les formulaires sont **fonctionnels** : validation en temps réel (champs

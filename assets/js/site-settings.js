@@ -11,6 +11,12 @@
    exactement ce qui a été compilé. Une coordonnée ne doit jamais disparaître
    à cause de ce script — un pied de page sans adresse e-mail serait pire que
    la valeur d'origine.
+
+   Les réseaux sociaux font exception, volontairement. Aucune adresse n'est
+   compilée : les icônes sont compilées masquées et ce script ne révèle que
+   celles dont l'administration a renseigné le compte. Si le service est
+   injoignable, aucune icône n'apparaît — une icône menant au compte d'un
+   inconnu serait plus dommageable pour l'association qu'une icône absente.
    ========================================================================= */
 (function () {
   "use strict";
@@ -196,16 +202,35 @@
       for (var j = 0; j < tl.length; j++) tl[j].href = "tel:" + compact;
     }
 
-    /* Réseaux sociaux : une URL vide masque le lien plutôt que de mener au
-       compte inventé qui a été compilé. */
+    /* Réseaux sociaux : seule une adresse renseignée dans l'administration
+       fait apparaître une icône. Une clé absente et une adresse vide valent la
+       même chose — aucun compte — car effacer un réglage supprime la ligne :
+       le site ne peut pas distinguer « jamais renseigné » de « retiré », et
+       les deux doivent masquer l'icône. */
     var socials = document.querySelectorAll("[data-site-social]");
     for (var s = 0; s < socials.length; s++) {
       var el = socials[s];
-      var key = "social." + el.getAttribute("data-site-social");
-      if (!(key in map)) continue;
-      var href = map[key];
-      if (href) { el.href = href; el.hidden = false; }
-      else el.hidden = true;
+      var href = map["social." + el.getAttribute("data-site-social")] || "";
+      /* Seul https:// est accepté : un réglage détourné en « javascript: » ou
+         en adresse relative deviendrait un lien piégé sur les cinquante pages.
+         L'administration applique déjà cette règle ; le site ne s'y fie pas. */
+      if (/^https:\/\/[^\s]+$/.test(href)) {
+        el.href = href;
+        el.hidden = false;
+      } else {
+        /* Sans href, l'ancre n'est ni cliquable ni atteignable au clavier —
+           l'attribut ne doit pas survivre à une adresse retirée. */
+        el.removeAttribute("href");
+        el.hidden = true;
+      }
+    }
+
+    /* Un conteneur dont toutes les icônes sont masquées reste une boîte flex :
+       il laisserait un espace mort dans la barre supérieure et sous le logo du
+       pied de page. On le masque tant qu'il ne reste rien à montrer. */
+    var groups = document.querySelectorAll("[data-site-socials]");
+    for (var g = 0; g < groups.length; g++) {
+      groups[g].hidden = !groups[g].querySelector("[data-site-social]:not([hidden])");
     }
 
     /* Logos. */

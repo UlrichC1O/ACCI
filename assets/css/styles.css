@@ -25,6 +25,10 @@
   --ink: #14201b;
   --body: #3d4a44;
   --muted: #6b776f;
+  /* --muted (#6b776f) ne tient pas le rapport 4,5:1 sur les fonds teintés :
+     4,41:1 sur --bg-soft, 4,04:1 sous l'en-tête translucide. --muted-strong
+     est sa variante conforme (6,05:1 sur --bg-soft). */
+  --muted-strong: #55625b;
   --line: #e4eae6;
   --line-2: #eef2f0;
   --bg: #ffffff;
@@ -55,7 +59,17 @@
   --shadow-lg: 0 24px 60px -20px rgba(11, 61, 46, .28);
   --ring: 0 0 0 3px var(--green-deep), 0 0 0 6px rgba(255, 255, 255, .95);
   --ease: cubic-bezier(.22, 1, .36, 1);
-  --header-h: 76px;
+
+  /* En-tête sur deux niveaux : la barre d'identité, puis la navigation.
+     Les deux se cumulent dans la hauteur collante, d'où --masthead-h, qui
+     sert aussi de décalage d'ancre (scroll-padding-top). */
+  --header-h: 68px;
+  --navrow-h: 48px;
+  --masthead-h: calc(var(--header-h) + var(--navrow-h));
+
+  /* Hauteur réservée en bas de page aux commandes flottantes (assistant et
+     retour en haut). Sans elle, elles recouvrent les mentions légales. */
+  --float-safe: 96px;
 }
 
 /* ---------- Reset ---------- */
@@ -64,7 +78,7 @@
 /* Garantit que l'attribut [hidden] masque réellement l'élément même si une
    règle .classe définit display (sinon un panneau « caché » reste cliquable). */
 [hidden] { display: none !important; }
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scroll-padding-top: 110px; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--masthead-h) + 16px); }
 body {
   font-family: var(--font-body);
   color: var(--body);
@@ -110,7 +124,9 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 
 .skip-link {
-  position: absolute; left: 12px; top: -60px; z-index: 200;
+  /* « fixed » et non « absolute » : sans ancêtre positionné, un absolute se
+     place par rapport au document, donc hors écran dès que la page a défilé. */
+  position: fixed; left: 12px; top: -60px; z-index: 200;
   background: var(--green-d); color: #fff; padding: 10px 16px; border-radius: 8px;
   transition: top .2s;
 }
@@ -128,9 +144,9 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .util__link { display: inline-flex; align-items: center; gap: 6px; color: #d9e6df; font-weight: 500; }
 .util__link:hover { color: #fff; }
 .util__link .icon { color: var(--orange); }
-.util__socials { display: flex; gap: 6px; }
+.util__socials { display: flex; gap: 8px; }
 .util__social {
-  width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px;
+  width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px;
   color: #cfe0d7; background: rgba(255,255,255,.06);
 }
 .util__social:hover { background: var(--orange-solid); color: #fff; }
@@ -143,38 +159,65 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   transition: box-shadow .3s, background .3s;
 }
 .header.is-stuck { box-shadow: var(--shadow); }
-.header__inner { display: flex; align-items: center; gap: 24px; min-height: var(--header-h); }
+
+/* Niveau 1 — identité à gauche, commandes à droite. Le « space-between »
+   remplace le margin-left:auto que portait .nav : celui-ci disparaissait avec
+   la navigation sous 1081 px, et les boutons se retrouvaient collés au logo. */
+.header__bar-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: var(--header-h); }
+
+/* Niveau 2 — la navigation occupe sa propre ligne, alignée sur le conteneur.
+   Sur une seule ligne, l'ensemble réclamait 1439 px pour 1132 px disponibles :
+   le bouton « Adhérer » sortait de l'écran. */
+.header__navrow { border-top: 1px solid var(--line-2); }
+.header__navrow .container { position: relative; }
 
 .brand { display: inline-flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .brand__mark { display: grid; place-items: center; }
 .brand__text { display: flex; flex-direction: column; line-height: 1.05; }
 .brand__acr { font-family: var(--font-head); font-weight: 800; font-size: 22px; color: var(--green-d); letter-spacing: .02em; }
-.brand__full { font-size: 11px; color: var(--muted); font-weight: 500; max-width: 240px; }
+.brand__full { font-size: 11px; color: var(--muted-strong); font-weight: 500; max-width: 240px; }
 .brand:hover .brand__acr { color: var(--orange-text); }
 
-.nav { margin-left: auto; }
-.nav__list { display: flex; align-items: center; gap: 4px; }
-.nav__item { position: relative; }
+/* .nav porte le positionnement : le méga-menu s'aligne sur la largeur du
+   conteneur, et non sur l'entrée survolée. C'est ce qui l'empêche de sortir
+   de l'écran pour les dernières entrées de la barre. */
+.nav { position: relative; }
+.nav__list { display: flex; align-items: stretch; gap: 2px; }
+.nav__item { position: static; display: flex; }
 .nav__link {
-  display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 10px;
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 13px; height: var(--navrow-h);
   font-weight: 600; font-size: 15.5px; color: var(--ink); white-space: nowrap;
+  border-radius: 0; position: relative;
 }
-.nav__link:hover, .nav__item:hover .nav__link { color: var(--orange-text); background: var(--orange-l); }
-.nav__link.is-active { color: var(--orange-text); }
+/* Repère de section courante : un filet sous l'entrée, posé sur la bordure du
+   niveau 2 — lisible sans dépendre de la seule couleur. */
+.nav__link::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px;
+  border-radius: 3px 3px 0 0; background: var(--orange-solid);
+  transform: scaleX(0); transform-origin: 50% 100%; transition: transform .22s var(--ease);
+}
+.nav__link:hover, .nav__item:hover > .nav__link { color: var(--orange-text); background: var(--orange-l); }
+.nav__link:hover::after, .nav__item:hover > .nav__link::after { transform: scaleX(1); }
+.nav__link.is-current { color: var(--orange-text); }
+.nav__link.is-current::after { transform: scaleX(1); }
 .nav__caret { width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s; opacity: .7; }
 .nav__item:hover .nav__caret { transform: rotate(225deg) translateY(-1px); }
 
 /* Méga-menu */
 .megamenu {
-  position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%) translateY(8px);
-  min-width: 560px; max-width: 760px; background: #fff; border: 1px solid var(--line);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 14px;
+  position: absolute; top: 100%; left: 0; right: 0; transform: translateY(8px);
+  background: #fff; border: 1px solid var(--line); border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg); box-shadow: var(--shadow-lg); padding: 18px;
   opacity: 0; visibility: hidden; transition: opacity .22s var(--ease), transform .22s var(--ease); z-index: 120;
 }
-.megamenu::before { content: ""; position: absolute; top: -10px; left: 0; right: 0; height: 10px; }
+/* Ouverture au survol (souris) ou sur demande explicite (clavier, via .is-open
+   posé par main.js en même temps que aria-expanded). « :focus-within » a été
+   retiré : il ouvrait le panneau à la simple tabulation sur le bouton, ce qui
+   démentait aria-expanded="false" et injectait 41 arrêts de tabulation
+   supplémentaires dans l'en-tête. */
 .nav__item--has-children:hover .megamenu,
-.nav__item--has-children:focus-within .megamenu { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
-.megamenu__inner { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
+.megamenu.is-open { opacity: 1; visibility: visible; transform: translateY(0); }
+.megamenu__inner { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 10px; }
 .megamenu__link { display: flex; align-items: flex-start; gap: 12px; padding: 11px 13px; border-radius: 12px; color: var(--ink); }
 .megamenu__link:hover { background: var(--bg-tint); }
 .megamenu__icon { color: var(--orange-text); margin-top: 2px; flex-shrink: 0; }
@@ -209,7 +252,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* ---------- Barre de recherche ---------- */
 .searchbar { border-top: 1px solid var(--line); background: #fff; }
-.searchbar__inner { position: relative; display: flex; align-items: center; gap: 12px; padding: 16px 24px; }
+.searchbar__inner { position: relative; display: flex; align-items: center; gap: 12px; padding-block: 16px; }
 .searchbar__icon { color: var(--muted); }
 .searchbar input { flex: 1; border: none; font-size: 18px; padding: 8px 0; background: transparent; color: var(--ink); }
 /* Le champ n'affiche pas d'anneau (il occupe toute la barre), mais il doit
@@ -241,7 +284,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .mobile-nav {
   position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 86vw); background: #fff;
   z-index: 160; box-shadow: var(--shadow-lg); transform: translateX(100%); transition: transform .3s var(--ease);
-  overflow-y: auto; padding: calc(var(--header-h) + 16px) 0 40px;
+  overflow-y: auto; padding: calc(var(--header-h) + 20px) 0 40px;
 }
 .mobile-nav.is-open { transform: translateX(0); }
 .mobile-nav__inner { padding: 0 18px; }
@@ -259,7 +302,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* ---------- Fil d'Ariane ---------- */
 .breadcrumb { background: var(--bg-soft); border-bottom: 1px solid var(--line); font-size: 14px; }
-.breadcrumb .container { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-block: 14px; color: var(--muted); }
+.breadcrumb .container { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-block: 14px; color: var(--muted-strong); }
 .breadcrumb a { color: var(--green); font-weight: 500; }
 .crumb__sep { display: inline-flex; color: var(--line); }
 .crumb__sep .icon { width: 14px; height: 14px; }
@@ -423,7 +466,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 /* ---------- Bandeau CTA ---------- */
 .ctaband { position: relative; overflow: hidden; background: linear-gradient(135deg, var(--orange-solid) 0%, var(--orange-solid-d) 100%); color: #fff; }
 .ctaband__pattern { position: absolute; inset: 0; opacity: .25; background: radial-gradient(circle at 85% 20%, rgba(255,255,255,.4), transparent 40%), radial-gradient(circle at 10% 90%, rgba(0,0,0,.18), transparent 45%); }
-.ctaband__inner { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 32px; padding: 56px 0; flex-wrap: wrap; }
+.ctaband__inner { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 32px; padding-block: 56px; flex-wrap: wrap; }
 .ctaband__title { font-size: clamp(1.5rem, 3vw, 2.1rem); color: #fff; max-width: 620px; }
 .ctaband__text { margin-top: 10px; color: #fff; font-size: 1.1rem; max-width: 560px; }
 .ctaband__actions { display: flex; gap: 14px; flex-wrap: wrap; }
@@ -514,35 +557,55 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* ---------- Newsletter ---------- */
 .newsletter { background: var(--green-deep); color: #fff; }
-.newsletter__inner { display: flex; align-items: center; justify-content: space-between; gap: 36px; padding: 50px 0; flex-wrap: wrap; }
+/* padding-block, et non le raccourci « padding » : celui-ci remettait à zéro
+   le retrait horizontal de .container, si bien que le titre et le champ de
+   saisie touchaient le bord de l'écran de 561 px à 1180 px. */
+.newsletter__inner { display: flex; align-items: center; justify-content: space-between; gap: 36px; padding-block: 50px; flex-wrap: wrap; }
 .newsletter__title { color: #fff; font-size: 1.7rem; margin-bottom: 6px; }
 .newsletter__inner p { color: #cfe0d7; max-width: 460px; }
 .newsletter__form { display: flex; gap: 12px; flex-wrap: wrap; }
-.newsletter__form input { padding: 14px 18px; border-radius: 999px; border: none; min-width: 280px; font-size: 15.5px; font-family: inherit; }
+.newsletter__form input { flex: 1 1 260px; padding: 14px 18px; border-radius: 999px; border: none; min-width: 0; font-size: 15.5px; font-family: inherit; }
 .newsletter__form input:focus { outline: none; box-shadow: 0 0 0 3px rgba(247,127,0,.4); }
 
 /* ---------- Pied de page ---------- */
-.footer { background: #07251a; color: #b9cac1; padding: 64px 0 28px; font-size: 15px; }
-.footer__top { display: grid; grid-template-columns: 1.1fr 2.4fr; gap: 56px; padding-bottom: 44px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.footer { background: #07251a; color: #b9cac1; padding: 64px 0 var(--float-safe); font-size: 15px; }
+/* minmax(0, …) : sans lui une colonne de grille ne descend pas sous la
+   largeur de son contenu. Le rapport laisse 174 px par colonne de liens, de
+   quoi tenir « Les mauvaises pratiques » (169,7 px) sans retour à la ligne :
+   c'est ce retour qui décalait cinq rangées de la deuxième colonne. */
+.footer__top { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 2.75fr); gap: 48px; padding-bottom: 44px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .brand--footer .brand__acr { color: #fff; }
-.footer__about { margin: 18px 0 20px; color: #9fb3a8; line-height: 1.6; max-width: 320px; }
+.footer__about { margin: 18px 0 22px; color: #9fb3a8; line-height: 1.6; max-width: 320px; }
 .footer__socials { display: flex; gap: 10px; }
 .footer__social { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.06); color: #cfe0d7; }
 .footer__social:hover { background: var(--orange-solid); color: #fff; }
-.footer__cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
-.footer__title { color: #fff; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 16px; }
-.footer__col ul { display: grid; gap: 10px; }
-.footer__col a { color: #a9bcb2; font-size: 14.5px; }
-.footer__col a:hover { color: var(--orange); padding-left: 4px; }
-.footer__bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding-top: 24px; font-size: 13.5px; color: #8aa094; }
+/* Les colonnes ne s'empilent pas chacune de leur côté : titres et listes
+   partagent une même grille (deux rangées, remplissage par colonne). Un titre
+   ou un libellé qui revient à la ligne ne décale donc plus les liens de sa
+   voisine — c'est ce qui désalignait la colonne « Nos champs d'action ». */
+.footer__cols { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto; grid-auto-flow: column; gap: 0 28px; align-content: start; }
+.footer__col { display: contents; }
+/* Les intitulés de colonne étaient plus petits (14 px) que les liens qu'ils
+   coiffent (14,5 px). La hiérarchie passe désormais par la graisse, la casse
+   et l'interlettrage, pas par la taille. */
+.footer__title { color: #fff; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 16px; align-self: end; }
+.footer__col ul { display: grid; gap: 6px; }
+/* inline-block + padding : une cible de 25 px au lieu de 17 px. Le survol ne
+   change que la couleur — l'ancien « padding-left: 4px » déplaçait le lien
+   sous le curseur à chaque survol. */
+.footer__col a { display: inline-block; color: #a9bcb2; font-size: 15px; padding: 4px 0; text-wrap: pretty; }
+.footer__col a:hover { color: #ffc98a; }
+.footer__bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 28px; padding-top: 26px; font-size: 13px; color: #9fb3a8; }
 .footer__legal { display: flex; gap: 22px; flex-wrap: wrap; }
-.footer__legal a { color: #a9bcb2; }
-.footer__legal a:hover { color: var(--orange); }
+.footer__legal a { color: #a9bcb2; padding: 4px 0; }
+.footer__legal a:hover { color: #ffc98a; }
 
 /* ---------- Bouton retour en haut ---------- */
-.to-top { position: fixed; right: 24px; bottom: 24px; width: 50px; height: 50px; border-radius: 50%; background: var(--green-d); color: #fff; display: grid; place-items: center; box-shadow: var(--shadow); transform: translateY(20px); opacity: 0; pointer-events: none; transition: .3s var(--ease); z-index: 90; }
+/* visibility, et pas seulement opacity : à opacity 0 seul, le bouton restait
+   atteignable au clavier — une tabulation aboutissait sur une cible invisible. */
+.to-top { position: fixed; right: 24px; bottom: 24px; width: 50px; height: 50px; border-radius: 50%; background: var(--green-d); color: #fff; display: grid; place-items: center; box-shadow: var(--shadow); transform: translateY(20px); opacity: 0; visibility: hidden; pointer-events: none; transition: .3s var(--ease); z-index: 90; }
 .to-top .icon { transform: rotate(-90deg); }
-.to-top.is-visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.to-top.is-visible { transform: translateY(0); opacity: 1; visibility: visible; pointer-events: auto; }
 .to-top:hover { background: var(--orange-solid); }
 
 /* ---------- Révélation au défilement ---------- */
@@ -580,9 +643,17 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
-  .nav, .header__cta { display: none; }
+  /* Sous 1081 px la navigation passe dans le tiroir : c'est tout le niveau 2
+     qui disparaît, bordure comprise, sinon il resterait un filet orphelin. */
+  .header__navrow, .header__cta { display: none; }
   .burger { display: flex; }
-  .footer__top { grid-template-columns: 1fr; gap: 36px; }
+  /* La barre supérieure repliait ses libellés sur deux lignes bien avant
+     860 px ; elle bascule maintenant en même temps que la navigation. */
+  .topbar__tag { display: none; }
+  .topbar__inner { justify-content: center; }
+  .footer__top { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 40px; }
+  .footer__cols { grid-template-columns: repeat(2, 1fr); grid-template-rows: none; grid-auto-flow: row; gap: 30px 24px; }
+  .footer__col { display: block; }
 }
 @media (max-width: 860px) {
   .grid--3, .grid--4 { grid-template-columns: repeat(2, 1fr); }
@@ -591,17 +662,15 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   .split--reverse .split__media { order: 0; }
   .split__media { max-width: 320px; margin-inline: auto; }
   .contact-grid { grid-template-columns: 1fr; gap: 32px; }
-  .footer__cols { grid-template-columns: repeat(2, 1fr); gap: 28px; }
+  .footer__top { grid-template-columns: 1fr; gap: 36px; }
   .checklist--2, .checklist--3 { grid-template-columns: 1fr; }
-  .topbar__tag { display: none; }
-  .topbar__inner { justify-content: center; }
   .section { padding: 52px 0; }
 }
 @media (max-width: 560px) {
   body { font-size: 16px; }
   .grid--2, .grid--3, .grid--4 { grid-template-columns: 1fr; }
   .cform__row { grid-template-columns: 1fr; }
-  .footer__cols { grid-template-columns: 1fr; }
+  .footer__cols { grid-template-columns: 1fr; gap: 26px; }
   .brand__full { display: none; }
   .newsletter__form input { min-width: 0; flex: 1; }
   .util { display: none; }
@@ -766,7 +835,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
    ========================================================================= */
 .brand__logo { height: 46px; width: auto; display: block; }
 .brand .brand__full { border-left: 1px solid var(--line); padding-left: 12px; max-width: 210px;
-  font-size: 11.5px; line-height: 1.3; font-weight: 600; color: var(--muted); }
+  font-size: 11.5px; line-height: 1.3; font-weight: 600; color: var(--muted-strong); }
 @media (max-width: 560px) { .brand__logo { height: 38px; } }
 
 /* Curseur « main » explicite sur tous les éléments interactifs */
@@ -776,13 +845,9 @@ a, button, [role="button"], summary,
 .megamenu__link, .mnav__toggle, .mnav__link, .th-sort, .snav { cursor: pointer; }
 select, label.cform__check, .fcheck, input[type="checkbox"], input[type="radio"] { cursor: pointer; }
 
-/* Méga-menu : ouverture plus rapide et « pont » de survol plus large pour
-   éviter que le menu ne se ferme quand on déplace le curseur vers lui. */
-.megamenu { top: calc(100% + 4px); }
-.megamenu::before { content: ""; position: absolute; top: -16px; left: -20px; right: -20px; height: 18px; }
-.nav__link { position: relative; }
-/* zone de survol invisible élargie sous chaque entrée de menu */
-.nav__item--has-children > .nav__toggle::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; }
+/* Le méga-menu est désormais accolé au bas du niveau 2 (top: 100% sur .nav) :
+   il n'y a plus d'interstice à franchir, donc plus besoin du « pont » de
+   survol qui compensait l'ancien décalage. */
 
 /* Retour visuel net au survol/clic pour une meilleure précision perçue */
 .btn:active { transform: translateY(0) scale(.98); }
@@ -798,3 +863,25 @@ select, label.cform__check, .fcheck, input[type="checkbox"], input[type="radio"]
 
 /* Drapeau de la Côte d'Ivoire dans la barre supérieure */
 .ci-flag { border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); display: block; flex-shrink: 0; }
+
+/* =========================================================================
+   Coordonnées dans le pied de page & mention de la lettre d'information
+   ========================================================================= */
+
+/* Bloc « Nous joindre ». Les valeurs portent des repères data-site : elles
+   sont réécrites depuis l'administration comme le reste de l'identité. */
+.footer__contact { margin: 0 0 22px; }
+.footer__contact address { font-style: normal; display: grid; gap: 8px; }
+.fcontact { display: flex; align-items: flex-start; gap: 10px; color: #a9bcb2; font-size: 14.5px; line-height: 1.45; padding: 2px 0; }
+a.fcontact:hover { color: #ffc98a; }
+.fcontact__ic { color: var(--orange); flex-shrink: 0; margin-top: 2px; }
+
+/* Finalité du traitement, à côté du champ qui collecte l'adresse plutôt que
+   sur une page que personne n'ouvre avant de s'abonner. */
+.newsletter__legal { flex-basis: 100%; margin: 12px 0 0; font-size: 13px; color: #cfe0d7; line-height: 1.5; max-width: 460px; }
+.newsletter__legal a { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
+.newsletter__legal a:hover { color: #ffc98a; }
+
+/* Le formulaire garde sa largeur propre : sans cela la mention l'étirait et
+   décalait le bouton « S'abonner » sous le champ. */
+.newsletter__form { max-width: 520px; }

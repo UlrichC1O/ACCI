@@ -2112,11 +2112,13 @@ function openCustomerDetail(id){
       '<p class="muted" style="margin-top:10px">Communiquez-le au membre maintenant. <b>Il ne sera plus affiché.</b> '+
       'Le CRM n\'en conserve qu\'une empreinte : ni cet écran, ni un export, ni une sauvegarde ne permettront de le relire.</p>'+
       '<p class="muted">En cas de perte, ouvrez la fiche et choisissez « Renouveler le code ».</p></div>'+
-      '<div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--primary" data-close>J\'ai noté le code</button></div>');
-    var m=$("#modal");
-    if(m)m.addEventListener("click",function(ev){
-      if(ev.target.closest("[data-close]"))openCustomerDetail(id);
-    });
+      '<div class="modal__foot"><span style="flex:1"></span><button class="abtn abtn--primary" id="cd-code-ok" data-close>J\'ai noté le code</button></div>');
+    /* Le retour à la fiche est branché sur le bouton, que openModal recrée à
+       chaque ouverture. L'écouter sur #modal — qui, lui, survit — ajoutait un
+       abonné de plus à chaque code émis, et la fermeture finissait par rouvrir
+       la fiche autant de fois qu'on avait délivré de codes. */
+    var okBtn=$("#cd-code-ok");
+    if(okBtn)okBtn.addEventListener("click",function(){openCustomerDetail(id);});
   }
 
   var approveBtn=$("#cd-approve");

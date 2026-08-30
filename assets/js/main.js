@@ -101,9 +101,12 @@
   /* Ferme tous les méga-menus. Auparavant seul l'attribut aria-expanded des
      autres boutons était remis à false : leurs styles en ligne subsistaient,
      laissant le premier menu ouvert par-dessus le second. */
+  /* L'état ouvert est porté par une classe, plus par des styles en ligne : la
+     position du panneau appartient à la feuille de style, et aria-expanded ne
+     peut plus diverger de ce qui est affiché. */
   function closeAllMega() {
     document.querySelectorAll(".megamenu").forEach(function (m) {
-      m.style.opacity = ""; m.style.visibility = ""; m.style.transform = "";
+      m.classList.remove("is-open");
     });
     document.querySelectorAll(".nav__toggle").forEach(function (b) {
       b.setAttribute("aria-expanded", "false");
@@ -119,13 +122,39 @@
       closeAllMega();
       if (!open) {
         btn.setAttribute("aria-expanded", "true");
-        if (menu) {
-          menu.style.opacity = "1";
-          menu.style.visibility = "visible";
-          menu.style.transform = "translateX(-50%) translateY(0)";
-        }
+        if (menu) menu.classList.add("is-open");
       }
     });
+    /* Flèche bas : ouvrir et entrer dans le panneau, comme dans un menu. */
+    btn.addEventListener("keydown", function (e) {
+      if (e.key !== "ArrowDown") return;
+      e.preventDefault();
+      var item = btn.closest(".nav__item");
+      var menu = item ? item.querySelector(".megamenu") : null;
+      if (btn.getAttribute("aria-expanded") !== "true") {
+        closeAllMega();
+        btn.setAttribute("aria-expanded", "true");
+        if (menu) menu.classList.add("is-open");
+      }
+      var first = menu && menu.querySelector(".megamenu__link");
+      if (first) first.focus();
+    });
+  });
+
+  /* Échap ferme le panneau ouvert et ramène le focus sur son bouton, sinon il
+     resterait dans un panneau qui vient de disparaître. */
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape" && e.key !== "Esc") return;
+    var open = document.querySelector('.nav__toggle[aria-expanded="true"]');
+    if (!open) return;
+    closeAllMega();
+    open.focus();
+  });
+
+  /* Quitter le menu à la tabulation le referme. */
+  document.addEventListener("focusin", function (e) {
+    var open = document.querySelector('.nav__toggle[aria-expanded="true"]');
+    if (open && !e.target.closest(".nav__item--has-children")) closeAllMega();
   });
   document.addEventListener("click", function (e) {
     if (!e.target.closest(".nav__item--has-children")) closeAllMega();

@@ -1,15 +1,18 @@
 /* =========================================================================
    ACCI — Identité du site
    -------------------------------------------------------------------------
-   Le site public est statique : son nom, ses coordonnées, ses liens sociaux,
-   son logo et sa favicon sont figés à la compilation. Ce module permet de les
-   corriger sans redéploiement. Les valeurs sont écrites dans Supabase
-   (table site_settings) et appliquées chez le visiteur par
-   assets/js/site-settings.js.
+   Le site public est statique : son nom, ses coordonnées, son logo et sa
+   favicon sont figés à la compilation. Ce module permet de les corriger sans
+   redéploiement. Les valeurs sont écrites dans Supabase (table site_settings)
+   et appliquées chez le visiteur par assets/js/site-settings.js.
 
    Un champ laissé vide n'écrase rien : la valeur compilée reprend sa place.
    C'est ce qui permet de revenir en arrière sans savoir ce qui avait été
    écrit dans content/site.py.
+
+   Les liens sociaux, eux, ne sont pas compilés du tout : cette page en est la
+   seule source. Un réseau qui n'y est pas renseigné n'affiche aucune icône sur
+   le site — mieux vaut pas d'icône qu'une icône menant à un compte inexistant.
 
    Sécurité : la lecture est publique, l'écriture exige une session Supabase.
    Le code d'accès local protège cette interface ; il ne protège pas le site.
@@ -33,13 +36,7 @@
     "site.tagline": "Pour un usage responsable, sûr et éthique des réseaux sociaux en Côte d’Ivoire.",
     "site.email": "contact@acci.ci",
     "site.phone": "+225 27 22 00 00 00",
-    "site.address": "Cocody, Riviera Golf — Abidjan, Côte d’Ivoire",
-    "social.facebook": "https://www.facebook.com/ACCI.CotedIvoire",
-    "social.x": "https://x.com/ACCI_CI",
-    "social.instagram": "https://www.instagram.com/acci.ci",
-    "social.tiktok": "https://www.tiktok.com/@acci.ci",
-    "social.youtube": "https://www.youtube.com/@ACCI-CotedIvoire",
-    "social.linkedin": "https://www.linkedin.com/company/acci-ci"
+    "site.address": "Cocody, Riviera Golf — Abidjan, Côte d’Ivoire"
   };
 
   var GENERAL = [
@@ -51,13 +48,15 @@
     { k: "site.address",   l: "Adresse postale", t: "text" }
   ];
 
+  /* Aucune adresse n'est compilée pour les réseaux : le repère de chaque champ
+     montre donc le format attendu, et non un compte qui existerait déjà. */
   var SOCIALS = [
-    { k: "social.facebook",  l: "Facebook" },
-    { k: "social.x",         l: "X (Twitter)" },
-    { k: "social.instagram", l: "Instagram" },
-    { k: "social.tiktok",    l: "TikTok" },
-    { k: "social.youtube",   l: "YouTube" },
-    { k: "social.linkedin",  l: "LinkedIn" }
+    { k: "social.facebook",  l: "Facebook",    ph: "https://www.facebook.com/…" },
+    { k: "social.x",         l: "X (Twitter)", ph: "https://x.com/…" },
+    { k: "social.instagram", l: "Instagram",   ph: "https://www.instagram.com/…" },
+    { k: "social.tiktok",    l: "TikTok",      ph: "https://www.tiktok.com/@…" },
+    { k: "social.youtube",   l: "YouTube",     ph: "https://www.youtube.com/@…" },
+    { k: "social.linkedin",  l: "LinkedIn",    ph: "https://www.linkedin.com/company/…" }
   ];
 
   var BRAND = [
@@ -145,7 +144,12 @@
 
   /* Effacer le réglage plutôt que d'enregistrer une chaîne vide : une valeur
      vide serait appliquée telle quelle et effacerait la coordonnée sur le site,
-     alors que l'intention est de revenir à ce qui a été compilé. */
+     alors que l'intention est de revenir à ce qui a été compilé.
+
+     Pour un réseau social, ce qui a été compilé est justement l'absence
+     d'adresse : supprimer la ligne retire l'icône du site, ce qui est bien
+     l'effet attendu. Le site traite de la même façon une clé supprimée et une
+     clé jamais créée — il n'a aucun moyen de les distinguer. */
   function clear(key) {
     return SB.ensureSession().then(function () {
       return fetch(SB.url + "/rest/v1/" + TABLE + "?key=eq." + encodeURIComponent(key), {
@@ -163,12 +167,18 @@
   /* ----------------------------- Validation ------------------------------ */
 
   function invalid(key, v) {
-    if (!v) return null;                       // vide = retour à la valeur compilée
+    if (!v) return null;                       // vide = valeur compilée, et aucune icône pour un réseau
     if (key === "site.email" && !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(v))
       return "Adresse e-mail invalide.";
     if (key.indexOf("theme.color.") === 0 && !/^#[0-9a-f]{3,8}$/i.test(v))
       return "Couleur invalide : notation hexadécimale attendue, par exemple #F77F00.";
-    if (key.indexOf("social.") === 0 || key.indexOf("brand.") === 0) {
+    if (key.indexOf("social.") === 0) {
+      /* Même exigence que le site public, qui n'affiche que ce qu'il reconnaît :
+         une adresse incomplète serait enregistrée ici et resterait invisible. */
+      if (!/^https:\/\/\S+$/.test(v))
+        return "L'adresse du compte doit être complète et commencer par https:// — par exemple https://www.facebook.com/votre-page.";
+    }
+    if (key.indexOf("brand.") === 0) {
       if (!/^https:\/\/\S+$/.test(v))
         return "L'adresse doit commencer par https:// — un lien en http est bloqué par la politique de sécurité du site.";
     }
@@ -200,34 +210,35 @@
     return '<section class="panel"><p class="muted">Chargement des réglages…</p></section>';
   }
 
-  function delay() {
+  function delay(last) {
     return '<p class="muted" style="margin-top:14px">Les modifications apparaissent sur le site public ' +
       'dans un délai maximum de 5 minutes (durée du cache navigateur). ' +
-      'Un champ vidé rétablit la valeur d\'origine.</p>';
+      (last || 'Un champ vidé rétablit la valeur d\'origine.') + '</p>';
   }
 
   function fieldRow(f) {
     var v = state.map[f.k] || "";
-    var ph = COMPILED[f.k] || "";
+    var social = f.k.indexOf("social.") === 0;
+    var ph = social ? (f.ph || "") : (COMPILED[f.k] || "");
     var input = f.t === "textarea"
       ? '<textarea class="si-in" data-k="' + esc(f.k) + '" rows="2" placeholder="' + esc(ph) + '">' + esc(v) + '</textarea>'
       : '<input class="si-in" data-k="' + esc(f.k) + '" type="' + (f.t || "text") + '" value="' + esc(v) + '" placeholder="' + esc(ph) + '">';
     var badge = v
-      ? '<span class="tag" style="background:#dcfce7;color:#166534">modifié</span>'
-      : '<span class="tag muted">valeur d\'origine</span>';
+      ? '<span class="tag" style="background:#dcfce7;color:#166534">' + (social ? 'affiché' : 'modifié') + '</span>'
+      : '<span class="tag muted">' + (social ? 'icône masquée' : 'valeur d\'origine') + '</span>';
     return '<div class="afield">' +
       '<label>' + esc(f.l) + ' ' + badge + '</label>' + input +
       (f.note ? '<span class="muted" style="font-size:11.5px">' + esc(f.note) + '</span>' : '') +
       '</div>';
   }
 
-  function panel(title, fields, lead) {
+  function panel(title, fields, lead, last) {
     return '<section class="panel"><div class="panel__head"><h2 class="panel__title">' + esc(title) + '</h2></div>' +
       (lead ? '<p class="muted">' + esc(lead) + '</p>' : '') +
       '<div class="fgrid">' + fields.map(fieldRow).join("") + '</div>' +
       '<div class="btnrow"><button class="abtn abtn--primary si-save">Enregistrer</button>' +
       '<button class="abtn abtn--ghost si-reload">Recharger</button></div>' +
-      '<p class="ferr" id="si-err" hidden></p>' + delay() + '</section>';
+      '<p class="ferr" id="si-err" hidden></p>' + delay(last) + '</section>';
   }
 
   function guard(fn) {
@@ -246,7 +257,11 @@
 
   var socialHTML = guard(function () {
     return panel("Réseaux sociaux", SOCIALS,
-      "Une adresse effacée puis enregistrée vide masque l'icône sur le site, au lieu de mener au compte compilé par défaut.");
+      "Cette page est la seule source des liens sociaux du site : aucune adresse n'est écrite dans les " +
+      "pages. Un réseau renseigné ici fait apparaître son icône dans la barre supérieure et dans le pied " +
+      "de page ; un réseau laissé vide n'affiche aucune icône, plutôt qu'une icône menant à un compte qui " +
+      "n'existe pas.",
+      "Un champ vidé retire l'icône du site.");
   });
 
   /* ------------------------------ Marque --------------------------------- */

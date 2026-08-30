@@ -34,14 +34,23 @@ SITE = {
 }
 
 # Réseaux sociaux (barre supérieure + pied de page).
-# ⚠️ Remplacez les URL ci-dessous par les comptes officiels réels de l’ACCI.
+# Cette liste déclare les réseaux que le site sait afficher, et dans quel ordre.
+# Elle ne contient délibérément aucune adresse : les comptes se renseignent dans
+# l’administration (« Identité du site » → « Réseaux sociaux »), et c’est
+# assets/js/site-settings.js qui révèle chez le visiteur les seules icônes dont
+# l’adresse a été renseignée.
+#
+# Un réseau sans adresse n’est pas affiché. C’est la seule rubrique du site où
+# une valeur manquante fait disparaître quelque chose plutôt que de conserver ce
+# qui a été compilé : une icône qui mène au compte d’un inconnu est plus
+# dommageable pour l’association qu’une icône absente.
 SOCIAL = [
-    {"label": "Facebook", "icon": "facebook", "href": "https://www.facebook.com/ACCI.CotedIvoire"},
-    {"label": "X (Twitter)", "icon": "x", "href": "https://x.com/ACCI_CI"},
-    {"label": "Instagram", "icon": "instagram", "href": "https://www.instagram.com/acci.ci"},
-    {"label": "TikTok", "icon": "tiktok", "href": "https://www.tiktok.com/@acci.ci"},
-    {"label": "YouTube", "icon": "youtube", "href": "https://www.youtube.com/@ACCI-CotedIvoire"},
-    {"label": "LinkedIn", "icon": "linkedin", "href": "https://www.linkedin.com/company/acci-ci"},
+    {"label": "Facebook", "icon": "facebook"},
+    {"label": "X (Twitter)", "icon": "x"},
+    {"label": "Instagram", "icon": "instagram"},
+    {"label": "TikTok", "icon": "tiktok"},
+    {"label": "YouTube", "icon": "youtube"},
+    {"label": "LinkedIn", "icon": "linkedin"},
 ]
 
 # Liens de la barre utilitaire (en haut)
