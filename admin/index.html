@@ -5,7 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title>ACCI — CRM & Portail Membres</title>
+  <!-- Même jeu d'icônes que le site public (voir PAGE_TEMPLATE dans build.py) :
+       l'administration n'affichait que le PNG, sans la version vectorielle ni
+       l'icône iOS, et son onglet ne portait donc pas la même marque. -->
   <link rel="icon" type="image/png" href="/assets/img/favicon.png">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+  <!-- Application installable. Le manifeste décrit l'icône, le nom et la
+       fenêtre ; admin/pwa.js l'installe et admin/sw.js la fait fonctionner
+       hors connexion. theme-color teinte la barre d'état une fois installée :
+       sans elle, l'application s'ouvrait sous un bandeau blanc au-dessus de
+       son propre écran de connexion vert. apple-mobile-web-app-* sont les
+       équivalents iOS, qui ne lit pas le manifeste. -->
+  <link rel="manifest" href="/admin/manifest.json">
+  <meta name="theme-color" content="#07301F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ACCI CRM">
   <link rel="stylesheet" href="/assets/css/fonts.css">
   <link rel="stylesheet" href="/admin/admin.css">
 </head>
@@ -176,6 +192,8 @@
   <script src="/admin/pieces.js"></script>
   <script src="/admin/social-bank.js"></script>
   <script src="/admin/form-requests.js"></script>
+  <script src="/admin/image-picker.js"></script>
   <script src="/admin/gallery.js"></script>
+  <script src="/admin/pwa.js"></script>
 </body>
 </html>

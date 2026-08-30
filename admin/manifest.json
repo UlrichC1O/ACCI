@@ -1,0 +1,50 @@
+{
+  "name": "ACCI — CRM & Portail Membres",
+  "short_name": "ACCI CRM",
+  "description": "Gestion des membres, des demandes et des services de l'Association des Créateurs de Contenu Ivoiriens.",
+  "lang": "fr",
+  "dir": "ltr",
+  "id": "/admin/",
+  "start_url": "/admin/index.html",
+  "scope": "/admin/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#07301F",
+  "theme_color": "#07301F",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/assets/img/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/app-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Membres & Partenaires",
+      "short_name": "Membres",
+      "url": "/admin/index.html#customers",
+      "icons": [{ "src": "/assets/img/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Réception",
+      "short_name": "Réception",
+      "url": "/admin/index.html#inbox",
+      "icons": [{ "src": "/assets/img/app-icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
