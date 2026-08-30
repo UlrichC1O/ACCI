@@ -1,18 +1,55 @@
 # -*- coding: utf-8 -*-
 """Agrège l’ensemble des pages du site et génère les pages utilitaires."""
 
+import importlib
+import pkgutil
+
+import content
 from content import presentation, combat, chartes, services, actualites, engagement
+
+# Ordre de lecture du site. Il ne se déduit d’aucune règle — c’est le plan
+# voulu par l’association — et reste donc écrit ici.
+_ORDRE = ["presentation", "combat", "chartes", "services", "actualites", "engagement"]
+
+# Modules du paquet qui ne portent pas de pages.
+_HORS_PLAN = {"pages", "site"}
+
+
+def _modules_de_contenu():
+    """Tous les modules de content/ qui déclarent une liste PAGES.
+
+    Cette liste était écrite à la main. Un module ajouté sans y être inscrit
+    était donc ignoré en silence : sa page n’était pas construite, n’entrait
+    pas dans le plan du site ni dans le sitemap, et rien ne le signalait —
+    la page semblait simplement ne pas exister. Elle est maintenant découverte,
+    et tout module hors de l’ordre convenu est annoncé à la compilation pour
+    qu’on décide où le placer plutôt que de le voir apparaître à la fin.
+    """
+    trouves = {}
+    for info in pkgutil.iter_modules(content.__path__):
+        if info.name in _HORS_PLAN:
+            continue
+        mod = importlib.import_module("content." + info.name)
+        pages = getattr(mod, "PAGES", None)
+        if isinstance(pages, list) and pages:
+            trouves[info.name] = pages
+
+    noms = [n for n in _ORDRE if n in trouves]
+    extras = sorted(n for n in trouves if n not in _ORDRE)
+    if extras:
+        print("  ⚠ module(s) de contenu hors de l’ordre du plan, ajouté(s) à la fin : "
+              + ", ".join(extras) + " — inscrivez-les dans _ORDRE (content/pages.py)")
+    manquants = [n for n in _ORDRE if n not in trouves]
+    if manquants:
+        print("  ⚠ module(s) attendu(s) mais sans pages : " + ", ".join(manquants))
+    return [(n, trouves[n]) for n in noms + extras]
 
 
 def _content_pages():
-    """Les 50 pages de contenu, dans l’ordre du plan."""
+    """Les pages de contenu, dans l’ordre du plan."""
     pages = []
-    pages += presentation.PAGES   # 1-8
-    pages += combat.PAGES         # 9-20
-    pages += chartes.PAGES        # 21-28
-    pages += services.PAGES       # 29-38
-    pages += actualites.PAGES     # 39-44
-    pages += engagement.PAGES     # 45-50
+    for _, liste in _modules_de_contenu():
+        pages += liste
     return pages
 
 

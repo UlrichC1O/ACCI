@@ -72,6 +72,12 @@ ICONS = {
     # la même chose, l'union de deux parties, et restent nets jusqu'à 14 px.
     "handshake":  '<circle cx="9" cy="12" r="5.8"/><circle cx="15" cy="12" r="5.8"/>',
     "heart":      '<path d="M12 20.2C7 17.4 3.6 14 3.6 10.4A4 4 0 0 1 12 8a4 4 0 0 1 8.4 2.4c0 3.6-3.4 7-8.4 9.8z"/>',
+    # Repris tel quel du jeu de l'administration. L'administration propose « image »
+    # comme icône d'album dans la Galerie (admin/gallery.js), mais le jeu public ne
+    # la connaissait pas : la carte publique affichait une pastille orange de 56 px
+    # entièrement vide, car assets/icons.json — écrit depuis ce dictionnaire — n'a
+    # rien à y mettre. Toute icône proposée à l'administration doit exister ici.
+    "image":      '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-9 8"/>',
     "key":        '<circle cx="8.2" cy="12" r="3.7"/><path d="M11.9 12H20"/><path d="M17.4 12v2.8"/><path d="M20 12v2"/>',
     "lightbulb":  '<path d="M12 3.6a5.6 5.6 0 0 0-3.4 10.1c.7.6 1 1.4 1 2.3h4.8c0-.9.3-1.7 1-2.3A5.6 5.6 0 0 0 12 3.6z"/><path d="M9.8 18.4h4.4M10.6 20.6h2.8"/>',
     "lock":       '<rect x="4.5" y="10.5" width="15" height="9.5" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/><circle cx="12" cy="15.2" r="1.1"/>',
@@ -1229,7 +1235,10 @@ def render_footer(page):
     # Rouvrir le choix relatif aux cookies. C'est un bouton et non un lien : il
     # n'y a pas de page à ouvrir, et sans JavaScript il n'y a pas non plus de
     # bandeau à reprendre — un lien mort serait pire que rien.
-    legal += '<button type="button" data-consent-open>Cookies</button>'
+    # Compilé masqué : le lien n'a de sens que si une balise est renseignée et
+    # que le visiteur peut réellement revenir sur son choix. site-consent.js le
+    # révèle quand c'est le cas — l'inverse aurait fait clignoter un lien mort.
+    legal += '<button type="button" data-consent-open hidden>Cookies</button>'
     # Coordonnées de l'association. Elles existaient déjà dans SITE mais
     # n'étaient rendues que pour les moteurs (JSON-LD) et sur la page Contact :
     # aucun visiteur ne pouvait joindre l'ACCI depuis le pied de page.
@@ -1559,6 +1568,41 @@ def build_sitemap(pages):
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
+
+def _verifier_sitemap():
+    """Compare le sitemap aux pages réellement écrites dans dist/."""
+    import re as _re
+    chemin = os.path.join(DIST, "sitemap.xml")
+    with open(chemin, encoding="utf-8") as f:
+        locs = set(_re.findall(r"<loc>([^<]+)</loc>", f.read()))
+    base = SITE["url"].rstrip("/") + "/"
+    dans_sitemap = {(u[len(base):] or "index") for u in locs if u.startswith(base)}
+
+    ecrites = set()
+    for racine, _, fichiers in os.walk(DIST):
+        for nom in fichiers:
+            if not nom.endswith(".html"):
+                continue
+            rel = os.path.relpath(os.path.join(racine, nom), DIST)[:-5]
+            ecrites.add(rel.replace(os.sep, "/"))
+
+    # L'espace d'administration n'est pas une page du site : il porte noindex
+    # et robots.txt l'interdit. Il n'a rien à faire dans un sitemap.
+    attendues = {p for p in ecrites
+                 if p not in SITEMAP_EXCLUDE and not p.startswith("admin/")}
+
+    absentes = sorted(attendues - dans_sitemap)
+    fantomes = sorted(dans_sitemap - ecrites)
+    if absentes:
+        print("  ⚠ page(s) publiée(s) mais ABSENTE(S) du sitemap : "
+              + ", ".join(absentes))
+    if fantomes:
+        print("  ⚠ sitemap : URL sans page correspondante : " + ", ".join(fantomes))
+    if not absentes and not fantomes:
+        print(f"  ✓ Sitemap complet : {len(dans_sitemap)} page(s), aucune oubliée")
+    return not (absentes or fantomes)
+
+
 def build():
     pages = PAGES_MODULE.all_pages()
 
@@ -1632,6 +1676,15 @@ def build():
     # Sitemap + robots
     with open(os.path.join(DIST, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(build_sitemap(pages))
+
+    # Contrôle : toute page publiée doit figurer au sitemap, et rien d'autre.
+    #
+    # Le sitemap est construit à partir de la même liste que les pages, il ne
+    # peut donc pas en oublier — tant que la page arrive bien dans cette liste.
+    # C'est précisément ce qui peut manquer : un module de contenu non agrégé
+    # produit une page absente de partout, sans que rien ne le dise. Ce contrôle
+    # compare le sitemap aux fichiers réellement écrits, et nomme l'écart.
+    _verifier_sitemap()
     with open(os.path.join(DIST, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(
             "User-agent: *\n"
