@@ -75,20 +75,65 @@
   /* Couleurs exposées : celles qui portent l'identité visuelle. Les variantes
      accessibles sont signalées — l'orange de marque ne peut pas porter de texte
      blanc (2,63:1), c'est --orange-solid qui sert de fond aux boutons. */
+  /* Chaque teinte est mesurée contre le fond ou le texte qu'elle côtoie
+     réellement. Le repère écrit ne suffisait pas : une couleur choisie parce
+     qu'elle « fait ACCI » peut tomber sous le seuil de lisibilité sans que rien
+     ne le signale, et c'est arrivé — l'orange de marque posé en texte est
+     tombé à 2,4:1 là où il en faut 4,5. cmin à 0 : teinte décorative, mesurée
+     pour information mais jamais bloquante. */
   var COLORS = [
-    { k: "theme.color.orange",       l: "Orange de marque",     d: "#F77F00" },
-    { k: "theme.color.orange-solid", l: "Orange des boutons",   d: "#B34F00", n: "Porte du texte blanc : doit rester foncé." },
-    { k: "theme.color.orange-text",  l: "Orange en texte",      d: "#A34700", n: "Utilisé comme texte sur fond clair." },
-    { k: "theme.color.green",        l: "Vert principal",       d: "#0B7A3B" },
-    { k: "theme.color.green-d",      l: "Vert foncé",           d: "#0B3D2E" },
-    { k: "theme.color.green-deep",   l: "Vert du pied de page", d: "#07301F" },
-    { k: "theme.color.ink",          l: "Texte des titres",     d: "#14201b" },
-    { k: "theme.color.body",         l: "Texte courant",        d: "#3d4a44" },
-    { k: "theme.color.bg",           l: "Fond des pages",       d: "#ffffff" },
-    { k: "theme.color.bg-soft",      l: "Fond des sections",    d: "#f6f9f7" },
-    { k: "theme.color.danger",       l: "Alerte",               d: "#c0392b" },
-    { k: "theme.color.info",         l: "Information",          d: "#1b6ec2" }
+    { k: "theme.color.orange",       l: "Orange de marque",     d: "#F77F00", cmp: "#ffffff", cmin: 0,
+      n: "Aplats et filets décoratifs. Ne doit pas porter de texte." },
+    { k: "theme.color.orange-solid", l: "Orange des boutons",   d: "#B34F00", cmp: "#ffffff", cmin: 4.5,
+      n: "Fond des boutons, sous du texte blanc : doit rester foncé." },
+    { k: "theme.color.orange-text",  l: "Orange en texte",      d: "#A34700", cmp: "#ffffff", cmin: 4.5,
+      n: "Employé comme texte sur fond clair." },
+    { k: "theme.color.green",        l: "Vert principal",       d: "#0B7A3B", cmp: "#ffffff", cmin: 4.5 },
+    { k: "theme.color.green-d",      l: "Vert foncé",           d: "#0B3D2E", cmp: "#ffffff", cmin: 4.5 },
+    { k: "theme.color.green-deep",   l: "Vert du pied de page", d: "#07301F", cmp: "#ffffff", cmin: 4.5 },
+    { k: "theme.color.ink",          l: "Texte des titres",     d: "#14201b", cmp: "#ffffff", cmin: 4.5 },
+    { k: "theme.color.body",         l: "Texte courant",        d: "#3d4a44", cmp: "#ffffff", cmin: 4.5 },
+    { k: "theme.color.bg",           l: "Fond des pages",       d: "#ffffff", cmp: "#3d4a44", cmin: 4.5,
+      n: "Mesuré contre le texte courant." },
+    { k: "theme.color.bg-soft",      l: "Fond des sections",    d: "#f6f9f7", cmp: "#3d4a44", cmin: 4.5,
+      n: "Mesuré contre le texte courant." },
+    { k: "theme.color.danger",       l: "Alerte",               d: "#c0392b", cmp: "#ffffff", cmin: 4.5 },
+    { k: "theme.color.info",         l: "Information",          d: "#1b6ec2", cmp: "#ffffff", cmin: 4.5 }
   ];
+
+  var BY_KEY = {};
+  COLORS.forEach(function (c) { BY_KEY[c.k] = c; });
+
+  /* Rapport de contraste WCAG. Il est symétrique : peu importe laquelle des
+     deux teintes porte le texte. */
+  function relLum(hex) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+    var v = [0, 2, 4].map(function (i) {
+      var x = parseInt(h.substr(i, 2), 16) / 255;
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  function contrast(a, b) {
+    var la = relLum(a), lb = relLum(b);
+    if (la === null || lb === null) return null;
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+  /* La teinte de référence suit le réglage en cours : mesurer un fond contre le
+     gris compilé alors que le texte courant a été changé donnerait un verdict
+     qui ne correspond à rien de ce que le visiteur voit. */
+  function against(c) {
+    if (c.cmp === "#3d4a44") return state.map["theme.color.body"] || c.cmp;
+    return c.cmp;
+  }
+  function verdict(c, value) {
+    var v = value || c.d;
+    var r = contrast(v, against(c));
+    if (r === null) return null;
+    return { ratio: r, ok: c.cmin === 0 || r >= c.cmin, min: c.cmin };
+  }
 
   /* La politique de sécurité du site n'autorise que des polices servies depuis
      son propre domaine (font-src 'self') : seules Inter et Sora, déjà
@@ -174,8 +219,19 @@
     if (!v) return null;                       // vide = valeur compilée, et aucune icône pour un réseau
     if (key === "site.email" && !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(v))
       return "Adresse e-mail invalide.";
-    if (key.indexOf("theme.color.") === 0 && !/^#[0-9a-f]{3,8}$/i.test(v))
-      return "Couleur invalide : notation hexadécimale attendue, par exemple #F77F00.";
+    if (key.indexOf("theme.color.") === 0) {
+      if (!/^#[0-9a-f]{3,8}$/i.test(v))
+        return "Couleur invalide : notation hexadécimale attendue, par exemple #F77F00.";
+      /* Une teinte trop claire sous du texte blanc, ou trop pâle en texte, rend
+         la page illisible pour une partie des visiteurs — et sur un site dont
+         le sujet est la protection des personnes, cela se remarque. Le refus
+         est explicite plutôt que silencieux : le rapport mesuré est indiqué. */
+      var c = BY_KEY[key], r = c ? verdict(c, v) : null;
+      if (r && !r.ok) {
+        return c.l + " : contraste de " + r.ratio.toFixed(2) + ":1 contre " +
+          against(c) + ", il en faut " + c.cmin + ":1. Choisissez une teinte plus foncée.";
+      }
+    }
     if (key.indexOf("social.") === 0) {
       /* Même exigence que le site public, qui n'affiche que ce qu'il reconnaît :
          une adresse incomplète serait enregistrée ici et resterait invisible. */
@@ -657,7 +713,19 @@
         '<input class="si-in" data-k="' + esc(c.k) + '" type="text" value="' + esc(v) + '" placeholder="' + esc(c.d) + '" style="flex:1">' +
       '</div>' +
       (c.n ? '<span class="muted" style="font-size:11.5px">' + esc(c.n) + '</span>' : '') +
+      '<span class="ctr" data-ctr="' + esc(c.k) + '" style="font-size:11.5px">' + ctrHTML(c, v) + '</span>' +
       '</div>';
+  }
+
+  function ctrHTML(c, value) {
+    var r = verdict(c, value);
+    if (!r) return '<span class="muted">teinte invalide</span>';
+    var n = r.ratio.toFixed(2) + ':1';
+    if (c.cmin === 0) return '<span class="muted">contraste ' + n + ' — teinte décorative</span>';
+    return r.ok
+      ? '<span style="color:#166534;font-weight:600">contraste ' + n + ' — lisible</span>'
+      : '<span style="color:#b91c1c;font-weight:700">contraste ' + n + ' — insuffisant, minimum ' +
+        c.cmin + ':1</span>';
   }
 
   function fontRow(k, label) {
@@ -729,10 +797,23 @@
     }).join("");
 
     var edited = Object.keys(state.map).filter(function (k) { return k.indexOf("content.") === 0; }).length;
+    /* Une saisie retenue mais pas encore publiée doit se voir : elle survit au
+       changement de page, mais pas à la fermeture de l'onglet. */
+    var pending = 0;
+    if (state.draft) {
+      Object.keys(state.draft).forEach(function (k) {
+        if (k.indexOf("content.") === 0 && state.draft[k] !== (state.map[k] || "")) pending++;
+      });
+    }
 
     var body = shown.map(function (x) {
       var k = "content." + x.k;
-      var v = state.map[k] || "";
+      /* La saisie en cours l'emporte sur la valeur enregistrée : le tableau est
+         reconstruit à chaque changement de page ou de recherche, et sans cette
+         consultation une correction tapée puis suivie d'un changement de page
+         disparaissait sans un mot. */
+      var v = (state.draft && Object.prototype.hasOwnProperty.call(state.draft, k))
+        ? state.draft[k] : (state.map[k] || "");
       var badge = v ? ' <span class="tag" style="background:#dcfce7;color:#166534">modifié</span>' : '';
       return '<div class="afield">' +
         '<label>' + esc(fieldLabel(x.f)) + ' <span class="muted" style="font-weight:400">· ' + esc(x.type) +
@@ -743,6 +824,7 @@
 
     return '<section class="panel"><div class="panel__head"><h2 class="panel__title">Textes du site</h2></div>' +
       '<p class="muted">' + state.index.length + ' textes repérés sur l\'ensemble du site, ' + edited + ' modifié(s). ' +
+      (pending ? '<b style="color:var(--orange-text)">' + pending + ' saisie(s) non encore publiée(s).</b> ' : '') +
       'Un champ vidé rétablit le texte d\'origine. La mise en gras s\'écrit **entre deux paires d\'astérisques**.</p>' +
       '<div class="fgrid">' +
         '<div class="afield"><label>Page</label><select id="si-page">' + opts + '</select></div>' +
@@ -762,11 +844,26 @@
     bindForm();
     /* Le sélecteur de couleur alimente le champ texte, qui reste la source :
        c'est lui que la sauvegarde relit. */
+    /* Le verdict suit la saisie : constater après coup qu'une teinte est
+       refusée oblige à revenir en arrière sans savoir de combien on s'est
+       écarté. */
+    function refreshCtr(key, value) {
+      var c = BY_KEY[key]; if (!c) return;
+      var box = document.querySelector('[data-ctr="' + key + '"]');
+      if (box) box.innerHTML = ctrHTML(c, value);
+    }
     $$(".si-swatch").forEach(function (sw) {
       sw.addEventListener("input", function () {
-        var t = document.querySelector('.si-in[data-k="' + sw.getAttribute("data-for") + '"]');
+        var key = sw.getAttribute("data-for");
+        var t = document.querySelector('.si-in[data-k="' + key + '"]');
         if (t) t.value = sw.value;
+        refreshCtr(key, sw.value);
       });
+    });
+    $$(".si-in").forEach(function (inp) {
+      var key = inp.getAttribute("data-k");
+      if (!key || key.indexOf("theme.color.") !== 0) return;
+      inp.addEventListener("input", function () { refreshCtr(key, inp.value.trim()); });
     });
     var rt = $(".si-reset-theme");
     if (rt) rt.addEventListener("click", function () {
@@ -787,9 +884,15 @@
     }
     bindForm();
     var sp = $("#si-page");
-    if (sp) sp.addEventListener("change", function () { state.page = sp.value; state.q = ""; A.refresh(); });
+    if (sp) sp.addEventListener("change", function () {
+      syncCredits();                       // retient la saisie avant de reconstruire
+      state.page = sp.value; state.q = ""; A.refresh();
+    });
     var sq = $("#si-q");
-    if (sq) sq.addEventListener("change", function () { state.q = sq.value.trim(); A.refresh(); });
+    if (sq) sq.addEventListener("change", function () {
+      syncCredits();
+      state.q = sq.value.trim(); A.refresh();
+    });
   }
 
   /* --------------------------- Enregistrement ----------------------------- */
