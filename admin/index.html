@@ -5,11 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title>ACCI — CRM & Portail Membres</title>
-  <link rel="icon" type="image/png" href="../assets/img/favicon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="admin.css">
+  <link rel="icon" type="image/png" href="/assets/img/favicon.png">
+  <link rel="stylesheet" href="/assets/css/fonts.css">
+  <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
 
@@ -17,7 +15,7 @@
   <div id="login" class="login">
     <div class="login__card">
       <div class="login__brand">
-        <img src="../assets/img/logo-wordmark-240.webp" alt="ACCI" style="height:40px;width:auto">
+        <img src="/assets/img/logo-wordmark-240.webp" alt="ACCI" style="height:40px;width:auto">
         <div><strong>CRM</strong><span>Gestion des membres & services</span></div>
       </div>
 
@@ -84,13 +82,13 @@
   <div id="app" class="app" hidden>
     <aside class="sidebar" id="sidebar">
       <div class="sidebar__brand">
-        <img src="../assets/img/logo-wordmark-light-240.webp" alt="ACCI" class="sidebar__logo">
+        <img src="/assets/img/logo-wordmark-light-240.webp" alt="ACCI" class="sidebar__logo">
         <span><b>CRM</b></span>
       </div>
       <div class="sidebar__user" id="sidebar-user"></div>
       <nav class="sidebar__nav" id="snav"></nav>
       <div class="sidebar__foot">
-        <a href="../index.html">← Retour au site</a>
+        <a href="/index.html">← Retour au site</a>
         <button id="logout" class="sidebar__logout">Déconnexion</button>
       </div>
     </aside>
@@ -114,7 +112,7 @@
   <!-- ================ Member Portal ================ -->
   <div id="member-app" class="member-app" hidden>
     <header class="member-header">
-      <img src="../assets/img/logo-wordmark-240.webp" alt="ACCI" style="height:28px;width:auto">
+      <img src="/assets/img/logo-wordmark-240.webp" alt="ACCI" style="height:28px;width:auto">
       <span class="member-header__title">Portail Membre ACCI</span>
       <span id="m-name" class="member-header__name"></span>
       <button id="m-logout" class="abtn abtn--ghost abtn--sm">Déconnexion</button>
@@ -126,13 +124,13 @@
   <div id="artiste-app" class="artiste-app" hidden>
     <aside class="artiste-sidebar" id="artiste-sidebar">
       <div class="artiste-sidebar__brand">
-        <img src="../assets/img/logo-wordmark-light-240.webp" alt="ACCI" style="height:22px;width:auto">
+        <img src="/assets/img/logo-wordmark-light-240.webp" alt="ACCI" style="height:22px;width:auto">
         <span>🎨 <b>PRO</b></span>
       </div>
       <div class="artiste-sidebar__user" id="artiste-user"></div>
       <nav class="artiste-sidebar__nav" id="artiste-nav"></nav>
       <div class="sidebar__foot">
-        <a href="../index.html">← Retour au site</a>
+        <a href="/index.html">← Retour au site</a>
         <button id="artiste-logout" class="sidebar__logout">Déconnexion</button>
       </div>
     </aside>
@@ -147,9 +145,9 @@
 
   <div id="modal" class="modal" hidden></div>
   <div id="toast" class="toast" hidden></div>
-  <script src="icons.js"></script>
-  <script src="admin.js"></script>
-  <script src="images.js"></script>
-  <script src="site-identity.js"></script>
+  <script src="/admin/icons.js"></script>
+  <script src="/admin/admin.js"></script>
+  <script src="/admin/images.js"></script>
+  <script src="/admin/site-identity.js"></script>
 </body>
 </html>

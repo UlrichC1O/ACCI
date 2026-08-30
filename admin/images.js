@@ -120,7 +120,7 @@
   /* --------------------------- Données ---------------------------------- */
 
   function loadInventory() {
-    return fetch("../assets/img/inventory.json").then(function (r) {
+    return fetch("/assets/img/inventory.json").then(function (r) {
       if (!r.ok) throw new Error("Inventaire des images introuvable.");
       return r.json();
     }).then(function (j) {
@@ -339,10 +339,10 @@
       // vignette cassée et un aperçu de cadrage sans hauteur.
       var small = widths.filter(function (w) { return w <= 640; });
       var w = small.length ? Math.max.apply(null, small) : Math.min.apply(null, widths);
-      return "../assets/img/" + stem + "-" + w + ".webp";
+      return "/assets/img/" + stem + "-" + w + ".webp";
     }
-    if (info && info.fallback) return "../assets/img/" + info.fallback;
-    return "../assets/img/" + stem + "-640.webp";
+    if (info && info.fallback) return "/assets/img/" + info.fallback;
+    return "/assets/img/" + stem + "-640.webp";
   }
 
   /* Une vignette manquante laisse un cadre vide, voire une zone de cadrage de

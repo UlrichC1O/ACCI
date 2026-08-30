@@ -424,7 +424,7 @@
 
   function loadIndex() {
     if (state.index) return Promise.resolve(state.index);
-    return fetch("../assets/content-index.json").then(function (r) {
+    return fetch("/assets/content-index.json").then(function (r) {
       if (!r.ok) throw new Error("Inventaire de contenu introuvable — relancez la compilation du site.");
       return r.json();
     }).then(function (j) { state.index = Array.isArray(j) ? j : []; return state.index; });

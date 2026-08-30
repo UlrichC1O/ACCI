@@ -1264,6 +1264,16 @@ def build():
     # Empreintes de contenu : styles.<hash>.css, main.<hash>.js, etc.
     fingerprint_assets()
 
+    # L'espace d'administration référence la feuille de polices par son nom
+    # simple ; l'empreinte n'étant connue qu'ici, on la substitue après coup.
+    admin_index = os.path.join(DIST, "admin", "index.html")
+    if os.path.exists(admin_index):
+        with open(admin_index, encoding="utf-8") as f:
+            html = f.read()
+        html = html.replace("/assets/css/fonts.css", "/" + ASSET_URLS["css_fonts"])
+        with open(admin_index, "w", encoding="utf-8") as f:
+            f.write(html)
+
     # Pages
     for p in pages:
         out = render_page(p)
