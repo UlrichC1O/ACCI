@@ -68,8 +68,11 @@ Un **CRM d'administration** complet et gratuit, sans serveur, est inclus dans
 `admin/` (copié vers `dist/admin/` au build). Ouvrez **`/admin/`** (lien
 « Espace administration » en bas de page).
 
-- **Connexion** par code d'accès (créé à la première ouverture ; modifiable
-  dans Réglages). *Protection locale — voir la note de sécurité ci-dessous.*
+- **Connexion** en trois modes : *Admin* (identifiant + mot de passe), *Membre*
+  et *Artiste Pro* (code d'accès personnel). Aucun identifiant n'est livré avec
+  le site : le compte administrateur se crée à la première ouverture, et les
+  codes des portails s'émettent fiche par fiche. *Voir la note de sécurité
+  ci-dessous.*
 - **Tableau de bord** : indicateurs (total, actifs, prospects, charte signée,
   nouveaux du mois) + graphiques par domaine et par statut.
 - **Membres** : ajouter / modifier / supprimer, recherche, filtres (statut,
@@ -85,13 +88,63 @@ Un **CRM d'administration** complet et gratuit, sans serveur, est inclus dans
 - **Base de données** : les données sont stockées dans le navigateur
   (`localStorage`). Exportez régulièrement pour sauvegarder.
 
-**Sécurité / production** : le code d'accès est vérifié *dans le navigateur* —
-il masque l'interface, il ne protège pas les données. Toute personne ayant accès
-à l'ordinateur peut lire le fichier des membres via les outils de développement,
-sans connaître le code. Cet espace convient donc à **un poste unique et de
-confiance**. Pour un accès **partagé, en ligne et multi-appareils**, connectez une base **Supabase** (offre gratuite) :
-créez une table `members`, puis renseignez l'URL + la clé publique dans
-`admin/admin.js` (section `DB`). L'interface reste identique.
+### Comptes Membre et Artiste Pro — ce qui est protégé, et ce qui ne l'est pas
+
+Il faut être exact sur ce point, car les deux moitiés comptent.
+
+**Ce qui a été corrigé.** Les codes d'accès étaient auparavant tirés de
+`Math.random()`, longs de huit caractères, et **conservés en clair** dans la
+fiche du membre — donc présents dans chaque export CSV, chaque sauvegarde JSON
+et le journal d'audit, affichés en entier dans l'en-tête des portails, et
+recopiés dans l'infobulle de la liste des membres. Sept d'entre eux étaient de
+surcroît **écrits dans `admin/admin.js`**, fichier servi publiquement : le code
+`AAAAAOOO` ouvrait l'espace Artiste Pro à n'importe quel visiteur, et il était
+recréé de force à chaque chargement — révoquer cet accès ne tenait pas.
+Désormais :
+
+| | Avant | Maintenant |
+|---|---|---|
+| Génération | `Math.random()`, ~33 bits | `crypto.getRandomValues()`, 60 bits |
+| Format | `ABCDE123` | `XXXX-XXXXXXXX` (identifiant public + secret) |
+| Au repos | code en clair | sel + empreinte PBKDF2-SHA-256 (100 000 tours) |
+| Exports CSV / JSON | code inclus | code absent |
+| Journal d'audit | `nom → CODE` | `nom` seul |
+| Affichage | code entier | masqué (`K7M2-••••••3B`) |
+| Comptes de démonstration | 7 codes valides publiés | aucun code livré |
+| Révocation | l'empreinte survivait | tous les champs effacés, session fermée |
+
+Le code complet n'est montré **qu'une fois**, à l'émission. Le CRM ne peut plus
+le relire : perdu, il se renouvelle depuis la fiche du membre.
+
+Les fiches créées avant cette mise à jour continuent de fonctionner : leur code
+est accepté une dernière fois, converti en empreinte à la connexion, puis
+signalé « code hérité — à renouveler » dans la fiche.
+
+**Ce qui n'est pas protégé, et ne peut pas l'être ici.** Ce site n'a *aucun
+composant serveur* : le CRM s'exécute entièrement dans le navigateur et ses
+données vivent dans le `localStorage` de la machine. La vérification du code a
+donc lieu du côté de celui qui la subit. Quiconque dispose des outils de
+développement sur ce poste lit le fichier des membres sans connaître aucun code,
+et peut ouvrir un portail sans se connecter. **Le contrôle d'accès des portails
+protège les identifiants, pas les données.**
+
+Ce que le renforcement apporte réellement :
+
+- un code volé ailleurs (export, sauvegarde, capture d'écran, journal) ne permet
+  plus de se connecter, puisqu'il n'y figure plus ;
+- connaître un code n'aide plus à deviner les autres, l'aléa étant désormais
+  cryptographique ;
+- un accès révoqué l'est immédiatement, y compris pour un portail déjà ouvert ;
+- une session de portail se ferme après 20 minutes d'inactivité, et la
+  déconnexion efface réellement le contenu affiché.
+
+**Pour une vraie protection des données**, il faut un serveur qui arbitre. Le
+projet en dispose déjà : l'onglet « Images du site » écrit dans **Supabase**
+derrière une session authentifiée et des politiques RLS (voir plus bas). Porter
+les comptes Membre et Artiste Pro sur ce même mécanisme — une table `members` en
+RLS, l'authentification par e-mail — est la suite logique, et la seule qui
+déplacerait la vérification hors du navigateur. En l'état, cet espace reste
+prévu pour **un poste unique et de confiance**.
 
 ## Gestion des images depuis l'administration
 

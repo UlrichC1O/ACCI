@@ -50,6 +50,16 @@ function tauxTVA(){
   return n;
 }
 function fmtMoney(a){return(Number(a)||0).toLocaleString("fr-FR")+" "+devise();}
+/* Forme courte pour les tuiles d'indicateurs : « 200 600 FCFA » y passait à la
+   ligne et cassait l'alignement de toute la rangée. Les montants complets
+   restent affichés partout ailleurs. */
+function fmtMoneyShort(a){
+  var n=Number(a)||0,d=devise();
+  if(n>=1e9)return (n/1e9).toLocaleString("fr-FR",{maximumFractionDigits:1})+" Md "+d;
+  if(n>=1e6)return (n/1e6).toLocaleString("fr-FR",{maximumFractionDigits:1})+" M "+d;
+  if(n>=1e4)return Math.round(n/1e3).toLocaleString("fr-FR")+" k "+d;
+  return n.toLocaleString("fr-FR")+" "+d;
+}
 /* djb2 — conservé pour une seule raison : relire les mots de passe enregistrés
    avant la migration. Ce n'est pas une fonction de hachage cryptographique. Elle
    rend 32 bits, sans sel et sans coût de calcul : l'ensemble des empreintes
@@ -996,7 +1006,7 @@ function seedMembers(){
   }
   /* Le compte « Artiste ACCI » n'est plus recréé de force.
 
-     Il l'était à chaque passage, avec le code AAAAAOOO écrit dans le source. Deux
+     Il l'était à chaque passage, avec un code fixe écrit dans le source. Deux
      effets, tous deux graves. D'une part ce code était public — /admin/admin.js
      est servi tel quel — donc n'importe quel visiteur ouvrait l'espace Artiste
      Pro en le recopiant depuis le pied de page du site. D'autre part il
@@ -1096,7 +1106,19 @@ function paintIcons(root){
   });
 }
 function emptyHTML(icon,msg){return'<div class="empty-state"><div class="empty-state__ic">'+ICO(icon||"doc",34)+'</div><h2>'+(msg||"Vide.")+'</h2><button class="abtn abtn--primary crud-add">+ Ajouter</button></div>';}
-function kpiCard(icon,val,label,cls){return'<div class="kpi"><span class="kpi__icon kpi__icon--'+(cls||"n")+'">'+icon+'</span><span class="kpi__val">'+val+'</span><span class="kpi__label">'+label+'</span></div>';}
+function kpiCard(icon,val,label,cls,title){
+  return'<div class="kpi"'+(title?' title="'+esc(title)+'"':"")+'>'+
+    '<span class="kpi__icon kpi__icon--'+(cls||"n")+'">'+icon+'</span>'+
+    '<span class="kpi__val">'+val+'</span>'+
+    '<span class="kpi__label">'+label+'</span></div>';
+}
+/* Les indicateurs sont présentés par famille — vie associative, activité,
+   finances. Alignés d'un seul tenant, huit chiffres sans hiérarchie obligeaient
+   à tout lire pour trouver celui que l'on cherchait. */
+function kpiGroup(titre,cartes){
+  return'<div class="kpigroup"><h3 class="kpigroup__title">'+esc(titre)+'</h3>'+
+    '<div class="kpis">'+cartes.join("")+'</div></div>';
+}
 function chartBars(data){
   var max=Math.max.apply(null,data.map(function(d){return d.val;}).concat([1]));
   return'<div class="chartbars">'+data.map(function(d){
@@ -1221,15 +1243,33 @@ RA("dashboard.overview",function(){
   var rev=inv.filter(function(x){return x.status==="Payé";}).reduce(function(s,x){return s+(x.total||0);},0);
   var certified=c.filter(function(x){return x.charter===true;}).length;
   var overdue=inv.filter(function(x){return x.status==="En retard";}).length;
-  var kpis=[kpiCard("<i data-ic=users></i>",c.length,"Membres ACCI",""),kpiCard("<i data-ic=check></i>",actifs,"Actifs","ok"),kpiCard("<i data-ic=key></i>",approvedN,"Membres approuvés","info"),kpiCard("<i data-ic=ticket></i>",openT,"Signalements en cours","info"),kpiCard("<i data-ic=graduation></i>",certified,"Créateurs certifiés (charte)","ok"),kpiCard("<i data-ic=money></i>",fmtMoney(rev),"Cotisations encaissées","ok"),kpiCard("<i data-ic=trend></i>",fmtMoney(pVal),"Pipeline adhésions","warn"),kpiCard("<i data-ic=warning></i>",overdue,"Factures en retard",overdue?"danger":"")].join("");
+  var kpis=
+    kpiGroup("Vie associative",[
+      kpiCard("<i data-ic=users></i>",c.length,"Membres","",null),
+      kpiCard("<i data-ic=check></i>",actifs,"Actifs","ok",null),
+      kpiCard("<i data-ic=key></i>",approvedN,"Accès au portail","info",null),
+      kpiCard("<i data-ic=graduation></i>",certified,"Charte signée","ok",null)
+    ])+
+    kpiGroup("Activité",[
+      kpiCard("<i data-ic=ticket></i>",openT,"Signalements ouverts","info",null),
+      kpiCard("<i data-ic=warning></i>",overdue,"Factures en retard",overdue?"danger":"",null)
+    ])+
+    kpiGroup("Finances",[
+      kpiCard("<i data-ic=money></i>",fmtMoneyShort(rev),"Cotisations encaissées","ok",fmtMoney(rev)),
+      kpiCard("<i data-ic=trend></i>",fmtMoneyShort(pVal),"Pipeline adhésions","warn",fmtMoney(pVal))
+    ]);
   var stageData=DEAL_STAGES.map(function(s){return{label:s,val:d.filter(function(x){return x.stage===s;}).length,badge:true};});
   var tsData=TICKET_STATUSES.map(function(s){return{label:s,val:t.filter(function(x){return x.status===s;}).length,badge:true};});
   var recent=S.audit.all().slice(0,8);
   var auditRows=recent.length?recent.map(function(a){return'<tr><td>'+badge(a.entity)+'</td><td>'+esc(a.action)+'</td><td>'+esc(a.detail)+'</td><td class="muted">'+fmtDate(a.createdAt)+'</td></tr>';}).join(""):'<tr><td colspan="4" class="muted" style="padding:18px">Aucune activité enregistrée dans le CRM ACCI.</td></tr>';
   var inboxN=S.inbox.count();
-  return'<div class="banner banner--success" style="margin-bottom:16px"><b>ACCI</b> — Sensibiliser · Former · Protéger · Plaider — Pour un usage responsable des réseaux sociaux en Côte d\'Ivoire.</div>'+
-    (inboxN?'<div class="banner banner--info"><i data-ic=inbox></i> <b>'+inboxN+'</b> demande(s) de service ACCI. <button class="link" data-go="inbox">Voir</button></div>':"")+
-    '<div class="kpis">'+kpis+'</div><div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title">Adhésions & partenariats par étape</h2></div>'+chartBars(stageData)+'</section><section class="panel"><div class="panel__head"><h2 class="panel__title">Demandes & signalements par statut</h2></div>'+chartBars(tsData)+'</section></div>'+
+  /* Le slogan public du site occupait cette place. Il n'apprenait rien à
+     l'exploitant et repoussait les chiffres sous la ligne de flottaison ;
+     seule subsiste l'alerte de réception, qui appelle une action.
+     L'expression reste collée au `return` : isolé sur sa ligne, il se termine
+     tout seul par point-virgule et la valeur serait perdue. */
+  return (inboxN?'<div class="banner banner--info"><i data-ic=inbox></i> <b>'+inboxN+'</b> demande(s) de service ACCI. <button class="link" data-go="inbox">Voir</button></div>':"")+
+    kpis+'<div class="cols"><section class="panel"><div class="panel__head"><h2 class="panel__title">Adhésions & partenariats par étape</h2></div>'+chartBars(stageData)+'</section><section class="panel"><div class="panel__head"><h2 class="panel__title">Demandes & signalements par statut</h2></div>'+chartBars(tsData)+'</section></div>'+
     '<section class="panel"><div class="panel__head"><h2 class="panel__title">Activité récente ACCI</h2></div><div class="dtable"><table><thead><tr><th>Entité</th><th>Action</th><th>Détail</th><th>Date</th></tr></thead><tbody>'+auditRows+'</tbody></table></div></section>';
 },function(){$$("[data-go]").forEach(function(b){b.addEventListener("click",function(){go(b.getAttribute("data-go"));});});});
 

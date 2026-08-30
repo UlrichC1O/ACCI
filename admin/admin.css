@@ -646,3 +646,23 @@ input.afield:focus{outline:none;border-color:var(--orange);
    puces de masquage doivent rester lisibles à côté des deux caractères réels. */
 .member-welcome .member-code-display strong,
 .artiste-hero .artiste-hero__code{letter-spacing:2px;}
+
+/* ---------------------------------------------------------------------------
+   Tableau de bord — indicateurs par famille
+   Huit chiffres alignés d'un seul tenant, sans hiérarchie, obligeaient à tout
+   parcourir pour trouver celui que l'on cherchait ; la grille se remplissant
+   au fil de l'eau, la dernière rangée restait à moitié vide.
+   --------------------------------------------------------------------------- */
+.kpigroup{margin-bottom:18px;}
+.kpigroup__title{
+  margin:0 0 8px;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.kpigroup .kpis{margin-bottom:0;}
+/* Le montant ne doit jamais passer à la ligne : il désalignerait la rangée. */
+.kpi__val{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kpi__label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
