@@ -127,6 +127,29 @@ Projet Supabase : `supabase-acci-data`. Table `image_overrides` (remplacement
 d'une photo partout), table `placement_overrides` (photo, cadrage et texte
 alternatif d'un emplacement précis), dépôt `site-images`.
 
+#### Quelle clé Supabase utiliser
+
+| Clé | Où | Pourquoi |
+|---|---|---|
+| **URL du projet** | `admin/images.js`, `assets/js/site-images.js` | publique |
+| **Clé publiable** (`sb_publishable_…`) | idem | conçue pour être publique ; les politiques RLS décident de ce qu'elle peut faire |
+| **Clé secrète** (`sb_secret_…`) | **nulle part dans ce dépôt** | elle contourne les politiques RLS |
+
+Ce projet n'a **aucun composant serveur** : le site est statique et son
+administration s'exécute entièrement dans le navigateur. Tout ce que contient ce
+dépôt est donc lisible par n'importe quel visiteur. Y placer la clé secrète
+reviendrait à publier un accès complet en lecture, écriture et suppression sur
+la base — elle ignore les politiques RLS.
+
+Un contrôle avant commit refuse ce type de fuite. À activer une fois par poste :
+
+```bash
+git config core.hooksPath tools/git-hooks
+```
+
+Si une clé secrète a été exposée (collée dans une conversation, un ticket, une
+capture d'écran), révoquez-la : *Supabase → Settings → API keys → Rotate*.
+
 ## Formulaires (contact & newsletter)
 
 Les formulaires sont **fonctionnels** : validation en temps réel (champs
