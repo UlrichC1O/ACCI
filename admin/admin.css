@@ -528,3 +528,18 @@ input,select,textarea{font-family:inherit;font-size:14px;}
 .badge--inactive,.badge--ferme,.badge--faible,
 .badge--brouillon,.badge--annule{background:#EEF0EF;color:#4C574F;}
 .badge--negociation,.badge--devis,.badge--planifie{background:#EDF1EF;color:#14603F;}
+
+/* Étiquettes de domaine : sans fond visible et en capitales orange vif, elles
+   se lisaient comme un message d'erreur plutôt que comme des catégories, pour
+   un contraste de 2,96:1 — sous le seuil de 4,5:1. */
+.tagmini{
+  display:inline-block;
+  background:#FFF4E8;
+  color:#A34700;
+  padding:2px 7px;
+  border-radius:999px;
+  font-size:10px;
+  letter-spacing:.03em;
+  white-space:nowrap;
+}
+td .tagmini{margin:1px 3px 1px 0;}
