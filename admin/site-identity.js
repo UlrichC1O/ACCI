@@ -36,7 +36,13 @@
     "site.tagline": "Pour un usage responsable, sûr et éthique des réseaux sociaux en Côte d’Ivoire.",
     "site.email": "contact@ivoiriens.ac.ci",
     "site.phone": "+225 27 22 00 00 00",
-    "site.address": "Cocody, Riviera Golf — Abidjan, Côte d’Ivoire"
+    "site.address": "Cocody, Riviera Golf — Abidjan, Côte d’Ivoire",
+    "consent.title": "Cookies de mesure et de publicité",
+    "consent.text": "Ce site fonctionne sans aucun cookie de suivi. Nous aimerions en déposer pour mesurer l’audience, et le cas échéant pour nos campagnes de sensibilisation. Vous pouvez refuser : le site fonctionne à l’identique.",
+    "consent.measure_label": "Mesure d’audience",
+    "consent.measure_desc": "Nombre de visites, pages consultées, provenance. Google Analytics.",
+    "consent.ads_label": "Publicité",
+    "consent.ads_desc": "Suivi d’un site à l’autre pour cibler nos campagnes. Google Ads, pixel Meta."
   };
 
   var GENERAL = [
@@ -76,6 +82,27 @@
       note: "Identifiant numérique du pixel. Publicité ciblée : le consentement du visiteur est requis." },
     { on: "actif", off: "inactif", k: "analytics.gsc", l: "Google Search Console", ph: "jeton de vérification",
       note: "Collez le jeton ou la balise entière. Google vérifie la propriété en lisant le code source servi : ce réglage, posé par script, ne suffira pas — utilisez l'enregistrement DNS proposé par Search Console, ou la variable d'environnement SITE_GSC." }
+  ];
+
+  /* Bandeau de consentement.
+
+     Il n'y a pas de réglage « afficher le bandeau sans couper le suivi » : ce
+     serait un moyen de mesurer les visiteurs sans le leur demander, et c'est
+     précisément ce que ce bandeau existe pour empêcher. Désactiver le bandeau
+     désactive donc les balises avec lui. */
+  var CONSENT = [
+    { k: "consent.mode", l: "Bandeau", t: "select",
+      o: [["", "Automatique — affiché dès qu’une balise est renseignée"],
+          ["off", "Désactivé — et alors aucune balise n’est chargée"]],
+      on: "réglé", off: "automatique",
+      note: "En mode automatique, le bandeau n’apparaît que s’il y a réellement quelque chose à accepter : sans identifiant renseigné, le visiteur n’est pas dérangé." },
+    { k: "consent.title", l: "Titre du bandeau" },
+    { k: "consent.text", l: "Texte du bandeau", t: "textarea", rows: 3,
+      note: "Le lien vers la politique de confidentialité est ajouté automatiquement à la suite." },
+    { k: "consent.measure_label", l: "Finalité 1 — intitulé" },
+    { k: "consent.measure_desc", l: "Finalité 1 — description", t: "textarea", rows: 2 },
+    { k: "consent.ads_label", l: "Finalité 2 — intitulé" },
+    { k: "consent.ads_desc", l: "Finalité 2 — description", t: "textarea", rows: 2 }
   ];
 
   var BRAND = [
@@ -295,6 +322,9 @@
       if (!/^https:\/\/\S+$/.test(v))
         return "L'adresse du compte doit être complète et commencer par https:// — par exemple https://www.facebook.com/votre-page.";
     }
+    if (key === "consent.mode" && v !== "off") {
+      return "Valeur de bandeau inconnue : choisissez « Automatique » ou « Désactivé ».";
+    }
     if (key.indexOf("analytics.") === 0) {
       /* Le site public applique exactement les mêmes motifs : un identifiant
          accepté ici mais non reconnu là-bas resterait sans effet, sans que
@@ -361,9 +391,22 @@
        rien à montrer : f.ph donne alors le format attendu, et non un exemple
        qu'on pourrait prendre pour une valeur en place. */
     var ph = social ? (f.ph || "") : (COMPILED[f.k] || f.ph || "");
-    var input = f.t === "textarea"
-      ? '<textarea class="si-in" data-k="' + esc(f.k) + '" rows="2" placeholder="' + esc(ph) + '">' + esc(v) + '</textarea>'
-      : '<input class="si-in" data-k="' + esc(f.k) + '" type="' + (f.t || "text") + '" value="' + esc(v) + '" placeholder="' + esc(ph) + '">';
+    var input;
+    if (f.t === "textarea") {
+      input = '<textarea class="si-in" data-k="' + esc(f.k) + '" rows="' + (f.rows || 2) +
+        '" placeholder="' + esc(ph) + '">' + esc(v) + '</textarea>';
+    } else if (f.t === "select") {
+      /* Un réglage à deux issues se choisit dans une liste : tapé à la main, il
+         se serait écrit « désactivé », « non », « off »… et n'aurait rien fait. */
+      input = '<select class="si-in" data-k="' + esc(f.k) + '">' +
+        f.o.map(function (opt) {
+          return '<option value="' + esc(opt[0]) + '"' +
+            (String(v) === String(opt[0]) ? ' selected' : '') + '>' + esc(opt[1]) + '</option>';
+        }).join("") + '</select>';
+    } else {
+      input = '<input class="si-in" data-k="' + esc(f.k) + '" type="' + (f.t || "text") +
+        '" value="' + esc(v) + '" placeholder="' + esc(ph) + '">';
+    }
     /* Les intitulés de pastille sont réglables : « valeur d'origine » n'aurait
        aucun sens pour un champ dont rien n'est compilé. */
     var on = f.on || (social ? "affiché" : "modifié");
@@ -648,6 +691,16 @@
         "Ces identifiants ne sont pas des secrets — ils sont lisibles dans le code de toute " +
         "page qui les emploie.",
         "Un champ vidé retire la balise du site.");
+  });
+
+  var consentHTML = guard(function () {
+    return panel("Bandeau de consentement", CONSENT,
+      "Ce que le visiteur lit avant d’accepter ou de refuser les balises de mesure " +
+      "et de publicité. Un champ vide reprend le texte d’origine, montré en repère. " +
+      "Les deux boutons « Tout accepter » et « Tout refuser » ne sont pas modifiables : " +
+      "refuser doit rester aussi simple qu’accepter.",
+      "Le nouveau texte s’affiche chez les visiteurs qui n’ont pas encore répondu. " +
+      "Ceux qui ont déjà choisi ne sont pas réinterrogés.");
   });
 
   /* ------------------------------ Marque --------------------------------- */
@@ -1014,6 +1067,7 @@
       { id: "content", l: "Textes du site" },
       { id: "theme",   l: "Couleurs & polices" },
       { id: "measure", l: "Mesure d'audience" },
+      { id: "consent", l: "Consentement" },
       { id: "credits", l: "Crédits & partenaires" }
     ] },
     lazy({
@@ -1023,6 +1077,7 @@
       "identity.content": { r: contentHTML, b: bindContent },
       "identity.theme":   { r: themeHTML,   b: bindTheme },
       "identity.measure": { r: measureHTML, b: bindForm },
+      "identity.consent": { r: consentHTML, b: bindForm },
       "identity.credits": { r: creditsHTML, b: bindCredits }
     })
   );

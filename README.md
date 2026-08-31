@@ -304,6 +304,15 @@ Meta : l'identifiant en est extrait et réécrit dans le champ.
   pose la question. Conséquence à connaître : **le nombre de visites mesurées
   sera inférieur au nombre réel.** C'est le prix d'un consentement honnête, pas
   un défaut de la mesure.
+- **Le bandeau se règle depuis l'administration** (« Identité du site » →
+  « Consentement ») : son titre, son texte et l'intitulé des deux finalités.
+  Les boutons « Tout accepter » et « Tout refuser », eux, ne sont pas
+  modifiables — refuser doit rester aussi simple qu'accepter. Le bandeau ne
+  s'affiche que s'il y a réellement quelque chose à accepter : sans identifiant
+  renseigné, le visiteur n'est pas dérangé et le lien « Cookies » du pied de
+  page reste masqué. Le régler sur *Désactivé* retire le bandeau **et les
+  balises avec lui** : il n'existe pas de réglage permettant de mesurer sans
+  demander.
 - **La politique de sécurité a été élargie.** `vercel.json` autorise désormais
   `googletagmanager.com`, `googleadservices.com`, `doubleclick.net`,
   `google-analytics.com`, `facebook.com` et `connect.facebook.net`. C'est la
