@@ -9,6 +9,7 @@ PAGES = [
 {
   "slug": "notre-combat",
   "title": "Notre action",
+  "seo_title": "Notre action contre les dérives en ligne — ACCI",
   "section": SEC,
   "description": "L’action de l’ACCI face aux dérives observées sur les réseaux sociaux en Côte d’Ivoire : désinformation, harcèlement, arnaques et autres phénomènes.",
   "blocks": [

@@ -9,6 +9,7 @@ PAGES = [
 {
   "slug": "actualites",
   "title": "Actualités",
+  "seo_title": "Actualités de l’ACCI — création de contenu en Côte d’Ivoire",
   "section": SEC,
   "description": "L’actualité de l’ACCI : campagnes, événements, prises de position et initiatives en faveur d’un numérique responsable.",
   "blocks": [
@@ -37,6 +38,7 @@ PAGES = [
 {
   "slug": "evenements",
   "title": "Événements",
+  "seo_title": "Événements et rencontres des créateurs ivoiriens — ACCI",
   "section": SEC,
   "description": "L’agenda de l’ACCI : forums, ateliers, conférences et rencontres autour du numérique responsable.",
   "blocks": [
@@ -190,6 +192,7 @@ PAGES = [
 {
   "slug": "videos",
   "title": "Vidéothèque",
+  "seo_title": "Vidéothèque — sensibilisation au numérique responsable",
   "section": SEC,
   "description": "Les vidéos et capsules pédagogiques de l’ACCI consacrées au numérique responsable.",
   "blocks": [

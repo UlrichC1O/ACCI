@@ -52,6 +52,7 @@ PAGES = [
 {
   "slug": "temoignages",
   "title": "Témoignages",
+  "seo_title": "Témoignages de créateurs de contenu ivoiriens — ACCI",
   "section": SEC_E,
   "description": "Témoignages de créateurs, de personnes accompagnées et de partenaires sur l’action de l’ACCI pour un numérique responsable.",
   "blocks": [
@@ -91,6 +92,7 @@ PAGES = [
 {
   "slug": "faire-un-don",
   "title": "Faire un don",
+  "seo_title": "Soutenir l’ACCI par un don — Côte d’Ivoire",
   "section": SEC_E,
   "description": "Soutenir l’ACCI par un don pour financer ses campagnes, ses formations et la cellule d’écoute des victimes.",
   "blocks": [

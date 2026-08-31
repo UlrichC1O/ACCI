@@ -442,6 +442,32 @@
     }
   }
 
+  /* Données structurées : « sameAs » est ce qui relie l'association à ses
+     comptes officiels dans le graphe de connaissances de Google. La
+     compilation ne peut pas le produire — les comptes sont dans
+     l'administration, qu'elle ne consulte pas — et le laisser vide revenait à
+     ne rien déclarer du tout. Il est donc complété ici, à partir des mêmes
+     adresses que les icônes.
+
+     Le contenu d'un script application/ld+json est une donnée, pas du code :
+     le réécrire n'est pas soumis à la politique de sécurité des scripts. */
+  function applySameAs(urls) {
+    if (!urls || !urls.length) return;
+    var tags = document.querySelectorAll('script[type="application/ld+json"]');
+    for (var i = 0; i < tags.length; i++) {
+      var data;
+      try { data = JSON.parse(tags[i].textContent); } catch (e) { continue; }
+      var nodes = data["@graph"] || [data];
+      var touche = false;
+      for (var j = 0; j < nodes.length; j++) {
+        if (nodes[j] && nodes[j]["@type"] === "NGO") { nodes[j].sameAs = urls; touche = true; }
+      }
+      if (touche) {
+        try { tags[i].textContent = JSON.stringify(data); } catch (e) { /* sans effet */ }
+      }
+    }
+  }
+
   function apply(map) {
     if (!map) return;
     publish(map);
@@ -476,6 +502,7 @@
        le site ne peut pas distinguer « jamais renseigné » de « retiré », et
        les deux doivent masquer l'icône. */
     var socials = document.querySelectorAll("[data-site-social]");
+    var comptes = [];
     for (var s = 0; s < socials.length; s++) {
       var el = socials[s];
       var href = map["social." + el.getAttribute("data-site-social")] || "";
@@ -485,6 +512,7 @@
       if (/^https:\/\/[^\s]+$/.test(href)) {
         el.href = href;
         el.hidden = false;
+        if (comptes.indexOf(href) === -1) comptes.push(href);
       } else {
         /* Sans href, l'ancre n'est ni cliquable ni atteignable au clavier —
            l'attribut ne doit pas survivre à une adresse retirée. */
@@ -518,6 +546,7 @@
     }
 
     applyCredits(map);
+    applySameAs(comptes);
 
     /* Les balises de mesure sont montées par site-analytics.js : ce fichier
        applique l'identité du site, pas le suivi des visiteurs. Les réglages

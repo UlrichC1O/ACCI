@@ -7,7 +7,8 @@ PAGES = [
 {
   "slug": "index",
   "title": "Accueil",
-  "description": "L’ACCI promeut un usage responsable des réseaux sociaux en Côte d’Ivoire et agit pour prévenir les mauvaises pratiques en ligne : désinformation, cyberharcèlement, arnaques.",
+  "seo_title": "ACCI — Association des Créateurs de Contenu Ivoiriens",
+  "description": "L’ACCI rassemble les créateurs de contenu ivoiriens contre la désinformation, le cyberharcèlement et les arnaques en ligne.",
   "blocks": [
     {"type": "hero", "variant": "default",
      "image": "hero-creators.jpg",
@@ -260,6 +261,7 @@ PAGES = [
 {
   "slug": "valeurs",
   "title": "Nos valeurs",
+  "seo_title": "Les valeurs de l’ACCI — éthique et responsabilité en ligne",
   "section": "L’ACCI",
   "description": "Les valeurs fondamentales qui guident l’action de l’ACCI : responsabilité, vérité, respect, solidarité.",
   "blocks": [
@@ -296,7 +298,7 @@ PAGES = [
   "slug": "bureau-executif",
   "title": "Bureau exécutif",
   "section": "L’ACCI",
-  "description": "L’équipe dirigeante de l’ACCI et l’organisation de sa gouvernance.",
+  "description": "L’équipe dirigeante de l’ACCI : composition du bureau exécutif, rôles de chacun et organisation de la gouvernance de l’association.",
   "blocks": [
     {"type": "hero", "variant": "compact",
      "kicker": "Gouvernance",

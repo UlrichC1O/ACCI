@@ -9,6 +9,7 @@ PAGES = [
 {
   "slug": "services",
   "title": "Nos services",
+  "seo_title": "Services aux créateurs de contenu ivoiriens — ACCI",
   "section": SEC,
   "description": "Les services de l’ACCI : adhésion, formation, accompagnement juridique, cellule d’écoute, signalement et ressources.",
   "blocks": [
@@ -48,6 +49,7 @@ PAGES = [
 {
   "slug": "adhesion",
   "title": "Adhésion",
+  "seo_title": "Adhérer à l’ACCI — créateurs de contenu ivoiriens",
   "section": SEC,
   "description": "Devenir membre de l’ACCI : avantages, conditions et démarche pour rejoindre la communauté des créateurs responsables.",
   "blocks": [
@@ -102,6 +104,7 @@ PAGES = [
 {
   "slug": "formations",
   "title": "Formations",
+  "seo_title": "Formations pour créateurs de contenu — ACCI",
   "section": SEC,
   "description": "Les formations de l’ACCI pour créateurs et grand public : esprit critique, sécurité numérique, création responsable.",
   "blocks": [

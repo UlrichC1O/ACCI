@@ -129,6 +129,18 @@ def brand_icon(name, size=18, cls="brandicon"):
     )
 
 
+def page_title(page):
+    """Titre affiché dans l'onglet et dans les résultats de recherche.
+
+    Le libellé de navigation ne fait pas toujours un bon titre de recherche :
+    « Accueil », « Formations » ou « Nos valeurs » n'apprennent rien à qui
+    tombe dessus dans Google, et gaspillent les soixante caractères que le
+    moteur affiche. Une page peut donc déclarer un seo_title, employé tel
+    quel ; à défaut, on suffixe la marque comme avant.
+    """
+    return page.get("seo_title") or f'{page["title"]} — ACCI'
+
+
 def _gsc_meta():
     """Balise de vérification Google Search Console.
 
@@ -1339,14 +1351,14 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <meta charset="UTF-8">
   <script>document.documentElement.className+=" js";</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{title} — ACCI</title>
+  <title>{page_title}</title>
   <meta name="description" content="{description}">
   <meta name="theme-color" content="#0b3d2e">
   <meta name="author" content="Association des Créateurs de Contenu Ivoiriens">
   <link rel="canonical" href="{canonical}">
 {gsc_meta}{robots_meta}
   <meta property="og:type" content="website">
-  <meta property="og:title" content="{title} — ACCI">
+  <meta property="og:title" content="{page_title}">
   <meta property="og:description" content="{description}">
   <meta property="og:locale" content="fr_CI">
   <meta property="og:site_name" content="ACCI">
@@ -1356,7 +1368,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="ACCI — Association des Créateurs de Contenu Ivoiriens">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{title} — ACCI">
+  <meta name="twitter:title" content="{page_title}">
   <meta name="twitter:description" content="{description}">
   <meta name="twitter:image" content="{og_image}">
   <link rel="icon" type="image/png" href="assets/img/favicon.png" data-site-icon="png">
@@ -1424,9 +1436,11 @@ def render_jsonld(page):
             "addressCountry": "CI",
         },
         "areaServed": {"@type": "Country", "name": "Côte d'Ivoire"},
-        # Pas de "sameAs" : les comptes sociaux sont renseignés dans
-        # l'administration, que la compilation ne consulte pas. Annoncer aux
-        # moteurs des comptes inventés serait pire que ne rien annoncer.
+        # Pas de "sameAs" ici : les comptes sociaux sont renseignés dans
+        # l'administration, que la compilation ne consulte pas. La clé est
+        # ajoutée chez le visiteur par assets/js/site-settings.js, à partir des
+        # mêmes adresses que les icônes — annoncer aux moteurs des comptes
+        # inventés serait pire que de ne rien annoncer.
         "contactPoint": [{
             "@type": "ContactPoint",
             "contactType": "customer support",
@@ -1502,6 +1516,7 @@ def render_page(page):
     return PAGE_TEMPLATE.format(
         **ASSET_URLS,
         title=e(page["title"]),
+        page_title=e(page_title(page)),
         description=e(page.get("description", SITE["tagline"])),
         canonical=abs_url(page["slug"]),
         gsc_meta=GSC_META,
@@ -1568,6 +1583,67 @@ def build_sitemap(pages):
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
+
+def _verifier_referencement():
+    """Contrôle des titres et des descriptions dans les pages écrites.
+
+    Google tronque le titre autour de soixante caractères et la description
+    autour de cent soixante. Deux pages qui partagent l'un ou l'autre se font
+    concurrence dans les résultats au lieu de s'additionner. Rien de tout cela
+    n'empêche la compilation, et c'est bien le problème : sans ce contrôle, un
+    titre en double se remarque des mois plus tard, dans Search Console.
+
+    La borne basse est indicative — une description de soixante-dix signes
+    n'est pas fautive — mais elle signale les pages écrites trop vite.
+    """
+    import re as _re
+    titres, descr, alertes = {}, {}, []
+    for racine, _, fichiers in os.walk(DIST):
+        if os.path.relpath(racine, DIST).startswith("admin"):
+            continue
+        for nom in sorted(fichiers):
+            if not nom.endswith(".html"):
+                continue
+            slug = os.path.relpath(os.path.join(racine, nom), DIST)[:-5]
+            with open(os.path.join(racine, nom), encoding="utf-8") as f:
+                html = f.read()
+            # Une page en noindex ne concourt pas : ni doublon, ni longueur.
+            if _re.search(r'<meta name="robots" content="noindex', html):
+                continue
+            t = _re.search(r"<title>(.*?)</title>", html, _re.S)
+            d = _re.search(r'<meta name="description" content="(.*?)"', html, _re.S)
+            t = t.group(1).strip() if t else ""
+            d = d.group(1).strip() if d else ""
+            titres.setdefault(t, []).append(slug)
+            descr.setdefault(d, []).append(slug)
+            if not t:
+                alertes.append(f"{slug} : titre absent")
+            elif len(t) > 60:
+                alertes.append(f"{slug} : titre de {len(t)} signes (tronqué au-delà de 60)")
+            if not d:
+                alertes.append(f"{slug} : description absente")
+            elif len(d) > 160:
+                alertes.append(f"{slug} : description de {len(d)} signes (tronquée au-delà de 160)")
+            elif len(d) < 70:
+                alertes.append(f"{slug} : description de {len(d)} signes, un peu courte")
+
+    for valeur, pages in titres.items():
+        if len(pages) > 1:
+            alertes.append("titre en double : " + ", ".join(pages))
+    for valeur, pages in descr.items():
+        if len(pages) > 1:
+            alertes.append("description en double : " + ", ".join(pages))
+
+    if alertes:
+        print(f"  ⚠ Référencement : {len(alertes)} point(s) à revoir")
+        for a in alertes[:12]:
+            print(f"      {a}")
+        if len(alertes) > 12:
+            print(f"      … et {len(alertes) - 12} autre(s)")
+    else:
+        print(f"  ✓ Titres et descriptions : {len(titres)} page(s), "
+              "uniques et à la bonne longueur")
+
 
 def _verifier_sitemap():
     """Compare le sitemap aux pages réellement écrites dans dist/."""
@@ -1685,6 +1761,7 @@ def build():
     # produit une page absente de partout, sans que rien ne le dise. Ce contrôle
     # compare le sitemap aux fichiers réellement écrits, et nomme l'écart.
     _verifier_sitemap()
+    _verifier_referencement()
     with open(os.path.join(DIST, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(
             "User-agent: *\n"
